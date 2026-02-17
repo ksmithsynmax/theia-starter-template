@@ -4,7 +4,8 @@
   justify-content: center;
   background-color: transparent;
   height: 50px;
-  width: 60px;
+  width: 48px;
+  min-width: 48px;
   border: none;
   cursor: pointer;
 }
@@ -43,4 +44,20 @@
 
 .topnav-toolbar-btn:hover {
   background-color: #2d2f45;
+}
+
+/* Left nav icon buttons */
+.leftnav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  width: 50px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.leftnav-btn:hover {
+  background-color: #24263c;
 }
