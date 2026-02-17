@@ -1,6 +1,18 @@
 import React from 'react'
 import { Box, Text } from '@mantine/core'
-import { Plus, Grid01, Bell02, User03 } from '@untitledui/icons'
+import {
+  Plus,
+  Grid01,
+  Bell02,
+  User03,
+  Edit01,
+  SearchMd,
+  Calendar,
+  RefreshCcw01,
+  BarChart01,
+  ChevronDown,
+  Save01,
+} from '@untitledui/icons'
 
 import TheiaLogo from '../assets/TheiaLogo.svg'
 
@@ -54,12 +66,48 @@ const TopNav = () => {
           display: 'flex',
           alignItems: 'center',
           height: '50px',
-          padding: '0 24px',
+          padding: '24px',
         }}
       >
-        <Text variant="body1" c="#fff">
-          Untitled Work Stations
-        </Text>
+        <Box
+          component="button"
+          type="button"
+          className="topnav-toolbar-btn"
+          style={{ marginRight: '16px' }}
+        >
+          <Text variant="body1" c="#fff" style={{ marginRight: '8px' }}>
+            Untitled Stations
+          </Text>
+          <Edit01 color="white" size={20} />
+        </Box>
+        <Box style={{ flex: 1 }}></Box>
+        <Box component="button" type="button" className="topnav-toolbar-btn">
+          <SearchMd color="white" size={20} />
+          <Text variant="body1" c="#fff" style={{ marginLeft: '8px' }}>
+            Search
+          </Text>
+        </Box>
+        <Box component="button" type="button" className="topnav-toolbar-btn">
+          <Calendar color="white" size={20} />
+          <Text variant="body1" c="#fff" style={{ margin: '0 8px' }}>
+            Live
+          </Text>
+          <RefreshCcw01 color="white" size={20} />
+        </Box>
+        <Box component="button" type="button" className="topnav-toolbar-btn">
+          <BarChart01 color="white" size={20} />
+          <Text variant="body1" c="#fff" style={{ margin: '0 8px' }}>
+            Ships in view: 2541
+          </Text>
+          <ChevronDown color="white" size={20} />
+        </Box>
+        <Box style={{ flex: 1 }}></Box>
+        <Box component="button" type="button" className="topnav-toolbar-btn">
+          <Save01 color="white" size={20} />
+          <Text variant="body1" c="#fff" style={{ marginLeft: '8px' }}>
+            Saved
+          </Text>
+        </Box>
       </Box>
     </div>
   )

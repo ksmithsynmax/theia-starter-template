@@ -29,3 +29,18 @@
 .topnav-station:hover {
   background-color: #2d2f45;
 }
+
+/* Toolbar row buttons (Untitled Work Stations, Search, Live, etc.) */
+.topnav-toolbar-btn {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 50px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.topnav-toolbar-btn:hover {
+  background-color: #2d2f45;
+}
