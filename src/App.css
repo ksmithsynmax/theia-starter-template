@@ -1,0 +1,31 @@
+.topnav-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  height: 50px;
+  width: 60px;
+  border: none;
+  cursor: pointer;
+}
+
+.topnav-icon-btn:hover {
+  background-color: #24263c;
+}
+
+/* Active nav item (e.g. Untitled Station) */
+.topnav-station {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #24263c;
+  padding: 0 16px;
+  border: none;
+  border-right: 1px solid #393c56;
+  cursor: pointer;
+  /* min-height: 61px; */
+}
+
+.topnav-station:hover {
+  background-color: #2d2f45;
+}
