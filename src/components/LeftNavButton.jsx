@@ -1,9 +1,15 @@
 import React from 'react'
 import { Box } from '@mantine/core'
+import { NavLink } from 'react-router-dom'
 
-const LeftNavButton = ({ icon }) => {
+const LeftNavButton = ({ icon, to, onNavClick }) => {
+  const handleClick = (e) => {
+    e.preventDefault()
+    onNavClick(to)
+  }
+
   return (
-    <Box component="button" type="button" className="leftnav-btn">
+    <Box component={NavLink} to={to} className="leftnav-btn" onClick={handleClick}>
       {icon}
     </Box>
   )

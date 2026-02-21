@@ -66,13 +66,13 @@ const TopNav = () => {
           display: 'flex',
           alignItems: 'center',
           height: '50px',
-          padding: '24px',
+          // padding: '24px',
         }}
       >
         <Box
           component="button"
           type="button"
-          className="topnav-toolbar-btn"
+          className="topnav-toolbar-btn topnav-toolbar-btn--no-hover"
           style={{ marginRight: '16px' }}
         >
           <Text variant="body1" c="#fff" style={{ marginRight: '8px' }}>
