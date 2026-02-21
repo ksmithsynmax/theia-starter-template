@@ -37,8 +37,8 @@ const LeftNav = ({ onNavClick }) => {
         width: '50px',
         minWidth: '50px',
         minHeight: '100%',
-        zIndex: 10,
         position: 'relative',
+        pointerEvents: 'auto',
       }}
     >
       {leftNavItems.map((item, index) => (
