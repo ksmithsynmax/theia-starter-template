@@ -1,3 +1,26 @@
+/* ===== Scrollbar ===== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #393C56 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #393C56;
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #4a4d6a;
+}
+
 .topnav-icon-btn {
   display: flex;
   align-items: center;
@@ -85,7 +108,7 @@
 }
 
 .slide-panel--open {
-  width: 400px;
+  width: 500px;
 }
 
 .slide-panel-header {
@@ -97,8 +120,6 @@
 }
 
 .slide-panel-close {
-
-
   background-color: transparent;
 
   cursor: pointer;
