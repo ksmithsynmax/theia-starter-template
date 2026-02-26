@@ -1,10 +1,11 @@
 import React from 'react'
 
-const AisIcon = () => {
+const AisIcon = ({ style }) => {
   return (
     <svg
       width="14"
       height="22"
+      style={style}
       viewBox="0 0 14 22"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
