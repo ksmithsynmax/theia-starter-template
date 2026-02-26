@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Box, Text, Title } from '@mantine/core'
-import KeyValuePair from '../components/KeyValuePair'
+import KeyValuePair from './KeyValuePair'
 import flagImg from '../assets/flag.png'
 import { File02, Star01, Copy02, XClose } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
@@ -10,8 +10,8 @@ import DarkShipIcon from '../custom-icons/DarkShipIcon'
 import SpoofingIcon from '../custom-icons/SpoofingIcon'
 import STSIcon from '../custom-icons/STSIcon'
 import ShipIcon from '../custom-icons/ShipIcon'
-import ShipDetailsPanel from '../components/ShipDetails/ShipDetailsPanel'
-import EventTimelineCard from '../components/ShipDetails/EventTimelineCard'
+import ShipDetailsPanel from './ShipDetails/ShipDetailsPanel'
+import EventTimelineCard from './ShipDetails/EventTimelineCard'
 import { useShipContext } from '../context/ShipContext'
 import { ships, detections } from '../data/mockData'
 
@@ -21,7 +21,7 @@ const detailTabs = [
   'Ship Information',
 ]
 
-function Myships() {
+function ShipDetailPanel() {
   const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab } = useShipContext()
   const [activeDetailTab, setActiveDetailTab] = useState(0)
   const [selectedCard, setSelectedCard] = useState(null)
@@ -37,7 +37,6 @@ function Myships() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          // borderBottom: '1px solid #393C56',
         }}
       >
         <Box
@@ -251,4 +250,4 @@ function Myships() {
   )
 }
 
-export default Myships
+export default ShipDetailPanel

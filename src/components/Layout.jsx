@@ -1,16 +1,25 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useCallback } from 'react'
 import { Box } from '@mantine/core'
-import { ChevronLeft } from '@untitledui/icons'
 import TopNav from './TopNav'
 import LeftNav from './LeftNav'
 import Map from './Map'
 import CollapseButton from '../custom-icons/CollapseButton'
+import { useShipContext } from '../context/ShipContext'
 
 function Layout() {
-  const [panelOpen, setPanelOpen] = useState(true)
+  const [panelOpen, setPanelOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
+  const { openShipTab } = useShipContext()
+
+  const handleDetectionClick = useCallback((detection) => {
+    openShipTab(detection)
+    if (location.pathname !== '/myships') {
+      navigate('/myships')
+    }
+    setPanelOpen(true)
+  }, [openShipTab, location.pathname, navigate])
 
   const handleNavClick = useCallback(
     (to) => {
@@ -32,7 +41,7 @@ function Layout() {
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TopNav />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-        <Map />
+        <Map onDetectionClick={handleDetectionClick} />
         <Box style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100%', pointerEvents: 'none' }}>
           <LeftNav onNavClick={handleNavClick} />
           <Box className={`slide-panel ${panelOpen ? 'slide-panel--open' : ''}`}>

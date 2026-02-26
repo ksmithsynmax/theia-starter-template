@@ -15,6 +15,7 @@ const EventTimelineCard = ({
   previousFlag,
   selected,
   onSelect,
+  aisInfo = {},
 }) => {
   const [expanded, setExpanded] = useState(false)
   const [stsModalOpen, setStsModalOpen] = useState(false)
@@ -205,16 +206,16 @@ const EventTimelineCard = ({
                     gap: '12px 16px',
                   }}
                 >
-                  <KeyValuePair keyName="Latitude" value="24.119738" />
-                  <KeyValuePair keyName="Longitude" value="32.149799" />
-                  <KeyValuePair keyName="Width" value="227" />
-                  <KeyValuePair keyName="Length" value="314" />
-                  <KeyValuePair keyName="Ship Type" value="Tanker" />
-                  <KeyValuePair keyName="Build Year" value="No info" />
-                  <KeyValuePair keyName="Heading" value="227" />
-                  <KeyValuePair keyName="Draft" value="5.9m" />
-                  <KeyValuePair keyName="Avg. Speed" value="6.9" />
-                  <KeyValuePair keyName="Max Speed" value="8.4" />
+                  <KeyValuePair keyName="Latitude" value={aisInfo.latitude || 'No info'} />
+                  <KeyValuePair keyName="Longitude" value={aisInfo.longitude || 'No info'} />
+                  <KeyValuePair keyName="Width" value={aisInfo.width || 'No info'} />
+                  <KeyValuePair keyName="Length" value={aisInfo.length || 'No info'} />
+                  <KeyValuePair keyName="Ship Type" value={aisInfo.shipType || 'No info'} />
+                  <KeyValuePair keyName="Build Year" value={aisInfo.buildYear || 'No info'} />
+                  <KeyValuePair keyName="Heading" value={aisInfo.heading || 'No info'} />
+                  <KeyValuePair keyName="Draft" value={aisInfo.draft || 'No info'} />
+                  <KeyValuePair keyName="Avg. Speed" value={aisInfo.avgSpeed || 'No info'} />
+                  <KeyValuePair keyName="Max Speed" value={aisInfo.maxSpeed || 'No info'} />
                 </Box>
               </Box>
 
@@ -228,10 +229,10 @@ const EventTimelineCard = ({
               >
                 <KeyValuePair
                   keyName="Latest Speed"
-                  value="8 (2024-10-18 09:03:46 UTC)"
+                  value={aisInfo.latestSpeed || 'No info'}
                 />
-                <KeyValuePair keyName="Destination" value="No info" />
-                <KeyValuePair keyName="ETA" value="No info" />
+                <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
+                <KeyValuePair keyName="ETA" value={aisInfo.eta || 'No info'} />
               </Box>
 
               <Box
@@ -291,16 +292,16 @@ const EventTimelineCard = ({
                     gap: '12px 16px',
                   }}
                 >
-                  <KeyValuePair keyName="Latitude" value="24.119738" />
-                  <KeyValuePair keyName="Longitude" value="32.149799" />
-                  <KeyValuePair keyName="Width" value="227" />
-                  <KeyValuePair keyName="Length" value="314" />
-                  <KeyValuePair keyName="Ship Type" value="Tanker" />
-                  <KeyValuePair keyName="Build Year" value="No info" />
-                  <KeyValuePair keyName="Heading" value="227" />
-                  <KeyValuePair keyName="Draft" value="5.9m" />
-                  <KeyValuePair keyName="Avg. Speed" value="6.9" />
-                  <KeyValuePair keyName="Max Speed" value="8.4" />
+                  <KeyValuePair keyName="Latitude" value={aisInfo.latitude || 'No info'} />
+                  <KeyValuePair keyName="Longitude" value={aisInfo.longitude || 'No info'} />
+                  <KeyValuePair keyName="Width" value={aisInfo.width || 'No info'} />
+                  <KeyValuePair keyName="Length" value={aisInfo.length || 'No info'} />
+                  <KeyValuePair keyName="Ship Type" value={aisInfo.shipType || 'No info'} />
+                  <KeyValuePair keyName="Build Year" value={aisInfo.buildYear || 'No info'} />
+                  <KeyValuePair keyName="Heading" value={aisInfo.heading || 'No info'} />
+                  <KeyValuePair keyName="Draft" value={aisInfo.draft || 'No info'} />
+                  <KeyValuePair keyName="Avg. Speed" value={aisInfo.avgSpeed || 'No info'} />
+                  <KeyValuePair keyName="Max Speed" value={aisInfo.maxSpeed || 'No info'} />
                 </Box>
               </Box>
 
@@ -314,10 +315,10 @@ const EventTimelineCard = ({
               >
                 <KeyValuePair
                   keyName="Latest Speed"
-                  value="8 (2024-10-18 09:03:46 UTC)"
+                  value={aisInfo.latestSpeed || 'No info'}
                 />
-                <KeyValuePair keyName="Destination" value="No info" />
-                <KeyValuePair keyName="ETA" value="No info" />
+                <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
+                <KeyValuePair keyName="ETA" value={aisInfo.eta || 'No info'} />
               </Box>
             </Box>
           </Box>
@@ -595,16 +596,16 @@ const EventTimelineCard = ({
                   gap: '12px 16px',
                 }}
               >
-                <KeyValuePair keyName="Latitude" value="24.119738" />
-                <KeyValuePair keyName="Longitude" value="32.149799" />
-                <KeyValuePair keyName="Width" value="227" />
-                <KeyValuePair keyName="Length" value="314" />
-                <KeyValuePair keyName="Ship Type" value="Tanker" />
-                <KeyValuePair keyName="Build Year" value="No info" />
-                <KeyValuePair keyName="Heading" value="227" />
-                <KeyValuePair keyName="Draft" value="5.9m" />
-                <KeyValuePair keyName="Avg. Speed" value="6.9" />
-                <KeyValuePair keyName="Max Speed" value="8.4" />
+                <KeyValuePair keyName="Latitude" value={aisInfo.latitude || 'No info'} />
+                <KeyValuePair keyName="Longitude" value={aisInfo.longitude || 'No info'} />
+                <KeyValuePair keyName="Width" value={aisInfo.width || 'No info'} />
+                <KeyValuePair keyName="Length" value={aisInfo.length || 'No info'} />
+                <KeyValuePair keyName="Ship Type" value={aisInfo.shipType || 'No info'} />
+                <KeyValuePair keyName="Build Year" value={aisInfo.buildYear || 'No info'} />
+                <KeyValuePair keyName="Heading" value={aisInfo.heading || 'No info'} />
+                <KeyValuePair keyName="Draft" value={aisInfo.draft || 'No info'} />
+                <KeyValuePair keyName="Avg. Speed" value={aisInfo.avgSpeed || 'No info'} />
+                <KeyValuePair keyName="Max Speed" value={aisInfo.maxSpeed || 'No info'} />
               </Box>
             </Box>
 
@@ -618,10 +619,10 @@ const EventTimelineCard = ({
             >
               <KeyValuePair
                 keyName="Latest Speed"
-                value="8 (2024-10-18 09:03:46 UTC)"
+                value={aisInfo.latestSpeed || 'No info'}
               />
-              <KeyValuePair keyName="Destination" value="No info" />
-              <KeyValuePair keyName="ETA" value="No info" />
+              <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
+              <KeyValuePair keyName="ETA" value={aisInfo.eta || 'No info'} />
             </Box>
           </Box>
         </Box>
