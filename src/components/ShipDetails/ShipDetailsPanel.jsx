@@ -16,6 +16,7 @@ import DarkShipIcon from '../../custom-icons/DarkShipIcon'
 import UnattributedIcon from '../../custom-icons/UnattributedIcon'
 import SpoofingIcon from '../../custom-icons/SpoofingIcon'
 import STSIcon from '../../custom-icons/STSIcon'
+import STSAisIcon from '../../custom-icons/STSAisIcon'
 
 const eventColorMap = {
   ais: '#00EB6C',
@@ -33,7 +34,7 @@ const eventIconMap = {
   dark: <DarkShipIcon style={{ height: 14 }} />,
   spoofing: <SpoofingIcon style={{ height: 14 }} />,
   sts: <STSIcon style={{ height: 14 }} />,
-  'sts-ais': <STSIcon style={{ height: 14 }} />,
+  'sts-ais': <STSAisIcon style={{ height: 14 }} />,
   unattributed: <UnattributedIcon style={{ height: 14 }} />,
 }
 

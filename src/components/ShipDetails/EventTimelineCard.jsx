@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { Box, Text, Button } from '@mantine/core'
 import { ChevronDown, ChevronUp, Check, InfoCircle } from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
+import stsSatImage from '../../assets/HAfSz3HbAAA34GM.jpeg'
+import stsSatImage2 from '../../assets/b7305b3c008782765e2f14920270f2e7834f0f17.jpg'
+import shipSatImage from '../../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
+import shipSatImage2 from '../../assets/e92d7378215156c8a7c8c4c73d773963c71bd6b1-1920x1080.avif'
+
+const shipImages = [shipSatImage, shipSatImage2]
 
 const EventTimelineCard = ({
   date,
@@ -182,22 +188,17 @@ const EventTimelineCard = ({
               </Box>
 
               <Box style={{ display: 'flex', gap: 12 }}>
-                <Box
+                <img
+                  src={stsSatImage}
+                  alt="Ship-to-ship satellite imagery"
                   style={{
                     width: 180,
                     height: 200,
                     borderRadius: 4,
-                    background: '#1a1c2e',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    objectFit: 'cover',
                     flexShrink: 0,
                   }}
-                >
-                  <Text style={{ color: '#898f9d', fontSize: 12 }}>
-                    Ship Illustration
-                  </Text>
-                </Box>
+                />
 
                 <Box
                   style={{
@@ -268,22 +269,17 @@ const EventTimelineCard = ({
               </Box>
 
               <Box style={{ display: 'flex', gap: 12 }}>
-                <Box
+                <img
+                  src={stsSatImage2}
+                  alt="Ship-to-ship satellite imagery"
                   style={{
                     width: 180,
                     height: 200,
                     borderRadius: 4,
-                    background: '#1a1c2e',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    objectFit: 'cover',
                     flexShrink: 0,
                   }}
-                >
-                  <Text style={{ color: '#898f9d', fontSize: 12 }}>
-                    Ship Illustration
-                  </Text>
-                </Box>
+                />
 
                 <Box
                   style={{
@@ -572,22 +568,17 @@ const EventTimelineCard = ({
             </Box>
 
             <Box style={{ display: 'flex', gap: 12 }}>
-              <Box
+              <img
+                src={shipImages[date ? date.charCodeAt(date.length - 1) % shipImages.length : 0]}
+                alt="Ship satellite imagery"
                 style={{
                   width: 180,
                   height: 180,
                   borderRadius: 4,
-                  background: '#1a1c2e',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  objectFit: 'cover',
                   flexShrink: 0,
                 }}
-              >
-                <Text style={{ color: '#898f9d', fontSize: 12 }}>
-                  Ship Illustration
-                </Text>
-              </Box>
+              />
 
               <Box
                 style={{

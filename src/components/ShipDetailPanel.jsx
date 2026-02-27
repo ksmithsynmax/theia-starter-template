@@ -9,6 +9,7 @@ import LightShipIcon from '../custom-icons/LighShipIcon'
 import DarkShipIcon from '../custom-icons/DarkShipIcon'
 import SpoofingIcon from '../custom-icons/SpoofingIcon'
 import STSIcon from '../custom-icons/STSIcon'
+import STSAisIcon from '../custom-icons/STSAisIcon'
 import ShipIcon from '../custom-icons/ShipIcon'
 import ShipDetailsPanel from './ShipDetails/ShipDetailsPanel'
 import EventTimelineCard from './ShipDetails/EventTimelineCard'
@@ -214,7 +215,7 @@ function ShipDetailPanel() {
                   dark: <DarkShipIcon style={{ height: 14 }} />,
                   spoofing: <SpoofingIcon style={{ height: 14 }} />,
                   sts: <STSIcon style={{ height: 14 }} />,
-                  'sts-ais': <STSIcon style={{ height: 14 }} />,
+                  'sts-ais': <STSAisIcon style={{ height: 14 }} />,
                   unattributed: <DarkShipIcon style={{ height: 14 }} />,
                 }
                 const eventLabel = {
