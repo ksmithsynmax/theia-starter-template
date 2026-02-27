@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Box, Text } from '@mantine/core'
+import { DatePicker } from '@mantine/dates'
 import {
   Plus,
   Grid01,
@@ -8,15 +9,31 @@ import {
   Edit01,
   SearchMd,
   Calendar,
-  RefreshCcw01,
+
   BarChart01,
   ChevronDown,
   Save01,
 } from '@untitledui/icons'
 
 import TheiaLogo from '../assets/TheiaLogo.svg'
+import { useShipContext } from '../context/ShipContext'
 
 const TopNav = () => {
+  const { mapDate, setMapDate } = useShipContext()
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const calendarRef = useRef(null)
+
+  useEffect(() => {
+    if (!calendarOpen) return
+    const handleClickOutside = (e) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target)) {
+        setCalendarOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [calendarOpen])
+
   return (
     <div>
       <Box
@@ -87,12 +104,52 @@ const TopNav = () => {
             Search
           </Text>
         </Box>
-        <Box component="button" type="button" className="topnav-toolbar-btn">
-          <Calendar color="white" size={20} />
-          <Text variant="body1" c="#fff" style={{ margin: '0 8px' }}>
-            Live
-          </Text>
-          <RefreshCcw01 color="white" size={20} />
+        <Box style={{ position: 'relative' }} ref={calendarRef}>
+          <Box
+            component="button"
+            type="button"
+            className="topnav-toolbar-btn"
+            onClick={() => setCalendarOpen(!calendarOpen)}
+          >
+            <Calendar color="white" size={20} />
+            <Text variant="body1" c="#fff" style={{ margin: '0 8px' }}>
+              {mapDate.replace(/-/g, '/')}
+            </Text>
+          </Box>
+          {calendarOpen && (
+            <Box
+              className="datepicker-dark"
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginTop: 8,
+                background: '#24263C',
+                border: '1px solid #393C56',
+                borderRadius: 8,
+                padding: 16,
+                zIndex: 1000,
+              }}
+            >
+              <DatePicker
+                value={mapDate}
+                onChange={(date) => {
+                  setMapDate(date)
+                  setCalendarOpen(false)
+                }}
+                styles={{
+                  day: { color: '#fff', borderRadius: '50%' },
+                  weekday: { color: '#fff' },
+                  calendarHeaderLevel: { color: '#fff' },
+                  calendarHeaderControl: { color: '#fff' },
+                  calendarHeaderControlIcon: { color: '#fff' },
+                  monthsListControl: { color: '#fff' },
+                  yearsListControl: { color: '#fff' },
+                }}
+              />
+            </Box>
+          )}
         </Box>
         <Box component="button" type="button" className="topnav-toolbar-btn">
           <BarChart01 color="white" size={20} />

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { detections } from '../data/mockData'
+import { useShipContext } from '../context/ShipContext'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
@@ -36,13 +37,26 @@ const svgByType = {
   'sts-ais': stsAisSvg,
 }
 
-const Map = ({ onDetectionClick, selectedDetectionId }) => {
+// Get just the date part (no time) from a detection date string like "Feb 27, 2026 09:53"
+const getDateKey = (dateStr) => {
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const todayStr = (() => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})()
+
+const Map = ({ onDetectionClick }) => {
+  const { activeDetectionId, mapDate } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
   const markersRef = useRef({})
   const onDetectionClickRef = useRef(onDetectionClick)
   onDetectionClickRef.current = onDetectionClick
 
+  // Initialize map and create all markers
   useEffect(() => {
     if (map.current) return
 
@@ -67,11 +81,9 @@ const Map = ({ onDetectionClick, selectedDetectionId }) => {
       el.dataset.shipId = detection.shipId
       el.dataset.detectionType = detection.type
       el.addEventListener('click', () => {
-        // Clear active from all markers
         Object.values(markersRef.current).forEach((m) => {
           m.getElement().classList.remove('active')
         })
-        // Set active on clicked marker
         el.classList.add('active')
         onDetectionClickRef.current?.(detection)
       })
@@ -93,6 +105,44 @@ const Map = ({ onDetectionClick, selectedDetectionId }) => {
     }
   }, [])
 
+  // When a detection is selected from the timeline, highlight it and fly to it
+  useEffect(() => {
+    if (!map.current) return
+
+    // Clear all active highlights
+    Object.values(markersRef.current).forEach((m) => {
+      m.getElement().classList.remove('active')
+    })
+
+    if (!activeDetectionId) return
+
+    const activeDet = detections.find((d) => d.id === activeDetectionId)
+    if (!activeDet) return
+
+    const activeMarker = markersRef.current[activeDetectionId]
+    if (activeMarker) {
+      activeMarker.getElement().classList.add('active')
+    }
+    map.current.flyTo({ center: [activeDet.lng, activeDet.lat], zoom: 6, duration: 1500 })
+  }, [activeDetectionId])
+
+  // Filter markers by date
+  useEffect(() => {
+    if (!map.current) return
+
+    const showAll = mapDate === todayStr
+
+    detections.forEach((det) => {
+      const marker = markersRef.current[det.id]
+      if (!marker) return
+      const el = marker.getElement()
+      if (showAll) {
+        el.style.display = ''
+      } else {
+        el.style.display = getDateKey(det.date) === mapDate ? '' : 'none'
+      }
+    })
+  }, [mapDate])
 
   return (
     <div

@@ -36,6 +36,7 @@ const EventTimelineCard = ({
 }) => {
   const [expanded, setExpanded] = useState(false)
   const [stsModalOpen, setStsModalOpen] = useState(false)
+  const [selectModalOpen, setSelectModalOpen] = useState(false)
   const cardRef = useRef(null)
 
   useEffect(() => {
@@ -118,7 +119,7 @@ const EventTimelineCard = ({
           <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Button
               size="xs"
-              onClick={onSelect}
+              onClick={() => setStsModalOpen(true)}
               leftSection={
                 selected ? <Check style={{ width: 14, height: 14 }} /> : null
               }
@@ -134,23 +135,6 @@ const EventTimelineCard = ({
               }}
             >
               {selected ? 'Selected' : 'Select'}
-            </Button>
-            <Button
-              size="xs"
-              variant="outline"
-              onClick={() => setStsModalOpen(true)}
-              style={{
-                borderColor: '#393C56',
-                color: '#fff',
-                borderRadius: 4,
-                fontWeight: 600,
-                fontSize: 14,
-                height: 32,
-                padding: '0 12px',
-                transform: 'none',
-              }}
-            >
-              View STS Ships
             </Button>
             <Box
               onClick={() => setExpanded(!expanded)}
@@ -597,7 +581,7 @@ const EventTimelineCard = ({
         <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button
             size="xs"
-            onClick={onSelect}
+            onClick={() => selected ? onSelect?.() : setSelectModalOpen(true)}
             leftSection={
               selected ? <Check style={{ width: 14, height: 14 }} /> : null
             }
@@ -767,6 +751,89 @@ const EventTimelineCard = ({
           </Box>
         </Box>
       </Box>
+
+      {selectModalOpen && (
+        <Box
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setSelectModalOpen(false)}
+        >
+          <Box
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#24263C',
+              border: '1px solid #393C56',
+              borderRadius: 8,
+              padding: 24,
+              width: 420,
+              maxWidth: '90vw',
+            }}
+          >
+            <Text
+              style={{
+                color: '#fff',
+                fontSize: 15,
+                fontWeight: 600,
+                marginBottom: 8,
+              }}
+            >
+              Warning
+            </Text>
+            <Text
+              style={{
+                color: '#898f9d',
+                fontSize: 13,
+                marginBottom: 20,
+              }}
+            >
+              This will update the map and ship positions to {date?.replace(/\s\d{2}:\d{2}$/, '')}. You can return to today's view using the calendar in the header.
+            </Text>
+            <Box
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                onClick={() => setSelectModalOpen(false)}
+                style={{
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </Text>
+              <Button
+                onClick={() => {
+                  setSelectModalOpen(false)
+                  onSelect?.()
+                }}
+                style={{
+                  backgroundColor: '#0094FF',
+                  border: 'none',
+                  borderRadius: 4,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  padding: '8px 24px',
+                  transform: 'none',
+                }}
+              >
+                Yes
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+      )}
     </Box>
   )
 }

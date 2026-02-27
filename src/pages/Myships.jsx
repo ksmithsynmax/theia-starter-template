@@ -24,7 +24,7 @@ const detailTabs = [
 ]
 
 function Myships() {
-  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab, openStsTab, selectedDetectionId, setSelectedDetectionId } = useShipContext()
+  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab, openStsTab, selectedDetectionId, setSelectedDetectionId, setMapDate, setActiveDetectionId } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
   const [activeStsShip, setActiveStsShip] = useState(0)
@@ -266,7 +266,13 @@ function Myships() {
               selectedEvent={selectedDetection}
               isLatest={isLatest}
               eventLabel={eventLabel[selectedDetection?.type] || ''}
-              onSwitchToLatest={() => { setFlashEnabled(true); updateTabState('selectedCard', null) }}
+              onSwitchToLatest={() => {
+                setFlashEnabled(true)
+                updateTabState('selectedCard', null)
+                setActiveDetectionId(null)
+                const today = new Date()
+                setMapDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`)
+              }}
               flashEnabled={flashEnabled}
             />
           </Box>
@@ -333,7 +339,18 @@ function Myships() {
                         icon={iconMap[det.type]}
                         variant={det.type === 'sts' || det.type === 'sts-ais' ? 'sts' : undefined}
                         selected={selectedCard === det.id}
-                        onSelect={() => { setFlashEnabled(true); updateTabState('selectedCard', selectedCard === det.id ? null : det.id) }}
+                        onSelect={() => {
+                          const isDeselecting = selectedCard === det.id
+                          setFlashEnabled(true)
+                          updateTabState('selectedCard', isDeselecting ? null : det.id)
+                          if (!isDeselecting) {
+                            const parsed = new Date(det.date)
+                            setMapDate(`${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`)
+                            setActiveDetectionId(det.id)
+                          } else {
+                            setActiveDetectionId(null)
+                          }
+                        }}
                         onViewStsShips={det.stsPartner ? () => openStsTab(det.shipId, det.stsPartner) : undefined}
                         aisInfo={activeShip.aisInfo}
                       />

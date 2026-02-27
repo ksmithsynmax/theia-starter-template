@@ -1,3 +1,19 @@
+// Helper: generate a formatted date string relative to now
+const ago = (days, hour = 9, minute = 0) => {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  d.setHours(hour, minute, 0, 0)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' ' + String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0')
+}
+
+const future = (days, hour = 12, minute = 0) => {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  d.setHours(hour, minute, 0, 0)
+  return d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
+}
+
 export const ships = {
   invictus: {
     id: 'invictus',
@@ -19,7 +35,7 @@ export const ships = {
       draft: '5.9m',
       avgSpeed: '6.9',
       maxSpeed: '8.4',
-      latestSpeed: '8 (2024-10-18 09:03:46 UTC)',
+      latestSpeed: `8 (${future(-1, 9, 3)})`,
       destination: 'No info',
       eta: 'No info',
     },
@@ -44,9 +60,9 @@ export const ships = {
       draft: '11.2m',
       avgSpeed: '12.3',
       maxSpeed: '14.1',
-      latestSpeed: '13 (2025-10-24 16:30:12 UTC)',
+      latestSpeed: `13 (${future(-1, 16, 30)})`,
       destination: 'FUJAIRAH',
-      eta: '2025-10-27 08:00 UTC',
+      eta: future(2, 8, 0),
     },
   },
   celestine: {
@@ -69,9 +85,9 @@ export const ships = {
       draft: '14.5m',
       avgSpeed: '18.2',
       maxSpeed: '22.7',
-      latestSpeed: '19 (2025-10-25 08:00:33 UTC)',
+      latestSpeed: `19 (${future(0, 8, 0)})`,
       destination: 'MUMBAI',
-      eta: '2025-10-26 14:00 UTC',
+      eta: future(1, 14, 0),
     },
   },
   'meridian-star': {
@@ -94,9 +110,9 @@ export const ships = {
       draft: '8.7m',
       avgSpeed: '10.5',
       maxSpeed: '13.8',
-      latestSpeed: '11 (2025-10-25 07:10:22 UTC)',
+      latestSpeed: `11 (${future(0, 7, 10)})`,
       destination: 'SALALAH',
-      eta: '2025-10-28 20:00 UTC',
+      eta: future(3, 20, 0),
     },
   },
   'wisdom-star': {
@@ -119,41 +135,41 @@ export const ships = {
       draft: '12.3m',
       avgSpeed: '11.8',
       maxSpeed: '15.2',
-      latestSpeed: '12 (2025-10-25 06:45:18 UTC)',
+      latestSpeed: `12 (${future(0, 6, 45)})`,
       destination: 'JEBEL ALI',
-      eta: '2025-10-27 12:00 UTC',
+      eta: future(2, 12, 0),
     },
   },
 }
 
 export const detections = [
   // --- Invictus (6 detections) ---
-  { id: 1, shipId: 'invictus', type: 'ais', lng: 63.0, lat: 18.0, date: 'Oct 25, 2025 09:53' },
-  { id: 2, shipId: 'invictus', type: 'light', lng: 60.5, lat: 13.0, date: 'Oct 24, 2025 07:43' },
-  { id: 3, shipId: 'invictus', type: 'dark', lng: 62.0, lat: 8.5, date: 'Oct 23, 2025 14:21' },
-  { id: 4, shipId: 'invictus', type: 'spoofing', lng: 61.0, lat: 21.0, date: 'Oct 23, 2025 10:05' },
-  { id: 5, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', lng: 59.0, lat: 10.0, date: 'Oct 22, 2025 07:43' },
-  { id: 6, shipId: 'invictus', type: 'dark', lng: 57.0, lat: 12.0, date: 'Oct 21, 2025 08:12' },
+  { id: 1, shipId: 'invictus', type: 'ais', lng: 63.0, lat: 18.0, date: ago(0, 9, 53) },
+  { id: 2, shipId: 'invictus', type: 'light', lng: 60.5, lat: 13.0, date: ago(1, 7, 43) },
+  { id: 3, shipId: 'invictus', type: 'dark', lng: 62.0, lat: 8.5, date: ago(2, 14, 21) },
+  { id: 4, shipId: 'invictus', type: 'spoofing', lng: 61.0, lat: 21.0, date: ago(2, 10, 5) },
+  { id: 5, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', lng: 59.0, lat: 10.0, date: ago(3, 7, 43) },
+  { id: 6, shipId: 'invictus', type: 'dark', lng: 57.0, lat: 12.0, date: ago(4, 8, 12) },
 
   // --- Tiffani (6 detections) ---
-  { id: 7, shipId: 'tiffani', type: 'ais', lng: 60.0, lat: 19.5, date: 'Oct 25, 2025 11:20' },
-  { id: 8, shipId: 'tiffani', type: 'dark', lng: 66.0, lat: 15.0, date: 'Oct 24, 2025 16:30' },
-  { id: 10, shipId: 'tiffani', type: 'spoofing', lng: 67.0, lat: 12.5, date: 'Oct 22, 2025 09:45' },
-  { id: 11, shipId: 'tiffani', type: 'sts-ais', stsPartner: 'celestine', lng: 62.0, lat: 16.0, date: 'Oct 21, 2025 14:00' },
-  { id: 12, shipId: 'tiffani', type: 'light', lng: 69.0, lat: 14.0, date: 'Oct 20, 2025 06:30' },
-  { id: 13, shipId: 'tiffani', type: 'ais', lng: 56.0, lat: 9.0, date: 'Oct 19, 2025 18:50' },
+  { id: 7, shipId: 'tiffani', type: 'ais', lng: 60.0, lat: 19.5, date: ago(0, 11, 20) },
+  { id: 8, shipId: 'tiffani', type: 'dark', lng: 66.0, lat: 15.0, date: ago(1, 16, 30) },
+  { id: 10, shipId: 'tiffani', type: 'spoofing', lng: 67.0, lat: 12.5, date: ago(3, 9, 45) },
+  { id: 11, shipId: 'tiffani', type: 'sts-ais', stsPartner: 'celestine', lng: 62.0, lat: 16.0, date: ago(4, 14, 0) },
+  { id: 12, shipId: 'tiffani', type: 'light', lng: 69.0, lat: 14.0, date: ago(5, 6, 30) },
+  { id: 13, shipId: 'tiffani', type: 'ais', lng: 56.0, lat: 9.0, date: ago(6, 18, 50) },
 
   // --- Celestine (5 detections) ---
-  { id: 14, shipId: 'celestine', type: 'ais', lng: 68.0, lat: 10.0, date: 'Oct 25, 2025 08:00' },
-  { id: 15, shipId: 'celestine', type: 'light', lng: 65.0, lat: 7.0, date: 'Oct 24, 2025 12:15' },
-  { id: 16, shipId: 'celestine', type: 'dark', lng: 54.0, lat: 10.0, date: 'Oct 23, 2025 18:45' },
-  { id: 18, shipId: 'celestine', type: 'sts', stsPartner: 'meridian-star', lng: 66.0, lat: 19.0, date: 'Oct 21, 2025 11:30' },
-  { id: 19, shipId: 'celestine', type: 'sts-ais', stsPartner: 'tiffani', lng: 70.0, lat: 9.0, date: 'Oct 20, 2025 15:45' },
+  { id: 14, shipId: 'celestine', type: 'ais', lng: 68.0, lat: 10.0, date: ago(0, 8, 0) },
+  { id: 15, shipId: 'celestine', type: 'light', lng: 65.0, lat: 7.0, date: ago(1, 12, 15) },
+  { id: 16, shipId: 'celestine', type: 'dark', lng: 54.0, lat: 10.0, date: ago(2, 18, 45) },
+  { id: 18, shipId: 'celestine', type: 'sts', stsPartner: 'meridian-star', lng: 66.0, lat: 19.0, date: ago(4, 11, 30) },
+  { id: 19, shipId: 'celestine', type: 'sts-ais', stsPartner: 'tiffani', lng: 70.0, lat: 9.0, date: ago(5, 15, 45) },
 
   // --- Meridian Star (5 detections) ---
-  { id: 20, shipId: 'meridian-star', type: 'light', lng: 54.0, lat: 15.0, date: 'Oct 25, 2025 07:10' },
-  { id: 21, shipId: 'meridian-star', type: 'spoofing', lng: 55.0, lat: 14.0, date: 'Oct 24, 2025 19:25' },
-  { id: 23, shipId: 'meridian-star', type: 'sts', stsPartner: 'invictus', lng: 53.0, lat: 7.0, date: 'Oct 22, 2025 20:40' },
-  { id: 24, shipId: 'meridian-star', type: 'sts-ais', stsPartner: 'wisdom-star', lng: 55.0, lat: 11.0, date: 'Oct 21, 2025 05:55' },
-  { id: 25, shipId: 'meridian-star', type: 'dark', lng: 64.0, lat: 20.5, date: 'Oct 20, 2025 10:10' },
+  { id: 20, shipId: 'meridian-star', type: 'light', lng: 54.0, lat: 15.0, date: ago(0, 7, 10) },
+  { id: 21, shipId: 'meridian-star', type: 'spoofing', lng: 55.0, lat: 14.0, date: ago(1, 19, 25) },
+  { id: 23, shipId: 'meridian-star', type: 'sts', stsPartner: 'invictus', lng: 53.0, lat: 7.0, date: ago(3, 20, 40) },
+  { id: 24, shipId: 'meridian-star', type: 'sts-ais', stsPartner: 'wisdom-star', lng: 55.0, lat: 11.0, date: ago(4, 5, 55) },
+  { id: 25, shipId: 'meridian-star', type: 'dark', lng: 64.0, lat: 20.5, date: ago(5, 10, 10) },
 ]

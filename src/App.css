@@ -169,3 +169,27 @@
   overflow: hidden;
   min-width: 500px;
 }
+
+/* ===== DatePicker dark theme overrides ===== */
+.datepicker-dark button[data-today] {
+  border-color: #0094FF;
+}
+
+.datepicker-dark button[data-outside] {
+  color: #898f9d !important;
+}
+
+.datepicker-dark button[data-selected] {
+  background-color: #0094FF !important;
+  color: #fff !important;
+}
+
+.datepicker-dark td button:hover {
+  background-color: #0094FF !important;
+  color: #fff !important;
+}
+
+.datepicker-dark button:hover {
+  background-color: #0094FF !important;
+  color: #fff !important;
+}

@@ -9,6 +9,11 @@ export function ShipProvider({ children }) {
   const [detailPanelOpen, setDetailPanelOpen] = useState(false)
   const [selectedDetectionId, setSelectedDetectionId] = useState(null)
 
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const [mapDate, setMapDate] = useState(todayStr)
+  const [activeDetectionId, setActiveDetectionId] = useState(null)
+
   const openShipTab = useCallback((detection) => {
     const ship = ships[detection.shipId]
     if (!ship) return
@@ -68,6 +73,10 @@ export function ShipProvider({ children }) {
         setDetailPanelOpen,
         selectedDetectionId,
         setSelectedDetectionId,
+        mapDate,
+        setMapDate,
+        activeDetectionId,
+        setActiveDetectionId,
       }}
     >
       {children}
