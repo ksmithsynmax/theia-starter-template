@@ -22,13 +22,16 @@ const detailTabs = [
 ]
 
 function ShipDetailPanel() {
-  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab } = useShipContext()
+  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab } =
+    useShipContext()
   const [activeDetailTab, setActiveDetailTab] = useState(0)
   const [selectedCard, setSelectedCard] = useState(null)
 
   const activeShip = activeShipTab ? ships[activeShipTab] : null
   const activeShipDetections = activeShipTab
-    ? detections.filter((d) => d.shipId === activeShipTab).sort((a, b) => b.id - a.id)
+    ? detections
+        .filter((d) => d.shipId === activeShipTab)
+        .sort((a, b) => b.id - a.id)
     : []
 
   return (
@@ -130,7 +133,10 @@ function ShipDetailPanel() {
               </Box>
             </Box>
             <Box style={{ display: 'flex', gap: '64px', marginBottom: '8px' }}>
-              <KeyValuePair keyName="Latest Event" value={activeShip.latestEvent} />
+              <KeyValuePair
+                keyName="Latest Event"
+                value={activeShip.latestEvent}
+              />
               <KeyValuePair keyName="IMO" value={activeShip.imo} />
               <KeyValuePair keyName="MMSI" value={activeShip.mmsi} />
             </Box>
@@ -147,7 +153,12 @@ function ShipDetailPanel() {
                 value={activeShip.shipId}
               />
               <Copy02
-                style={{ color: '#fff', width: 16, height: 16, cursor: 'pointer' }}
+                style={{
+                  color: '#fff',
+                  width: 16,
+                  height: 16,
+                  cursor: 'pointer',
+                }}
                 onClick={() => navigator.clipboard.writeText(activeShip.shipId)}
               />
             </Box>
@@ -221,9 +232,15 @@ function ShipDetailPanel() {
                     date={det.date}
                     event={eventLabel[det.type] || det.type}
                     icon={iconMap[det.type]}
-                    variant={det.type === 'sts' || det.type === 'sts-ais' ? 'sts' : undefined}
+                    variant={
+                      det.type === 'sts' || det.type === 'sts-ais'
+                        ? 'sts'
+                        : undefined
+                    }
                     selected={selectedCard === det.id}
-                    onSelect={() => setSelectedCard(selectedCard === det.id ? null : det.id)}
+                    onSelect={() =>
+                      setSelectedCard(selectedCard === det.id ? null : det.id)
+                    }
                     aisInfo={activeShip.aisInfo}
                   />
                 )

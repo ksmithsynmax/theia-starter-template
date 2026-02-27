@@ -13,13 +13,16 @@ function Layout() {
   const navigate = useNavigate()
   const { openShipTab } = useShipContext()
 
-  const handleDetectionClick = useCallback((detection) => {
-    openShipTab(detection)
-    if (location.pathname !== '/myships') {
-      navigate('/myships')
-    }
-    setPanelOpen(true)
-  }, [openShipTab, location.pathname, navigate])
+  const handleDetectionClick = useCallback(
+    (detection) => {
+      openShipTab(detection)
+      if (location.pathname !== '/myships') {
+        navigate('/myships')
+      }
+      setPanelOpen(true)
+    },
+    [openShipTab, location.pathname, navigate]
+  )
 
   const handleNavClick = useCallback(
     (to) => {
@@ -42,12 +45,29 @@ function Layout() {
       <TopNav />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map onDetectionClick={handleDetectionClick} />
-        <Box style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100%', pointerEvents: 'none' }}>
+        <Box
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            height: '100%',
+            pointerEvents: 'none',
+          }}
+        >
           <LeftNav onNavClick={handleNavClick} />
-          <Box className={`slide-panel ${panelOpen ? 'slide-panel--open' : ''}`}>
-            <Box onClick={closePanel} style={{ position: "relative"}}>
-              <Box style={{ position: "absolute", right: 0, top: 8,  cursor: "pointer" }}>
-                <CollapseButton  />
+          <Box
+            className={`slide-panel ${panelOpen ? 'slide-panel--open' : ''}`}
+          >
+            <Box onClick={closePanel} style={{ position: 'relative' }}>
+              <Box
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                <CollapseButton />
               </Box>
             </Box>
             <Box className="slide-panel-content">

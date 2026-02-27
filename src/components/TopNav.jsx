@@ -66,7 +66,7 @@ const TopNav = () => {
           display: 'flex',
           alignItems: 'center',
           height: '50px',
-          // padding: '24px',
+          borderBottom: '1px solid #393C56',
         }}
       >
         <Box

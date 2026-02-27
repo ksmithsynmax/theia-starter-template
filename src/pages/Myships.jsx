@@ -84,9 +84,11 @@ function Myships() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
-                  padding: '10px 12px',
+                  height: 50,
+                  padding: '0 12px',
                   cursor: 'pointer',
                   borderRight: '1px solid #393C56',
+                  borderBottom: isActive ? 'none' : '1px solid #393C56',
                   background: isActive ? '#181926' : '#24263C',
                   position: 'relative',
                   zIndex: isActive ? 1 : 0,
@@ -122,6 +124,13 @@ function Myships() {
               </Box>
             )
           })}
+          <Box
+            style={{
+              flex: 1,
+              background: '#24263C',
+              borderBottom: '1px solid #393C56',
+            }}
+          />
         </Box>
       </Box>
 
