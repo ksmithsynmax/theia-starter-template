@@ -16,11 +16,29 @@ export function ShipProvider({ children }) {
     const existing = shipTabs.find((t) => t.id === ship.id)
     if (existing) {
       setActiveShipTab(ship.id)
+      setSelectedDetectionId(detection.id)
     } else {
       setShipTabs((prev) => [...prev, { id: ship.id, name: ship.name }])
       setActiveShipTab(ship.id)
     }
-    setSelectedDetectionId(detection.id)
+  }, [shipTabs])
+
+  const openStsTab = useCallback((shipId, partnerShipId) => {
+    const ship = ships[shipId]
+    const partner = ships[partnerShipId]
+    if (!ship || !partner) return
+
+    const stsTabId = `sts-${shipId}-${partnerShipId}`
+    const existing = shipTabs.find((t) => t.id === stsTabId)
+    if (existing) {
+      setActiveShipTab(stsTabId)
+    } else {
+      setShipTabs((prev) => [
+        ...prev,
+        { id: stsTabId, name: 'Ship-to-Ship', type: 'sts', shipIds: [shipId, partnerShipId] },
+      ])
+      setActiveShipTab(stsTabId)
+    }
   }, [shipTabs])
 
   const closeShipTab = useCallback((id) => {
@@ -43,6 +61,7 @@ export function ShipProvider({ children }) {
         activeShipTab,
         setActiveShipTab,
         openShipTab,
+        openStsTab,
         closeShipTab,
         detailPanelOpen,
         setDetailPanelOpen,

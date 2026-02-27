@@ -51,6 +51,8 @@ const Map = ({ onDetectionClick }) => {
       center: [63, 15],
       zoom: 4,
       projection: 'mercator',
+      attributionControl: false,
+      logoPosition: 'bottom-right',
     })
 
     detections.forEach((detection) => {

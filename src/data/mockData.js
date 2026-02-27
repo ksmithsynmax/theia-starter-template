@@ -2,6 +2,7 @@ export const ships = {
   invictus: {
     id: 'invictus',
     name: 'Invictus',
+    flag: '\u{1F1F2}\u{1F1ED}',
     imo: '9819870',
     mmsi: '311000686',
     shipId: 'f8f6a2c9-9c04-777e-ecc4-6bcf114315ac',
@@ -26,6 +27,7 @@ export const ships = {
   tiffani: {
     id: 'tiffani',
     name: 'Tiffani',
+    flag: '\u{1F1F1}\u{1F1F7}',
     imo: '9456123',
     mmsi: '256789012',
     shipId: 'a3b2c1d0-e5f4-6789-abcd-0123456789ef',
@@ -50,6 +52,7 @@ export const ships = {
   celestine: {
     id: 'celestine',
     name: 'Celestine',
+    flag: '\u{1F1F8}\u{1F1EC}',
     imo: '9321456',
     mmsi: '367890123',
     shipId: 'b7c8d9e0-f1a2-3456-7890-abcdef012345',
@@ -74,6 +77,7 @@ export const ships = {
   'meridian-star': {
     id: 'meridian-star',
     name: 'Meridian Star',
+    flag: '\u{1F1F5}\u{1F1E6}',
     imo: '9678234',
     mmsi: '412345678',
     shipId: 'c4d5e6f7-8901-2345-6789-0abcdef12345',
@@ -95,6 +99,31 @@ export const ships = {
       eta: '2025-10-28 20:00 UTC',
     },
   },
+  'wisdom-star': {
+    id: 'wisdom-star',
+    name: 'Wisdom Star',
+    flag: '\u{1F1F5}\u{1F1E6}',
+    imo: '9534871',
+    mmsi: '356789012',
+    shipId: 'e9f0a1b2-c3d4-5678-9012-3456789abcde',
+    latestEvent: 'AIS',
+    shipType: 'Tanker',
+    aisInfo: {
+      latitude: '23.456789',
+      longitude: '58.123456',
+      width: '42',
+      length: '274',
+      shipType: 'Tanker',
+      buildYear: '2017',
+      heading: '195',
+      draft: '12.3m',
+      avgSpeed: '11.8',
+      maxSpeed: '15.2',
+      latestSpeed: '12 (2025-10-25 06:45:18 UTC)',
+      destination: 'JEBEL ALI',
+      eta: '2025-10-27 12:00 UTC',
+    },
+  },
 }
 
 export const detections = [
@@ -103,31 +132,28 @@ export const detections = [
   { id: 2, shipId: 'invictus', type: 'light', lng: 60.5, lat: 13.0, date: 'Oct 24, 2025 07:43' },
   { id: 3, shipId: 'invictus', type: 'dark', lng: 62.0, lat: 8.5, date: 'Oct 23, 2025 14:21' },
   { id: 4, shipId: 'invictus', type: 'spoofing', lng: 61.0, lat: 21.0, date: 'Oct 23, 2025 10:05' },
-  { id: 5, shipId: 'invictus', type: 'sts', lng: 59.0, lat: 10.0, date: 'Oct 22, 2025 07:43' },
+  { id: 5, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', lng: 59.0, lat: 10.0, date: 'Oct 22, 2025 07:43' },
   { id: 6, shipId: 'invictus', type: 'dark', lng: 57.0, lat: 12.0, date: 'Oct 21, 2025 08:12' },
 
-  // --- Tiffani (7 detections) ---
+  // --- Tiffani (6 detections) ---
   { id: 7, shipId: 'tiffani', type: 'ais', lng: 60.0, lat: 19.5, date: 'Oct 25, 2025 11:20' },
   { id: 8, shipId: 'tiffani', type: 'dark', lng: 66.0, lat: 15.0, date: 'Oct 24, 2025 16:30' },
-  { id: 9, shipId: 'tiffani', type: 'unattributed', lng: 58.0, lat: 17.0, date: 'Oct 23, 2025 22:15' },
   { id: 10, shipId: 'tiffani', type: 'spoofing', lng: 67.0, lat: 12.5, date: 'Oct 22, 2025 09:45' },
-  { id: 11, shipId: 'tiffani', type: 'sts-ais', lng: 62.0, lat: 16.0, date: 'Oct 21, 2025 14:00' },
+  { id: 11, shipId: 'tiffani', type: 'sts-ais', stsPartner: 'celestine', lng: 62.0, lat: 16.0, date: 'Oct 21, 2025 14:00' },
   { id: 12, shipId: 'tiffani', type: 'light', lng: 69.0, lat: 14.0, date: 'Oct 20, 2025 06:30' },
   { id: 13, shipId: 'tiffani', type: 'ais', lng: 56.0, lat: 9.0, date: 'Oct 19, 2025 18:50' },
 
-  // --- Celestine (6 detections) ---
+  // --- Celestine (5 detections) ---
   { id: 14, shipId: 'celestine', type: 'ais', lng: 68.0, lat: 10.0, date: 'Oct 25, 2025 08:00' },
   { id: 15, shipId: 'celestine', type: 'light', lng: 65.0, lat: 7.0, date: 'Oct 24, 2025 12:15' },
   { id: 16, shipId: 'celestine', type: 'dark', lng: 54.0, lat: 10.0, date: 'Oct 23, 2025 18:45' },
-  { id: 17, shipId: 'celestine', type: 'unattributed', lng: 63.0, lat: 5.0, date: 'Oct 22, 2025 03:20' },
-  { id: 18, shipId: 'celestine', type: 'sts', lng: 66.0, lat: 19.0, date: 'Oct 21, 2025 11:30' },
-  { id: 19, shipId: 'celestine', type: 'sts-ais', lng: 70.0, lat: 9.0, date: 'Oct 20, 2025 15:45' },
+  { id: 18, shipId: 'celestine', type: 'sts', stsPartner: 'meridian-star', lng: 66.0, lat: 19.0, date: 'Oct 21, 2025 11:30' },
+  { id: 19, shipId: 'celestine', type: 'sts-ais', stsPartner: 'tiffani', lng: 70.0, lat: 9.0, date: 'Oct 20, 2025 15:45' },
 
-  // --- Meridian Star (6 detections) ---
+  // --- Meridian Star (5 detections) ---
   { id: 20, shipId: 'meridian-star', type: 'light', lng: 54.0, lat: 15.0, date: 'Oct 25, 2025 07:10' },
   { id: 21, shipId: 'meridian-star', type: 'spoofing', lng: 55.0, lat: 14.0, date: 'Oct 24, 2025 19:25' },
-  { id: 22, shipId: 'meridian-star', type: 'unattributed', lng: 69.0, lat: 18.0, date: 'Oct 23, 2025 13:00' },
-  { id: 23, shipId: 'meridian-star', type: 'sts', lng: 53.0, lat: 7.0, date: 'Oct 22, 2025 20:40' },
-  { id: 24, shipId: 'meridian-star', type: 'sts-ais', lng: 55.0, lat: 11.0, date: 'Oct 21, 2025 05:55' },
+  { id: 23, shipId: 'meridian-star', type: 'sts', stsPartner: 'invictus', lng: 53.0, lat: 7.0, date: 'Oct 22, 2025 20:40' },
+  { id: 24, shipId: 'meridian-star', type: 'sts-ais', stsPartner: 'wisdom-star', lng: 55.0, lat: 11.0, date: 'Oct 21, 2025 05:55' },
   { id: 25, shipId: 'meridian-star', type: 'dark', lng: 66.0, lat: 19.0, date: 'Oct 20, 2025 10:10' },
 ]

@@ -129,8 +129,13 @@
   background-color: #2d2f45;
 }
 
+/* Hide Mapbox logo */
+.mapboxgl-ctrl-logo {
+  display: none !important;
+}
+
 .slide-panel-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   min-width: 500px;
 }

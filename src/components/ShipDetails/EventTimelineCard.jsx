@@ -15,6 +15,7 @@ const EventTimelineCard = ({
   previousFlag,
   selected,
   onSelect,
+  onViewStsShips,
   aisInfo = {},
 }) => {
   const [expanded, setExpanded] = useState(false)
@@ -409,7 +410,7 @@ const EventTimelineCard = ({
                   Cancel
                 </Text>
                 <Button
-                  onClick={() => setStsModalOpen(false)}
+                  onClick={() => { setStsModalOpen(false); onViewStsShips?.() }}
                   style={{
                     backgroundColor: '#0094FF',
                     border: 'none',
