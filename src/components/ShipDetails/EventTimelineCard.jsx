@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Box, Text, Button, Tooltip } from '@mantine/core'
 import { ChevronDown, ChevronUp, Check, InfoCircle } from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
@@ -36,6 +36,10 @@ const EventTimelineCard = ({
 }) => {
   const [expanded, setExpanded] = useState(false)
   const [stsModalOpen, setStsModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (selected) setExpanded(true)
+  }, [selected])
 
   if (variant === 'port') {
     return (
