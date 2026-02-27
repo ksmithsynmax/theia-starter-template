@@ -7,6 +7,7 @@ export function ShipProvider({ children }) {
   const [shipTabs, setShipTabs] = useState([])
   const [activeShipTab, setActiveShipTab] = useState(null)
   const [detailPanelOpen, setDetailPanelOpen] = useState(false)
+  const [selectedDetectionId, setSelectedDetectionId] = useState(null)
 
   const openShipTab = useCallback((detection) => {
     const ship = ships[detection.shipId]
@@ -19,6 +20,7 @@ export function ShipProvider({ children }) {
       setShipTabs((prev) => [...prev, { id: ship.id, name: ship.name }])
       setActiveShipTab(ship.id)
     }
+    setSelectedDetectionId(detection.id)
   }, [shipTabs])
 
   const closeShipTab = useCallback((id) => {
@@ -44,6 +46,8 @@ export function ShipProvider({ children }) {
         closeShipTab,
         detailPanelOpen,
         setDetailPanelOpen,
+        selectedDetectionId,
+        setSelectedDetectionId,
       }}
     >
       {children}

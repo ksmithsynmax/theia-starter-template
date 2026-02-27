@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Box, Text, Title } from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
 import flagImg from '../assets/flag.png'
@@ -7,6 +7,7 @@ import AlertIcon from '../custom-icons/AlertIcon'
 import AisIcon from '../custom-icons/AisIcon'
 import LightShipIcon from '../custom-icons/LighShipIcon'
 import DarkShipIcon from '../custom-icons/DarkShipIcon'
+import UnattributedIcon from '../custom-icons/UnattributedIcon'
 import SpoofingIcon from '../custom-icons/SpoofingIcon'
 import STSIcon from '../custom-icons/STSIcon'
 import ShipIcon from '../custom-icons/ShipIcon'
@@ -22,14 +23,40 @@ const detailTabs = [
 ]
 
 function Myships() {
-  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab } = useShipContext()
+  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab, selectedDetectionId, setSelectedDetectionId } = useShipContext()
   const [activeDetailTab, setActiveDetailTab] = useState(0)
   const [selectedCard, setSelectedCard] = useState(null)
+  const [flashEnabled, setFlashEnabled] = useState(false)
+
+  useEffect(() => {
+    if (selectedDetectionId != null) {
+      setSelectedCard(selectedDetectionId)
+      setFlashEnabled(true)
+      setSelectedDetectionId(null)
+    }
+  }, [selectedDetectionId, setSelectedDetectionId])
 
   const activeShip = activeShipTab ? ships[activeShipTab] : null
   const activeShipDetections = activeShipTab
     ? detections.filter((d) => d.shipId === activeShipTab).sort((a, b) => b.id - a.id)
     : []
+
+  const latestDetection = activeShipDetections[0] || null
+  const selectedDetection = selectedCard
+    ? activeShipDetections.find((d) => d.id === selectedCard) || latestDetection
+    : latestDetection
+
+  const eventLabel = {
+    ais: 'AIS',
+    light: 'Light',
+    dark: 'Dark',
+    spoofing: 'Spoofing',
+    sts: 'STS (Light)',
+    'sts-ais': 'STS (AIS)',
+    unattributed: 'Unattributed',
+  }
+
+  const isLatest = !selectedCard || selectedCard === latestDetection?.id
 
   return (
     <Box>
@@ -52,7 +79,7 @@ function Myships() {
             return (
               <Box
                 key={tab.id}
-                onClick={() => setActiveShipTab(tab.id)}
+                onClick={() => { setFlashEnabled(false); setActiveShipTab(tab.id) }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -152,7 +179,13 @@ function Myships() {
                 onClick={() => navigator.clipboard.writeText(activeShip.shipId)}
               />
             </Box>
-            <ShipDetailsPanel />
+            <ShipDetailsPanel
+              selectedEvent={selectedDetection}
+              isLatest={isLatest}
+              eventLabel={eventLabel[selectedDetection?.type] || ''}
+              onSwitchToLatest={() => { setFlashEnabled(true); setSelectedCard(null) }}
+              flashEnabled={flashEnabled}
+            />
           </Box>
           <Box
             style={{
@@ -205,16 +238,7 @@ function Myships() {
                   spoofing: <SpoofingIcon style={{ height: 14 }} />,
                   sts: <STSIcon style={{ height: 14 }} />,
                   'sts-ais': <STSIcon style={{ height: 14 }} />,
-                  unattributed: <DarkShipIcon style={{ height: 14 }} />,
-                }
-                const eventLabel = {
-                  ais: 'AIS',
-                  light: 'Light',
-                  dark: 'Dark',
-                  spoofing: 'Spoofing',
-                  sts: 'STS (Light)',
-                  'sts-ais': 'STS (AIS)',
-                  unattributed: 'Unattributed',
+                  unattributed: <UnattributedIcon style={{ height: 14 }} />,
                 }
                 return (
                   <EventTimelineCard
@@ -224,7 +248,7 @@ function Myships() {
                     icon={iconMap[det.type]}
                     variant={det.type === 'sts' || det.type === 'sts-ais' ? 'sts' : undefined}
                     selected={selectedCard === det.id}
-                    onSelect={() => setSelectedCard(selectedCard === det.id ? null : det.id)}
+                    onSelect={() => { setFlashEnabled(true); setSelectedCard(selectedCard === det.id ? null : det.id) }}
                     aisInfo={activeShip.aisInfo}
                   />
                 )
