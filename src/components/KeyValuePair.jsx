@@ -5,7 +5,7 @@ const KeyValuePair = ({ keyName, value }) => {
   return (
     <Box>
       <Text style={{ color: '#888F9E', fontSize: '10px' }}>{keyName}</Text>
-      <Text size="xs" style={{ color: 'white' }}>
+      <Text size="xs" style={{ color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {value}
       </Text>
     </Box>

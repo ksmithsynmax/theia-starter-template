@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Box, Text, Button } from '@mantine/core'
+import { Box, Text, Button, Tooltip } from '@mantine/core'
 import { ChevronDown, ChevronUp, Check, InfoCircle } from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
 import stsSatImage from '../../assets/HAfSz3HbAAA34GM.jpeg'
@@ -8,6 +8,16 @@ import shipSatImage from '../../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
 import shipSatImage2 from '../../assets/e92d7378215156c8a7c8c4c73d773963c71bd6b1-1920x1080.avif'
 
 const shipImages = [shipSatImage, shipSatImage2]
+
+const formatEta = (raw) => {
+  if (!raw || raw === 'No info') return 'No info'
+  try {
+    const d = new Date(raw.replace(' UTC', 'Z'))
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  } catch {
+    return raw
+  }
+}
 
 const EventTimelineCard = ({
   date,
@@ -104,7 +114,8 @@ const EventTimelineCard = ({
                 borderRadius: 4,
                 fontWeight: 600,
                 fontSize: 14,
-                padding: '8px 12px',
+                height: 32,
+                padding: '0 12px',
                 transform: 'none',
               }}
             >
@@ -120,7 +131,8 @@ const EventTimelineCard = ({
                 borderRadius: 4,
                 fontWeight: 600,
                 fontSize: 14,
-                padding: '8px 12px',
+                height: 32,
+                padding: '0 12px',
                 transform: 'none',
               }}
             >
@@ -193,7 +205,7 @@ const EventTimelineCard = ({
                   alt="Ship-to-ship satellite imagery"
                   style={{
                     width: 180,
-                    height: 200,
+                    height: 206,
                     borderRadius: 4,
                     objectFit: 'cover',
                     flexShrink: 0,
@@ -208,16 +220,46 @@ const EventTimelineCard = ({
                     gap: '12px 16px',
                   }}
                 >
-                  <KeyValuePair keyName="Latitude" value={aisInfo.latitude || 'No info'} />
-                  <KeyValuePair keyName="Longitude" value={aisInfo.longitude || 'No info'} />
-                  <KeyValuePair keyName="Width" value={aisInfo.width || 'No info'} />
-                  <KeyValuePair keyName="Length" value={aisInfo.length || 'No info'} />
-                  <KeyValuePair keyName="Ship Type" value={aisInfo.shipType || 'No info'} />
-                  <KeyValuePair keyName="Build Year" value={aisInfo.buildYear || 'No info'} />
-                  <KeyValuePair keyName="Heading" value={aisInfo.heading || 'No info'} />
-                  <KeyValuePair keyName="Draft" value={aisInfo.draft || 'No info'} />
-                  <KeyValuePair keyName="Avg. Speed" value={aisInfo.avgSpeed || 'No info'} />
-                  <KeyValuePair keyName="Max Speed" value={aisInfo.maxSpeed || 'No info'} />
+                  <KeyValuePair
+                    keyName="Latitude"
+                    value={aisInfo.latitude || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Longitude"
+                    value={aisInfo.longitude || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Width"
+                    value={aisInfo.width || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Length"
+                    value={aisInfo.length || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Ship Type"
+                    value={aisInfo.shipType || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Build Year"
+                    value={aisInfo.buildYear || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Heading"
+                    value={aisInfo.heading || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Draft"
+                    value={aisInfo.draft || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Avg. Speed"
+                    value={aisInfo.avgSpeed || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Max Speed"
+                    value={aisInfo.maxSpeed || 'No info'}
+                  />
                 </Box>
               </Box>
 
@@ -233,8 +275,15 @@ const EventTimelineCard = ({
                   keyName="Latest Speed"
                   value={aisInfo.latestSpeed || 'No info'}
                 />
-                <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
-                <KeyValuePair keyName="ETA" value={aisInfo.eta || 'No info'} />
+                <KeyValuePair
+                  keyName="Destination"
+                  value={aisInfo.destination || 'No info'}
+                />
+                <Tooltip label={aisInfo.eta || 'No info'} position="top" withArrow>
+                  <Box>
+                    <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
+                  </Box>
+                </Tooltip>
               </Box>
 
               <Box
@@ -274,7 +323,7 @@ const EventTimelineCard = ({
                   alt="Ship-to-ship satellite imagery"
                   style={{
                     width: 180,
-                    height: 200,
+                    height: 206,
                     borderRadius: 4,
                     objectFit: 'cover',
                     flexShrink: 0,
@@ -289,16 +338,46 @@ const EventTimelineCard = ({
                     gap: '12px 16px',
                   }}
                 >
-                  <KeyValuePair keyName="Latitude" value={aisInfo.latitude || 'No info'} />
-                  <KeyValuePair keyName="Longitude" value={aisInfo.longitude || 'No info'} />
-                  <KeyValuePair keyName="Width" value={aisInfo.width || 'No info'} />
-                  <KeyValuePair keyName="Length" value={aisInfo.length || 'No info'} />
-                  <KeyValuePair keyName="Ship Type" value={aisInfo.shipType || 'No info'} />
-                  <KeyValuePair keyName="Build Year" value={aisInfo.buildYear || 'No info'} />
-                  <KeyValuePair keyName="Heading" value={aisInfo.heading || 'No info'} />
-                  <KeyValuePair keyName="Draft" value={aisInfo.draft || 'No info'} />
-                  <KeyValuePair keyName="Avg. Speed" value={aisInfo.avgSpeed || 'No info'} />
-                  <KeyValuePair keyName="Max Speed" value={aisInfo.maxSpeed || 'No info'} />
+                  <KeyValuePair
+                    keyName="Latitude"
+                    value={aisInfo.latitude || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Longitude"
+                    value={aisInfo.longitude || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Width"
+                    value={aisInfo.width || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Length"
+                    value={aisInfo.length || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Ship Type"
+                    value={aisInfo.shipType || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Build Year"
+                    value={aisInfo.buildYear || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Heading"
+                    value={aisInfo.heading || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Draft"
+                    value={aisInfo.draft || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Avg. Speed"
+                    value={aisInfo.avgSpeed || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="Max Speed"
+                    value={aisInfo.maxSpeed || 'No info'}
+                  />
                 </Box>
               </Box>
 
@@ -314,8 +393,15 @@ const EventTimelineCard = ({
                   keyName="Latest Speed"
                   value={aisInfo.latestSpeed || 'No info'}
                 />
-                <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
-                <KeyValuePair keyName="ETA" value={aisInfo.eta || 'No info'} />
+                <KeyValuePair
+                  keyName="Destination"
+                  value={aisInfo.destination || 'No info'}
+                />
+                <Tooltip label={aisInfo.eta || 'No info'} position="top" withArrow>
+                  <Box>
+                    <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
+                  </Box>
+                </Tooltip>
               </Box>
             </Box>
           </Box>
@@ -406,7 +492,10 @@ const EventTimelineCard = ({
                   Cancel
                 </Text>
                 <Button
-                  onClick={() => { setStsModalOpen(false); onViewStsShips?.() }}
+                  onClick={() => {
+                    setStsModalOpen(false)
+                    onViewStsShips?.()
+                  }}
                   style={{
                     backgroundColor: '#0094FF',
                     border: 'none',
@@ -569,11 +658,17 @@ const EventTimelineCard = ({
 
             <Box style={{ display: 'flex', gap: 12 }}>
               <img
-                src={shipImages[date ? date.charCodeAt(date.length - 1) % shipImages.length : 0]}
+                src={
+                  shipImages[
+                    date
+                      ? date.charCodeAt(date.length - 1) % shipImages.length
+                      : 0
+                  ]
+                }
                 alt="Ship satellite imagery"
                 style={{
                   width: 180,
-                  height: 180,
+                  height: 206,
                   borderRadius: 4,
                   objectFit: 'cover',
                   flexShrink: 0,
@@ -588,16 +683,46 @@ const EventTimelineCard = ({
                   gap: '12px 16px',
                 }}
               >
-                <KeyValuePair keyName="Latitude" value={aisInfo.latitude || 'No info'} />
-                <KeyValuePair keyName="Longitude" value={aisInfo.longitude || 'No info'} />
-                <KeyValuePair keyName="Width" value={aisInfo.width || 'No info'} />
-                <KeyValuePair keyName="Length" value={aisInfo.length || 'No info'} />
-                <KeyValuePair keyName="Ship Type" value={aisInfo.shipType || 'No info'} />
-                <KeyValuePair keyName="Build Year" value={aisInfo.buildYear || 'No info'} />
-                <KeyValuePair keyName="Heading" value={aisInfo.heading || 'No info'} />
-                <KeyValuePair keyName="Draft" value={aisInfo.draft || 'No info'} />
-                <KeyValuePair keyName="Avg. Speed" value={aisInfo.avgSpeed || 'No info'} />
-                <KeyValuePair keyName="Max Speed" value={aisInfo.maxSpeed || 'No info'} />
+                <KeyValuePair
+                  keyName="Latitude"
+                  value={aisInfo.latitude || 'No info'}
+                />
+                <KeyValuePair
+                  keyName="Longitude"
+                  value={aisInfo.longitude || 'No info'}
+                />
+                <KeyValuePair
+                  keyName="Width"
+                  value={aisInfo.width || 'No info'}
+                />
+                <KeyValuePair
+                  keyName="Length"
+                  value={aisInfo.length || 'No info'}
+                />
+                <KeyValuePair
+                  keyName="Ship Type"
+                  value={aisInfo.shipType || 'No info'}
+                />
+                <KeyValuePair
+                  keyName="Build Year"
+                  value={aisInfo.buildYear || 'No info'}
+                />
+                <KeyValuePair
+                  keyName="Heading"
+                  value={aisInfo.heading || 'No info'}
+                />
+                <KeyValuePair
+                  keyName="Draft"
+                  value={aisInfo.draft || 'No info'}
+                />
+                <KeyValuePair
+                  keyName="Avg. Speed"
+                  value={aisInfo.avgSpeed || 'No info'}
+                />
+                <KeyValuePair
+                  keyName="Max Speed"
+                  value={aisInfo.maxSpeed || 'No info'}
+                />
               </Box>
             </Box>
 
@@ -613,8 +738,15 @@ const EventTimelineCard = ({
                 keyName="Latest Speed"
                 value={aisInfo.latestSpeed || 'No info'}
               />
-              <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
-              <KeyValuePair keyName="ETA" value={aisInfo.eta || 'No info'} />
+              <KeyValuePair
+                keyName="Destination"
+                value={aisInfo.destination || 'No info'}
+              />
+              <Tooltip label={aisInfo.eta || 'No info'} position="top" withArrow>
+                <Box>
+                  <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
+                </Box>
+              </Tooltip>
             </Box>
           </Box>
         </Box>
