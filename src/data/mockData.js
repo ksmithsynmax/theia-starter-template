@@ -155,5 +155,5 @@ export const detections = [
   { id: 21, shipId: 'meridian-star', type: 'spoofing', lng: 55.0, lat: 14.0, date: 'Oct 24, 2025 19:25' },
   { id: 23, shipId: 'meridian-star', type: 'sts', stsPartner: 'invictus', lng: 53.0, lat: 7.0, date: 'Oct 22, 2025 20:40' },
   { id: 24, shipId: 'meridian-star', type: 'sts-ais', stsPartner: 'wisdom-star', lng: 55.0, lat: 11.0, date: 'Oct 21, 2025 05:55' },
-  { id: 25, shipId: 'meridian-star', type: 'dark', lng: 66.0, lat: 19.0, date: 'Oct 20, 2025 10:10' },
+  { id: 25, shipId: 'meridian-star', type: 'dark', lng: 64.0, lat: 20.5, date: 'Oct 20, 2025 10:10' },
 ]

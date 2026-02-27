@@ -1,7 +1,7 @@
 /* ===== Scrollbar ===== */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #393C56 transparent;
+  scrollbar-color: #393c56 transparent;
 }
 
 *::-webkit-scrollbar {
@@ -13,7 +13,7 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #393C56;
+  background: #393c56;
   border-radius: 3px;
 }
 
@@ -127,6 +127,36 @@
 
 .slide-panel-close:hover {
   background-color: #2d2f45;
+}
+
+/* Map markers — use the Mapbox wrapper which already has position:absolute */
+.map-marker {
+  line-height: 0;
+}
+
+.mapboxgl-marker::before {
+  content: '';
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  margin-top: -16px;
+  margin-left: -16px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.mapboxgl-marker:hover::before {
+  background: rgba(255, 255, 255, 0.2);
+  opacity: 1;
+}
+
+.mapboxgl-marker.active::before {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  opacity: 1;
 }
 
 /* Hide Mapbox logo */

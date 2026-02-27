@@ -11,7 +11,7 @@ function Layout() {
   const [panelOpen, setPanelOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-  const { openShipTab } = useShipContext()
+  const { openShipTab, selectedDetectionId } = useShipContext()
 
   const handleDetectionClick = useCallback(
     (detection) => {
@@ -44,7 +44,7 @@ function Layout() {
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TopNav />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-        <Map onDetectionClick={handleDetectionClick} />
+        <Map onDetectionClick={handleDetectionClick} selectedDetectionId={selectedDetectionId} />
         <Box
           style={{
             position: 'relative',

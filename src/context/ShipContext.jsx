@@ -20,6 +20,7 @@ export function ShipProvider({ children }) {
     } else {
       setShipTabs((prev) => [...prev, { id: ship.id, name: ship.name }])
       setActiveShipTab(ship.id)
+      setSelectedDetectionId(detection.id)
     }
   }, [shipTabs])
 
