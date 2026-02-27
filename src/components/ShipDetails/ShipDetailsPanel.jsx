@@ -52,6 +52,7 @@ const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLates
   useEffect(() => {
     if (flashEnabled && selectedEvent?.id && selectedEvent.id !== prevEventRef.current) {
       setFlashing(true)
+      setToolsVisible(false)
       const timer = setTimeout(() => setFlashing(false), 600)
       prevEventRef.current = selectedEvent.id
       return () => clearTimeout(timer)

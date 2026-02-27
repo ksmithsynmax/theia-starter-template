@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Box, Text, Button, Tooltip } from '@mantine/core'
 import { ChevronDown, ChevronUp, Check, InfoCircle } from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
@@ -36,9 +36,17 @@ const EventTimelineCard = ({
 }) => {
   const [expanded, setExpanded] = useState(false)
   const [stsModalOpen, setStsModalOpen] = useState(false)
+  const cardRef = useRef(null)
 
   useEffect(() => {
-    if (selected) setExpanded(true)
+    if (selected) {
+      setExpanded(true)
+      // Wait for the card expand transition (250ms) to finish before scrolling
+      const timer = setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 300)
+      return () => clearTimeout(timer)
+    }
   }, [selected])
 
   if (variant === 'port') {
@@ -67,11 +75,13 @@ const EventTimelineCard = ({
   if (variant === 'sts') {
     return (
       <Box
+        ref={cardRef}
         style={{
           position: 'relative',
           border: selected ? '2px solid #0094FF' : '1px solid #393C56',
           borderRadius: 4,
           background: '#24263C',
+          scrollMarginTop: 16,
           overflow: 'hidden',
         }}
       >
@@ -544,12 +554,14 @@ const EventTimelineCard = ({
 
   return (
     <Box
+      ref={cardRef}
       style={{
         position: 'relative',
         border: selected ? '2px solid #0094FF' : '1px solid #393C56',
         borderRadius: 4,
         background: '#24263C',
         overflow: 'hidden',
+        scrollMarginTop: 16,
       }}
     >
       {selected && (
