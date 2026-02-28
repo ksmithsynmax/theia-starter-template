@@ -11,17 +11,21 @@ function Layout() {
   const [panelOpen, setPanelOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-  const { openShipTab } = useShipContext()
+  const { openShipTab, openStsTab } = useShipContext()
 
   const handleDetectionClick = useCallback(
     (detection) => {
-      openShipTab(detection)
+      if ((detection.type === 'sts' || detection.type === 'sts-ais') && detection.stsPartner) {
+        openStsTab(detection.shipId, detection.stsPartner)
+      } else {
+        openShipTab(detection)
+      }
       if (location.pathname !== '/myships') {
         navigate('/myships')
       }
       setPanelOpen(true)
     },
-    [openShipTab, location.pathname, navigate]
+    [openShipTab, openStsTab, location.pathname, navigate]
   )
 
   const handleNavClick = useCallback(
