@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Box, Text, Button, Tooltip } from '@mantine/core'
+import { Box, Text, Button, Tooltip, Checkbox } from '@mantine/core'
 import { ChevronDown, ChevronUp, Check, InfoCircle } from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
 import stsSatImage from '../../assets/HAfSz3HbAAA34GM.jpeg'
@@ -8,6 +8,8 @@ import shipSatImage from '../../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
 import shipSatImage2 from '../../assets/e92d7378215156c8a7c8c4c73d773963c71bd6b1-1920x1080.avif'
 
 const shipImages = [shipSatImage, shipSatImage2]
+
+let skipWarningModal = false
 
 const formatEta = (raw) => {
   if (!raw || raw === 'No info') return 'No info'
@@ -45,7 +47,10 @@ const EventTimelineCard = ({
   const [expanded, setExpanded] = useState(false)
   const [stsModalOpen, setStsModalOpen] = useState(false)
   const [selectModalOpen, setSelectModalOpen] = useState(false)
+  const [dontShowChecked, setDontShowChecked] = useState(false)
   const cardRef = useRef(null)
+
+  const modalSuppressed = () => skipWarningModal
 
   useEffect(() => {
     if (selected) {
@@ -127,7 +132,14 @@ const EventTimelineCard = ({
           <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Button
               size="xs"
-              onClick={() => setStsModalOpen(true)}
+              onClick={() => {
+                if (modalSuppressed()) {
+                  onSelect?.()
+                  onViewStsShips?.()
+                } else {
+                  setStsModalOpen(true)
+                }
+              }}
               leftSection={
                 selected ? <Check style={{ width: 14, height: 14 }} /> : null
               }
@@ -476,6 +488,16 @@ const EventTimelineCard = ({
                 </b>
                 {' '}and open the Ship-to-Ship tab. You can return to today's view using the calendar in the header.
               </Text>
+              <Checkbox
+                checked={dontShowChecked}
+                onChange={(e) => setDontShowChecked(e.currentTarget.checked)}
+                label="Don't show this again"
+                styles={{
+                  label: { color: '#898f9d', fontSize: 13 },
+                  input: { backgroundColor: dontShowChecked ? '#0094FF' : 'transparent', borderColor: dontShowChecked ? '#0094FF' : '#393C56' },
+                }}
+                style={{ marginBottom: 20 }}
+              />
               <Box
                 style={{
                   display: 'flex',
@@ -484,7 +506,7 @@ const EventTimelineCard = ({
                 }}
               >
                 <Text
-                  onClick={() => setStsModalOpen(false)}
+                  onClick={() => { setStsModalOpen(false); setDontShowChecked(false) }}
                   style={{
                     color: '#fff',
                     fontSize: 14,
@@ -496,7 +518,9 @@ const EventTimelineCard = ({
                 </Text>
                 <Button
                   onClick={() => {
+                    if (dontShowChecked) skipWarningModal = true
                     setStsModalOpen(false)
+                    setDontShowChecked(false)
                     onSelect?.()
                     onViewStsShips?.()
                   }}
@@ -587,7 +611,15 @@ const EventTimelineCard = ({
         <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button
             size="xs"
-            onClick={() => (selected ? onSelect?.() : setSelectModalOpen(true))}
+            onClick={() => {
+              if (selected) {
+                onSelect?.()
+              } else if (modalSuppressed()) {
+                onSelect?.()
+              } else {
+                setSelectModalOpen(true)
+              }
+            }}
             leftSection={
               selected ? <Check style={{ width: 14, height: 14 }} /> : null
             }
@@ -811,6 +843,16 @@ const EventTimelineCard = ({
               </b>
               . You can return to today's view using the calendar in the header.
             </Text>
+            <Checkbox
+              checked={dontShowChecked}
+              onChange={(e) => setDontShowChecked(e.currentTarget.checked)}
+              label="Don't show this again"
+              styles={{
+                label: { color: '#898f9d', fontSize: 13 },
+                input: { backgroundColor: 'transparent', borderColor: '#393C56' },
+              }}
+              style={{ marginBottom: 20 }}
+            />
             <Box
               style={{
                 display: 'flex',
@@ -819,7 +861,7 @@ const EventTimelineCard = ({
               }}
             >
               <Text
-                onClick={() => setSelectModalOpen(false)}
+                onClick={() => { setSelectModalOpen(false); setDontShowChecked(false) }}
                 style={{
                   color: '#fff',
                   fontSize: 14,
@@ -831,7 +873,9 @@ const EventTimelineCard = ({
               </Text>
               <Button
                 onClick={() => {
+                  if (dontShowChecked) skipWarningModal = true
                   setSelectModalOpen(false)
+                  setDontShowChecked(false)
                   onSelect?.()
                 }}
                 style={{
