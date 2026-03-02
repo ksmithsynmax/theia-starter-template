@@ -152,7 +152,7 @@ export const detections = [
   { id: 6, shipId: 'invictus', type: 'dark', lng: 57.0, lat: 12.0, date: ago(4, 8, 12) },
 
   // --- Tiffani (6 detections) ---
-  { id: 7, shipId: 'tiffani', type: 'ais', lng: 60.0, lat: 19.5, date: ago(0, 11, 20) },
+  { id: 7, shipId: 'tiffani', type: 'dark', lng: 60.0, lat: 19.5, date: ago(0, 11, 20) },
   { id: 8, shipId: 'tiffani', type: 'dark', lng: 66.0, lat: 15.0, date: ago(1, 16, 30) },
   { id: 10, shipId: 'tiffani', type: 'spoofing', lng: 67.0, lat: 12.5, date: ago(3, 9, 45) },
   { id: 11, shipId: 'tiffani', type: 'sts-ais', stsPartner: 'celestine', lng: 62.0, lat: 16.0, date: ago(4, 14, 0) },

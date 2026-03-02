@@ -43,11 +43,6 @@ const getDateKey = (dateStr) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const todayStr = (() => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-})()
-
 const Map = ({ onDetectionClick }) => {
   const { activeDetectionId, mapDate } = useShipContext()
   const mapContainer = useRef(null)
@@ -80,6 +75,10 @@ const Map = ({ onDetectionClick }) => {
       el.dataset.detectionId = detection.id
       el.dataset.shipId = detection.shipId
       el.dataset.detectionType = detection.type
+      // Hide markers that don't match the current date
+      if (getDateKey(detection.date) !== mapDate) {
+        el.style.display = 'none'
+      }
       el.addEventListener('click', () => {
         Object.values(markersRef.current).forEach((m) => {
           m.getElement().classList.remove('active')
@@ -126,21 +125,15 @@ const Map = ({ onDetectionClick }) => {
     map.current.flyTo({ center: [activeDet.lng, activeDet.lat], zoom: 6, duration: 1500 })
   }, [activeDetectionId])
 
-  // Filter markers by date
+  // Filter markers by date — only show detections for the selected date
   useEffect(() => {
     if (!map.current) return
-
-    const showAll = mapDate === todayStr
 
     detections.forEach((det) => {
       const marker = markersRef.current[det.id]
       if (!marker) return
       const el = marker.getElement()
-      if (showAll) {
-        el.style.display = ''
-      } else {
-        el.style.display = getDateKey(det.date) === mapDate ? '' : 'none'
-      }
+      el.style.display = getDateKey(det.date) === mapDate ? '' : 'none'
     })
   }, [mapDate])
 

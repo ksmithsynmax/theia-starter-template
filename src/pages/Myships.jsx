@@ -48,9 +48,22 @@ function Myships() {
     if (!activeShipTab) return
     if (loadedTabsRef.current.has(activeShipTab)) return
     setLoading(true)
+    const currentTab = activeShipTab
     const timer = setTimeout(() => {
-      loadedTabsRef.current.add(activeShipTab)
+      loadedTabsRef.current.add(currentTab)
       setLoading(false)
+      // Auto-select: use the clicked detection from map if set, otherwise pick the latest
+      const shipTab = shipTabs.find((t) => t.id === currentTab)
+      const shipId = shipTab?.type === 'sts' ? shipTab.shipIds[0] : currentTab
+      const shipDetections = detections.filter((d) => d.shipId === shipId).sort((a, b) => new Date(b.date) - new Date(a.date))
+      const targetId = selectedDetectionId && shipDetections.some((d) => d.id === selectedDetectionId)
+        ? selectedDetectionId
+        : shipDetections[0]?.id
+      if (targetId) {
+        setFlashEnabled(true)
+        updateTabState('selectedCard', targetId)
+        if (selectedDetectionId) setSelectedDetectionId(null)
+      }
     }, 1500)
     return () => clearTimeout(timer)
   }, [activeShipTab])
@@ -104,7 +117,7 @@ function Myships() {
   }
 
   const derivedLatestEvent = latestDetection ? eventLabel[latestDetection.type] || latestDetection.type : null
-  const isLatest = !selectedCard || selectedCard === latestDetection?.id
+  const isLatest = !selectedCard || selectedDetection?.id === latestDetection?.id
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
