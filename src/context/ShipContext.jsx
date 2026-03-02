@@ -29,7 +29,7 @@ export function ShipProvider({ children }) {
     }
   }, [shipTabs])
 
-  const openStsTab = useCallback((shipId, partnerShipId) => {
+  const openStsTab = useCallback((shipId, partnerShipId, detectionType = 'sts') => {
     const ship = ships[shipId]
     const partner = ships[partnerShipId]
     if (!ship || !partner) return
@@ -44,7 +44,7 @@ export function ShipProvider({ children }) {
       // Remove individual ship tabs and add the STS tab
       setShipTabs((prev) => [
         ...prev.filter((t) => t.id !== shipId && t.id !== partnerShipId),
-        { id: stsTabId, name: 'Ship-to-Ship', type: 'sts', shipIds: [shipId, partnerShipId] },
+        { id: stsTabId, name: 'Ship-to-Ship', type: 'sts', stsType: detectionType, shipIds: [shipId, partnerShipId] },
       ])
       setActiveShipTab(stsTabId)
     }

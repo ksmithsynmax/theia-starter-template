@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Box, Text, Title, Loader } from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
-import flagImg from '../assets/flag.png'
 import { File02, Star01, Copy02, XClose } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
 import AisIcon from '../custom-icons/AisIcon'
@@ -100,6 +99,7 @@ function Myships() {
     : []
 
   const latestDetection = activeShipDetections[0] || null
+  const isUnattributed = activeShip?.synMaxInfo != null
   const selectedDetection = selectedCard
     ? activeShipDetections.find((d) => d.id === selectedCard) || latestDetection
     : latestDetection
@@ -114,7 +114,22 @@ function Myships() {
     unattributed: 'Unattributed',
   }
 
-  const derivedLatestEvent = latestDetection ? eventLabel[latestDetection.type] || latestDetection.type : null
+  const eventIconMap = {
+    ais: <AisIcon style={{ height: 14 }} />,
+    light: <LightShipIcon style={{ height: 14 }} />,
+    dark: <DarkShipIcon style={{ height: 14 }} />,
+    spoofing: <SpoofingIcon style={{ height: 14 }} />,
+    sts: <STSIcon style={{ height: 14 }} />,
+    'sts-ais': <STSAisIcon style={{ height: 14 }} />,
+    unattributed: <UnattributedIcon style={{ height: 14 }} />,
+  }
+
+  const derivedLatestEvent = latestDetection ? (
+    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      {eventIconMap[latestDetection.type]}
+      {eventLabel[latestDetection.type] || latestDetection.type}
+    </Box>
+  ) : null
   const isLatest = !selectedCard || selectedDetection?.id === latestDetection?.id
 
   return (
@@ -156,7 +171,7 @@ function Myships() {
                   flexShrink: 0,
                 }}
               >
-                {tab.type === 'sts' ? <STSIcon style={{ width: 16, height: 16 }} /> : <ShipIcon style={{ width: 16, height: 16 }} />}
+                {tab.type === 'sts' ? (tab.stsType === 'sts-ais' ? <STSAisIcon style={{ width: 16, height: 16 }} /> : <STSIcon style={{ width: 16, height: 16 }} />) : <ShipIcon style={{ width: 16, height: 16 }} />}
                 <Text
                   style={{
                     color: '#fff',
@@ -235,7 +250,7 @@ function Myships() {
             return (
               <Box style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px' }}>
                 {pill(s1, 0)}
-                <STSIcon style={{ width: 20, height: 20, flexShrink: 0 }} />
+                {activeTab.stsType === 'sts-ais' ? <STSAisIcon style={{ width: 20, height: 20, flexShrink: 0 }} /> : <STSIcon style={{ width: 20, height: 20, flexShrink: 0 }} />}
                 {pill(s2, 1)}
               </Box>
             )
@@ -252,16 +267,9 @@ function Myships() {
                 <Title order={4} style={{ color: 'white' }}>
                   {activeShip.name}
                 </Title>
-                <img
-                  src={flagImg}
-                  alt="Flag"
-                  style={{
-                    width: 24,
-                    height: 18,
-                    objectFit: 'cover',
-                    display: 'block',
-                  }}
-                />
+                {activeShip.flag && (
+                  <Text style={{ fontSize: 18 }}>{activeShip.flag}</Text>
+                )}
               </Box>
               <Box style={{ flex: 1 }}></Box>
               <Box style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -272,8 +280,8 @@ function Myships() {
             </Box>
             <Box style={{ display: 'flex', gap: '64px', marginBottom: '8px' }}>
               <KeyValuePair keyName="Latest Event" value={derivedLatestEvent} />
-              <KeyValuePair keyName="IMO" value={activeShip.imo} />
-              <KeyValuePair keyName="MMSI" value={activeShip.mmsi} />
+              <KeyValuePair keyName="IMO" value={activeShip.imo || 'No info'} />
+              <KeyValuePair keyName="MMSI" value={activeShip.mmsi || 'No info'} />
             </Box>
             <Box
               style={{
@@ -285,125 +293,146 @@ function Myships() {
             >
               <KeyValuePair
                 keyName="SynMax Ship ID"
-                value={activeShip.shipId}
+                value={activeShip.shipId || 'No info'}
               />
-              <Copy02
-                style={{ color: '#fff', width: 16, height: 16, cursor: 'pointer' }}
-                onClick={() => navigator.clipboard.writeText(activeShip.shipId)}
+              {activeShip.shipId && (
+                <Copy02
+                  style={{ color: '#fff', width: 16, height: 16, cursor: 'pointer' }}
+                  onClick={() => navigator.clipboard.writeText(activeShip.shipId)}
+                />
+              )}
+            </Box>
+            {!isUnattributed && (
+              <ShipDetailsPanel
+                selectedEvent={selectedDetection}
+                isLatest={isLatest}
+                eventLabel={eventLabel[selectedDetection?.type] || ''}
+                onSwitchToLatest={() => {
+                  setFlashEnabled(true)
+                  updateTabState('selectedCard', null)
+                  setActiveDetectionId(null)
+                  const today = new Date()
+                  setMapDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`)
+                }}
+                flashEnabled={flashEnabled}
+              />
+            )}
+          </Box>
+          {isUnattributed ? (
+            <Box style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+              <EventTimelineCard
+                date={latestDetection?.date}
+                event={eventLabel[latestDetection?.type] || latestDetection?.type}
+                icon={<UnattributedIcon style={{ height: 14 }} />}
+                selected
+                onSelect={() => {}}
+                aisInfo={{}}
+                synMaxInfo={activeShip.synMaxInfo}
               />
             </Box>
-            <ShipDetailsPanel
-              selectedEvent={selectedDetection}
-              isLatest={isLatest}
-              eventLabel={eventLabel[selectedDetection?.type] || ''}
-              onSwitchToLatest={() => {
-                setFlashEnabled(true)
-                updateTabState('selectedCard', null)
-                setActiveDetectionId(null)
-                const today = new Date()
-                setMapDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`)
-              }}
-              flashEnabled={flashEnabled}
-            />
-          </Box>
-          <Box
-            style={{
-              display: 'flex',
-              borderBottom: '1px solid #393C56',
-              flexShrink: 0,
-            }}
-          >
-            {detailTabs.map((tab, i) => (
-              <Box
-                key={tab}
-                onClick={() => updateTabState('activeDetailTab', i)}
-                style={{
-                  flex: 1,
-                  padding: '12px 10px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  borderBottom:
-                    activeDetailTab === i
-                      ? '2px solid #fff'
-                      : '2px solid transparent',
-                }}
-              >
-                <Text
-                  style={{
-                    color: '#fff',
-                    fontSize: 12,
-                    fontWeight: activeDetailTab === i ? 700 : 400,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {tab}
-                </Text>
-              </Box>
-            ))}
-          </Box>
-          <Box ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto' }}>
-            {activeDetailTab === 0 && (
+          ) : (
+            <>
               <Box
                 style={{
-                  padding: 20,
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
+                  borderBottom: '1px solid #393C56',
+                  flexShrink: 0,
                 }}
               >
-                {activeShipDetections.map((det) => {
-                  const iconMap = {
-                    ais: <AisIcon style={{ height: 14 }} />,
-                    light: <LightShipIcon style={{ height: 14 }} />,
-                    dark: <DarkShipIcon style={{ height: 14 }} />,
-                    spoofing: <SpoofingIcon style={{ height: 14 }} />,
-                    sts: <STSIcon style={{ height: 14 }} />,
-                    'sts-ais': <STSAisIcon style={{ height: 14 }} />,
-                    unattributed: <UnattributedIcon style={{ height: 14 }} />,
-                  }
-                  return (
-                    <Box key={det.id} ref={(el) => { cardRefs.current[det.id] = el }}>
-                      <EventTimelineCard
-                        date={det.date}
-                        event={eventLabel[det.type] || det.type}
-                        icon={iconMap[det.type]}
-                        variant={det.type === 'sts' || det.type === 'sts-ais' ? 'sts' : undefined}
-                        selected={selectedCard === det.id}
-                        onSelect={() => {
-                          const isDeselecting = selectedCard === det.id
-                          setFlashEnabled(true)
-                          updateTabState('selectedCard', isDeselecting ? null : det.id)
-                          if (!isDeselecting) {
-                            const parsed = new Date(det.date)
-                            setMapDate(`${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`)
-                            setActiveDetectionId(det.id)
-                          } else {
-                            setActiveDetectionId(null)
-                          }
-                        }}
-                        onViewStsShips={det.stsPartner ? () => openStsTab(det.shipId, det.stsPartner) : undefined}
-                        aisInfo={activeShip.aisInfo}
-                      />
-                    </Box>
-                  )
-                })}
+                {detailTabs.map((tab, i) => (
+                  <Box
+                    key={tab}
+                    onClick={() => updateTabState('activeDetailTab', i)}
+                    style={{
+                      flex: 1,
+                      padding: '12px 10px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      borderBottom:
+                        activeDetailTab === i
+                          ? '2px solid #fff'
+                          : '2px solid transparent',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#fff',
+                        fontSize: 12,
+                        fontWeight: activeDetailTab === i ? 700 : 400,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {tab}
+                    </Text>
+                  </Box>
+                ))}
               </Box>
-            )}
-            {activeDetailTab === 1 && (
-              <Box style={{ padding: 20 }}>
-                <Title order={4} style={{ color: '#fff' }}>
-                  Sat. Imagery Timeline
-                </Title>
+              <Box ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto' }}>
+                {activeDetailTab === 0 && (
+                  <Box
+                    style={{
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                    }}
+                  >
+                    {activeShipDetections.map((det) => {
+                      const iconMap = {
+                        ais: <AisIcon style={{ height: 14 }} />,
+                        light: <LightShipIcon style={{ height: 14 }} />,
+                        dark: <DarkShipIcon style={{ height: 14 }} />,
+                        spoofing: <SpoofingIcon style={{ height: 14 }} />,
+                        sts: <STSIcon style={{ height: 14 }} />,
+                        'sts-ais': <STSAisIcon style={{ height: 14 }} />,
+                        unattributed: <UnattributedIcon style={{ height: 14 }} />,
+                      }
+                      return (
+                        <Box key={det.id} ref={(el) => { cardRefs.current[det.id] = el }}>
+                          <EventTimelineCard
+                            date={det.date}
+                            event={eventLabel[det.type] || det.type}
+                            icon={iconMap[det.type]}
+                            variant={det.type === 'sts' || det.type === 'sts-ais' ? 'sts' : undefined}
+                            selected={selectedCard === det.id}
+                            onSelect={() => {
+                              const isDeselecting = selectedCard === det.id
+                              setFlashEnabled(true)
+                              updateTabState('selectedCard', isDeselecting ? null : det.id)
+                              if (!isDeselecting) {
+                                const parsed = new Date(det.date)
+                                setMapDate(`${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`)
+                                setActiveDetectionId(det.id)
+                              } else {
+                                setActiveDetectionId(null)
+                              }
+                            }}
+                            onViewStsShips={det.stsPartner ? () => openStsTab(det.shipId, det.stsPartner, det.type) : undefined}
+                            aisInfo={activeShip.aisInfo}
+                            synMaxInfo={activeShip.synMaxInfo}
+                          />
+                        </Box>
+                      )
+                    })}
+                  </Box>
+                )}
+                {activeDetailTab === 1 && (
+                  <Box style={{ padding: 20 }}>
+                    <Title order={4} style={{ color: '#fff' }}>
+                      Sat. Imagery Timeline
+                    </Title>
+                  </Box>
+                )}
+                {activeDetailTab === 2 && (
+                  <Box style={{ padding: 20 }}>
+                    <Title order={4} style={{ color: '#fff' }}>
+                      Ship Information
+                    </Title>
+                  </Box>
+                )}
               </Box>
-            )}
-            {activeDetailTab === 2 && (
-              <Box style={{ padding: 20 }}>
-                <Title order={4} style={{ color: '#fff' }}>
-                  Ship Information
-                </Title>
-              </Box>
-            )}
-          </Box>
+            </>
+          )}
         </Box>
       )}
     </Box>

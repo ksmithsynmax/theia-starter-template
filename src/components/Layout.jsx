@@ -16,7 +16,7 @@ function Layout() {
   const handleDetectionClick = useCallback(
     (detection) => {
       if ((detection.type === 'sts' || detection.type === 'sts-ais') && detection.stsPartner) {
-        openStsTab(detection.shipId, detection.stsPartner)
+        openStsTab(detection.shipId, detection.stsPartner, detection.type)
       } else {
         openShipTab(detection)
       }

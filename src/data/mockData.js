@@ -115,6 +115,30 @@ export const ships = {
       eta: future(3, 20, 0),
     },
   },
+  'unknown': {
+    id: 'unknown',
+    name: 'Unknown',
+    flag: null,
+    imo: null,
+    mmsi: null,
+    shipId: null,
+    latestEvent: 'Unattributed',
+    shipType: 'Tanker',
+    aisInfo: {},
+    synMaxInfo: {
+      objectId: '483830654',
+      imageCapturedTime: '2024-10-18 09:03:46 UTC',
+      imageSource: 'Planet Scope',
+      status: 'Preview',
+      latitude: '24.119738',
+      longitude: '58.785984',
+      heading: '227',
+      shipLength: '113',
+      shipWidth: '22',
+      shipType: 'Tanker',
+      shipSubtype: 'Unassigned',
+    },
+  },
   'wisdom-star': {
     id: 'wisdom-star',
     name: 'Wisdom Star',
@@ -122,7 +146,7 @@ export const ships = {
     imo: '9534871',
     mmsi: '356789012',
     shipId: 'e9f0a1b2-c3d4-5678-9012-3456789abcde',
-    latestEvent: 'AIS',
+    latestEvent: 'Light',
     shipType: 'Tanker',
     aisInfo: {
       latitude: '23.456789',
@@ -172,4 +196,14 @@ export const detections = [
   { id: 23, shipId: 'meridian-star', type: 'sts', stsPartner: 'invictus', lng: 53.0, lat: 7.0, date: ago(3, 20, 40) },
   { id: 24, shipId: 'meridian-star', type: 'sts-ais', stsPartner: 'wisdom-star', lng: 55.0, lat: 11.0, date: ago(4, 5, 55) },
   { id: 25, shipId: 'meridian-star', type: 'dark', lng: 64.0, lat: 20.5, date: ago(5, 10, 10) },
+
+  // --- Wisdom Star (5 detections) ---
+  { id: 27, shipId: 'wisdom-star', type: 'light', lng: 60.2, lat: 23.5, date: ago(0, 6, 45) },
+  { id: 28, shipId: 'wisdom-star', type: 'ais', lng: 57.0, lat: 22.0, date: ago(1, 14, 20) },
+  { id: 29, shipId: 'wisdom-star', type: 'dark', lng: 56.5, lat: 20.5, date: ago(2, 9, 30) },
+  { id: 30, shipId: 'wisdom-star', type: 'sts-ais', stsPartner: 'meridian-star', lng: 55.0, lat: 11.0, date: ago(4, 5, 55) },
+  { id: 31, shipId: 'wisdom-star', type: 'ais', lng: 59.0, lat: 24.5, date: ago(5, 11, 15) },
+
+  // --- Unknown (1 detection) ---
+  { id: 26, shipId: 'unknown', type: 'unattributed', lng: 58.8, lat: 24.1, date: ago(0, 9, 3) },
 ]
