@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
-import { Box, Text, Title, Loader } from '@mantine/core'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Box, Text, Title, Loader, Menu } from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
-import { File02, Star01, Copy02, XClose } from '@untitledui/icons'
+import { File02, Star01, Copy02, XClose, ChevronDown, List } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
 import AisIcon from '../custom-icons/AisIcon'
 import LightShipIcon from '../custom-icons/LighShipIcon'
@@ -23,14 +23,37 @@ const detailTabs = [
 ]
 
 function Myships() {
-  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab, openStsTab, selectedDetectionId, setSelectedDetectionId, setMapDate, setActiveDetectionId } = useShipContext()
+  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab, closeAllTabs, openStsTab, selectedDetectionId, setSelectedDetectionId, setMapDate, setActiveDetectionId } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
   const [activeStsShip, setActiveStsShip] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [overflowLeft, setOverflowLeft] = useState(false)
+  const [overflowRight, setOverflowRight] = useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
+  const tabScrollRef = useRef(null)
+
+  const updateOverflow = useCallback(() => {
+    const el = tabScrollRef.current
+    if (!el) return
+    setOverflowLeft(el.scrollLeft > 0)
+    setOverflowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+  }, [])
+
+  useEffect(() => {
+    const el = tabScrollRef.current
+    if (!el) return
+    updateOverflow()
+    el.addEventListener('scroll', updateOverflow)
+    const ro = new ResizeObserver(updateOverflow)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', updateOverflow)
+      ro.disconnect()
+    }
+  }, [updateOverflow, shipTabs])
 
   const currentTabState = tabState[activeShipTab] || { selectedCard: null, activeDetailTab: 0 }
   const selectedCard = currentTabState.selectedCard
@@ -141,13 +164,62 @@ function Myships() {
           flexShrink: 0,
         }}
       >
-        <Box
-          style={{
-            display: 'flex',
-            flex: 1,
-            overflow: 'hidden',
-          }}
-        >
+        {overflowLeft && (
+          <Box
+            onClick={() => tabScrollRef.current?.scrollBy({ left: -150, behavior: 'smooth' })}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 50,
+              cursor: 'pointer',
+              background: '#24263C',
+              borderBottom: '1px solid #393C56',
+              borderRight: '1px solid #393C56',
+              flexShrink: 0,
+            }}
+          >
+            <ChevronDown style={{ color: '#898f9d', width: 16, height: 16, transform: 'rotate(90deg)' }} />
+          </Box>
+        )}
+        <Box style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          {overflowLeft && (
+            <Box
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 40,
+                background: 'linear-gradient(to right, #24263C, transparent)',
+                zIndex: 2,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+          {overflowRight && (
+            <Box
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: 40,
+                background: 'linear-gradient(to left, #24263C, transparent)',
+                zIndex: 2,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+          <Box
+            ref={tabScrollRef}
+            className="tab-scroll"
+            style={{
+              display: 'flex',
+              flex: 1,
+            }}
+          >
           {shipTabs.map((tab) => {
             const isActive = activeShipTab === tab.id
             return (
@@ -201,11 +273,88 @@ function Myships() {
           <Box
             style={{
               flex: 1,
+              height: 50,
               background: '#24263C',
               borderBottom: '1px solid #393C56',
             }}
           />
+          </Box>
         </Box>
+        {overflowRight && (
+          <Box
+            onClick={() => tabScrollRef.current?.scrollBy({ left: 150, behavior: 'smooth' })}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 50,
+              cursor: 'pointer',
+              background: '#24263C',
+              borderBottom: '1px solid #393C56',
+              borderLeft: '1px solid #393C56',
+              flexShrink: 0,
+            }}
+          >
+            <ChevronDown style={{ color: '#898f9d', width: 16, height: 16, transform: 'rotate(-90deg)' }} />
+          </Box>
+        )}
+        <Menu position="bottom-end" withinPortal>
+          <Menu.Target>
+            <Box
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 40,
+                height: 50,
+                cursor: 'pointer',
+                background: '#24263C',
+                borderBottom: '1px solid #393C56',
+                borderLeft: '1px solid #393C56',
+                flexShrink: 0,
+              }}
+            >
+              <List style={{ color: '#898f9d', width: 18, height: 18 }} />
+            </Box>
+          </Menu.Target>
+          <Menu.Dropdown styles={{ dropdown: { background: '#24263C', border: '1px solid #393C56', minWidth: 200 } }}>
+            <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px' }}>
+              <Text style={{ color: '#898f9d', fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>Ships</Text>
+              <Text
+                onClick={closeAllTabs}
+                style={{ color: '#F75349', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+              >
+                Close All
+              </Text>
+            </Box>
+            {shipTabs.filter((t) => t.type !== 'sts').map((tab) => (
+              <Menu.Item
+                key={tab.id}
+                onClick={() => { setFlashEnabled(false); setActiveStsShip(0); setActiveShipTab(tab.id) }}
+                leftSection={<ShipIcon style={{ width: 14, height: 14 }} />}
+                styles={{ item: { color: '#fff', fontSize: 12, background: activeShipTab === tab.id ? '#393C56' : 'transparent' }, itemLabel: { color: '#fff' } }}
+              >
+                {tab.name}
+              </Menu.Item>
+            ))}
+            {shipTabs.some((t) => t.type === 'sts') && (
+              <>
+                <Text style={{ color: '#898f9d', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', padding: '8px 12px 4px' }}>Ship-to-Ship</Text>
+                {shipTabs.filter((t) => t.type === 'sts').map((tab) => (
+                  <Menu.Item
+                    key={tab.id}
+                    onClick={() => { setFlashEnabled(false); setActiveStsShip(0); setActiveShipTab(tab.id) }}
+                    leftSection={tab.stsType === 'sts-ais' ? <STSAisIcon style={{ width: 14, height: 14 }} /> : <STSIcon style={{ width: 14, height: 14 }} />}
+                    styles={{ item: { color: '#fff', fontSize: 12, background: activeShipTab === tab.id ? '#393C56' : 'transparent' }, itemLabel: { color: '#fff' } }}
+                  >
+                    {tab.name}
+                  </Menu.Item>
+                ))}
+              </>
+            )}
+          </Menu.Dropdown>
+        </Menu>
       </Box>
 
       {activeShip && loading && (

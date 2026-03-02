@@ -170,6 +170,16 @@
   min-width: 500px;
 }
 
+/* ===== Tab scroll (hide scrollbar) ===== */
+.tab-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* ===== DatePicker dark theme overrides ===== */
 .datepicker-dark button[data-today] {
   border-color: #0094ff;

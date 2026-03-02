@@ -63,6 +63,12 @@ export function ShipProvider({ children }) {
     })
   }, [activeShipTab])
 
+  const closeAllTabs = useCallback(() => {
+    setShipTabs([])
+    setActiveShipTab(null)
+    setDetailPanelOpen(false)
+  }, [])
+
   return (
     <ShipContext.Provider
       value={{
@@ -72,6 +78,7 @@ export function ShipProvider({ children }) {
         openShipTab,
         openStsTab,
         closeShipTab,
+        closeAllTabs,
         detailPanelOpen,
         setDetailPanelOpen,
         selectedDetectionId,
