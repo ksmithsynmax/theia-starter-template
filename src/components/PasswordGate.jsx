@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Box, PasswordInput, Button, Text } from '@mantine/core'
 
-const PASSWORD = 'TheiaProductTesting'
+const PASSWORD = import.meta.env.VITE_APP_PASSWORD
 
 export default function PasswordGate({ children }) {
   const [authenticated, setAuthenticated] = useState(
