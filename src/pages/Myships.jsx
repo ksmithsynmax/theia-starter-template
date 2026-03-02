@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Box, Text, Title } from '@mantine/core'
+import { Box, Text, Title, Loader } from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
 import flagImg from '../assets/flag.png'
 import { File02, Star01, Copy02, XClose } from '@untitledui/icons'
@@ -28,6 +28,8 @@ function Myships() {
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
   const [activeStsShip, setActiveStsShip] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
 
@@ -41,6 +43,17 @@ function Myships() {
       [activeShipTab]: { ...prev[activeShipTab], selectedCard: prev[activeShipTab]?.selectedCard ?? null, activeDetailTab: prev[activeShipTab]?.activeDetailTab ?? 0, [key]: value },
     }))
   }
+
+  useEffect(() => {
+    if (!activeShipTab) return
+    if (loadedTabsRef.current.has(activeShipTab)) return
+    setLoading(true)
+    const timer = setTimeout(() => {
+      loadedTabsRef.current.add(activeShipTab)
+      setLoading(false)
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [activeShipTab])
 
   useEffect(() => {
     if (selectedDetectionId != null) {
@@ -169,7 +182,13 @@ function Myships() {
         </Box>
       </Box>
 
-      {activeShip && (
+      {activeShip && loading && (
+        <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+          <Loader color="#fff" size="md" />
+        </Box>
+      )}
+
+      {activeShip && !loading && (
         <Box style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {isStsTab && (() => {
             const [sid1, sid2] = activeTab.shipIds
