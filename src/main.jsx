@@ -6,11 +6,14 @@ import { MantineProvider } from '@mantine/core';
 
 import './index.css'
 import App from './App.jsx'
+import PasswordGate from './components/PasswordGate.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <MantineProvider>
-      <App />
+      <PasswordGate>
+        <App />
+      </PasswordGate>
     </MantineProvider>
   </StrictMode>,
 )
