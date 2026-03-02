@@ -60,7 +60,6 @@ function Myships() {
         ? selectedDetectionId
         : shipDetections[0]?.id
       if (targetId) {
-        setFlashEnabled(true)
         updateTabState('selectedCard', targetId)
         if (selectedDetectionId) setSelectedDetectionId(null)
       }
@@ -71,7 +70,6 @@ function Myships() {
   useEffect(() => {
     if (selectedDetectionId != null) {
       updateTabState('selectedCard', selectedDetectionId)
-      setFlashEnabled(true)
       setSelectedDetectionId(null)
     }
   }, [selectedDetectionId, setSelectedDetectionId])
