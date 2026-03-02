@@ -13,7 +13,15 @@ const formatEta = (raw) => {
   if (!raw || raw === 'No info') return 'No info'
   try {
     const d = new Date(raw.replace(' UTC', 'Z'))
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+    return (
+      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+      ', ' +
+      d.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+    )
   } catch {
     return raw
   }
@@ -277,9 +285,16 @@ const EventTimelineCard = ({
                   keyName="Destination"
                   value={aisInfo.destination || 'No info'}
                 />
-                <Tooltip label={aisInfo.eta || 'No info'} position="top" withArrow>
+                <Tooltip
+                  label={aisInfo.eta || 'No info'}
+                  position="top"
+                  withArrow
+                >
                   <Box>
-                    <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
+                    <KeyValuePair
+                      keyName="ETA"
+                      value={formatEta(aisInfo.eta)}
+                    />
                   </Box>
                 </Tooltip>
               </Box>
@@ -395,9 +410,16 @@ const EventTimelineCard = ({
                   keyName="Destination"
                   value={aisInfo.destination || 'No info'}
                 />
-                <Tooltip label={aisInfo.eta || 'No info'} position="top" withArrow>
+                <Tooltip
+                  label={aisInfo.eta || 'No info'}
+                  position="top"
+                  withArrow
+                >
                   <Box>
-                    <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
+                    <KeyValuePair
+                      keyName="ETA"
+                      value={formatEta(aisInfo.eta)}
+                    />
                   </Box>
                 </Tooltip>
               </Box>
@@ -432,45 +454,28 @@ const EventTimelineCard = ({
               <Text
                 style={{
                   color: '#fff',
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: 600,
-                  marginBottom: 12,
-                  textAlign: 'center',
+                  marginBottom: 8,
                 }}
               >
-                View Ships Involved in Ship-to-Ship Event
+                Warning
               </Text>
               <Text
                 style={{
                   color: '#898f9d',
                   fontSize: 13,
-                  marginBottom: 16,
-                }}
-              >
-                This will open a new tab that contains all the ships involved in
-                this ship-to-ship event, would you like to proceed?
-              </Text>
-              <Box
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
                   marginBottom: 20,
                 }}
               >
-                <Box
-                  style={{
-                    width: 16,
-                    height: 16,
-                    border: '1px solid #393C56',
-                    borderRadius: 2,
-                    flexShrink: 0,
-                  }}
-                />
-                <Text style={{ color: '#898f9d', fontSize: 13 }}>
-                  Don't show this again
-                </Text>
-              </Box>
+                This will update the map and ship positions to{' '}
+                <b>
+                  <span style={{ color: '#fff' }}>
+                    {date?.replace(/\s\d{2}:\d{2}$/, '')}
+                  </span>
+                </b>
+                {' '}and open the Ship-to-Ship tab. You can return to today's view using the calendar in the header.
+              </Text>
               <Box
                 style={{
                   display: 'flex',
@@ -492,6 +497,7 @@ const EventTimelineCard = ({
                 <Button
                   onClick={() => {
                     setStsModalOpen(false)
+                    onSelect?.()
                     onViewStsShips?.()
                   }}
                   style={{
@@ -581,7 +587,7 @@ const EventTimelineCard = ({
         <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button
             size="xs"
-            onClick={() => selected ? onSelect?.() : setSelectModalOpen(true)}
+            onClick={() => (selected ? onSelect?.() : setSelectModalOpen(true))}
             leftSection={
               selected ? <Check style={{ width: 14, height: 14 }} /> : null
             }
@@ -742,7 +748,11 @@ const EventTimelineCard = ({
                 keyName="Destination"
                 value={aisInfo.destination || 'No info'}
               />
-              <Tooltip label={aisInfo.eta || 'No info'} position="top" withArrow>
+              <Tooltip
+                label={aisInfo.eta || 'No info'}
+                position="top"
+                withArrow
+              >
                 <Box>
                   <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
                 </Box>
@@ -793,7 +803,13 @@ const EventTimelineCard = ({
                 marginBottom: 20,
               }}
             >
-              This will update the map and ship positions to {date?.replace(/\s\d{2}:\d{2}$/, '')}. You can return to today's view using the calendar in the header.
+              This will update the map and ship positions to{' '}
+              <b>
+                <span style={{ color: '#fff' }}>
+                  {date?.replace(/\s\d{2}:\d{2}$/, '')}
+                </span>
+              </b>
+              . You can return to today's view using the calendar in the header.
             </Text>
             <Box
               style={{
