@@ -28,19 +28,32 @@ const eventColorMap = {
   'sts-ais': '#00EB6C',
 }
 
+const stsLightTwoBar = (
+  <Box style={{ display: 'flex', alignItems: 'stretch', gap: 2 }}>
+    <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.light }} />
+    <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.unattributed }} />
+  </Box>
+)
+const stsAisTwoBar = (
+  <Box style={{ display: 'flex', alignItems: 'stretch', gap: 2 }}>
+    <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.ais }} />
+    <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.light }} />
+  </Box>
+)
+
 const eventIconMap = {
   ais: <AisIcon style={{ height: 14 }} />,
   light: <LightShipIcon style={{ height: 14 }} />,
   dark: <DarkShipIcon style={{ height: 14 }} />,
   spoofing: <SpoofingIcon style={{ height: 14 }} />,
-  sts: <STSIcon style={{ height: 14 }} />,
-  'sts-ais': <STSAisIcon style={{ height: 14 }} />,
+  sts: stsLightTwoBar,
+  'sts-ais': stsAisTwoBar,
   unattributed: <UnattributedIcon style={{ height: 14 }} />,
 }
 
 const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLatest, flashEnabled, unattributed }) => {
   const eventType = selectedEvent?.type
-  const flashColor = eventColorMap[eventType] || null
+  const flashColor = unattributed ? eventColorMap.unattributed : (eventColorMap[eventType] || null)
   const dateDisplay = selectedEvent
     ? `${selectedEvent.date}${isLatest ? ' (Latest)' : ''}`
     : 'No event selected'
@@ -113,7 +126,7 @@ const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLates
               <Text style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                 {dateDisplay}
               </Text>
-              {eventType && eventIconMap[eventType]}
+              {(unattributed ? eventIconMap.unattributed : eventType && eventIconMap[eventType])}
               {eventLabel && (
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>
                   {eventLabel}

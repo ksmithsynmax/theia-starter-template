@@ -47,7 +47,7 @@ export const ships = {
     imo: '9456123',
     mmsi: '256789012',
     shipId: 'a3b2c1d0-e5f4-6789-abcd-0123456789ef',
-    latestEvent: 'Dark',
+    latestEvent: 'Light',
     shipType: 'Bulk Carrier',
     aisInfo: {
       latitude: '17.432901',
@@ -176,7 +176,7 @@ export const detections = [
   { id: 6, shipId: 'invictus', type: 'dark', lng: 57.0, lat: 12.0, date: ago(4, 8, 12) },
 
   // --- Tiffani (6 detections) ---
-  { id: 7, shipId: 'tiffani', type: 'dark', lng: 60.0, lat: 19.5, date: ago(0, 11, 20) },
+  { id: 7, shipId: 'tiffani', type: 'light', lng: 60.0, lat: 19.5, date: ago(0, 11, 20) },
   { id: 8, shipId: 'tiffani', type: 'dark', lng: 66.0, lat: 15.0, date: ago(1, 16, 30) },
   { id: 10, shipId: 'tiffani', type: 'spoofing', lng: 67.0, lat: 12.5, date: ago(3, 9, 45) },
   { id: 11, shipId: 'tiffani', type: 'sts-ais', stsPartner: 'celestine', lng: 62.0, lat: 16.0, date: ago(4, 14, 0) },
@@ -191,7 +191,7 @@ export const detections = [
   { id: 19, shipId: 'celestine', type: 'sts-ais', stsPartner: 'tiffani', lng: 70.0, lat: 9.0, date: ago(5, 15, 45) },
 
   // --- Meridian Star (5 detections) ---
-  { id: 20, shipId: 'meridian-star', type: 'light', lng: 54.0, lat: 15.0, date: ago(0, 7, 10) },
+  { id: 20, shipId: 'meridian-star', type: 'ais', lng: 54.0, lat: 15.0, date: ago(0, 7, 10) },
   { id: 21, shipId: 'meridian-star', type: 'spoofing', lng: 55.0, lat: 14.0, date: ago(1, 19, 25) },
   { id: 23, shipId: 'meridian-star', type: 'sts', stsPartner: 'invictus', lng: 53.0, lat: 7.0, date: ago(3, 20, 40) },
   { id: 24, shipId: 'meridian-star', type: 'sts-ais', stsPartner: 'wisdom-star', lng: 55.0, lat: 11.0, date: ago(4, 5, 55) },

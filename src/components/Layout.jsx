@@ -70,8 +70,9 @@ function Layout() {
                 style={{
                   position: 'absolute',
                   right: 0,
-                  top: 37,
+                  top: 71,
                   cursor: 'pointer',
+                  pointerEvents: 'auto',
                 }}
               >
                 <CollapseButton />

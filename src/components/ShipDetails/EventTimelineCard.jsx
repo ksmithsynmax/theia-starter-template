@@ -40,7 +40,9 @@ const EventTimelineCard = ({
   newFlag,
   previousFlag,
   selected,
+  isLatest,
   onSelect,
+  onSwitchToLatest,
   onViewStsShips,
   aisInfo = {},
   partnerAisInfo,
@@ -51,6 +53,7 @@ const EventTimelineCard = ({
   const [expanded, setExpanded] = useState(false)
   const [stsModalOpen, setStsModalOpen] = useState(false)
   const [selectModalOpen, setSelectModalOpen] = useState(false)
+  const [switchToLatestModalOpen, setSwitchToLatestModalOpen] = useState(false)
   const [dontShowChecked, setDontShowChecked] = useState(false)
   const cardRef = useRef(null)
 
@@ -197,8 +200,7 @@ const EventTimelineCard = ({
                 { label: shipName || 'Ship A', info: aisInfo, img: stsSatImage },
                 { label: partnerName || 'Ship B', info: partnerAisInfo || aisInfo, img: stsSatImage2 },
               ].map((ship, idx) => (
-                <Box key={idx}>
-                  {idx > 0 && <Box style={{ height: 1, backgroundColor: '#393C56', margin: '12px 0' }} />}
+                <Box key={idx} style={idx > 0 ? { marginTop: 24 } : undefined}>
                   <Box
                     style={{
                       display: 'flex',
@@ -460,6 +462,8 @@ const EventTimelineCard = ({
             onClick={() => {
               if (selected) {
                 onSelect?.()
+              } else if (isLatest) {
+                setSwitchToLatestModalOpen(true)
               } else if (modalSuppressed()) {
                 onSelect?.()
               } else {
@@ -747,6 +751,103 @@ const EventTimelineCard = ({
           </Box>
         </Box>
       )}
+
+      {switchToLatestModalOpen && (
+        <Box
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setSwitchToLatestModalOpen(false)}
+        >
+          <Box
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#1B1D2E',
+              border: '1px solid #393C56',
+              borderRadius: 8,
+              padding: 24,
+              width: 420,
+              maxWidth: '90vw',
+            }}
+          >
+            <Text
+              style={{
+                color: '#fff',
+                fontSize: 16,
+                fontWeight: 700,
+                marginBottom: 8,
+              }}
+            >
+              Switch to Latest Event?
+            </Text>
+            <Text
+              style={{
+                color: '#898f9d',
+                fontSize: 13,
+                lineHeight: 1.5,
+                marginBottom: 24,
+              }}
+            >
+              You are currently viewing a historical detection. Switching will update the map and timeline to show the most recent event for this ship.
+            </Text>
+            <Box
+              style={{
+                display: 'flex',
+                gap: 12,
+                justifyContent: 'flex-end',
+              }}
+            >
+              <Button
+                variant="subtle"
+                onClick={() => setSwitchToLatestModalOpen(false)}
+                styles={{
+                  root: {
+                    color: '#898f9d',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    border: '1px solid #393C56',
+                    borderRadius: 4,
+                    '&:hover': { background: '#24263C' },
+                  },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setSwitchToLatestModalOpen(false)
+                  if (onSwitchToLatest) {
+                    onSwitchToLatest()
+                  } else {
+                    onSelect?.()
+                  }
+                }}
+                styles={{
+                  root: {
+                    fontSize: 13,
+                    fontWeight: 600,
+                    padding: '8px 16px',
+                    background: '#0094FF',
+                    borderRadius: 4,
+                    '&:hover': { background: '#0080DD' },
+                  },
+                }}
+              >
+                Switch to Latest
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+      )}
+
     </Box>
   )
 }

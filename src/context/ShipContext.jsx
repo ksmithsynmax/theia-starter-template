@@ -37,13 +37,11 @@ export function ShipProvider({ children }) {
     const stsTabId = `sts-${shipId}-${partnerShipId}`
     const existing = shipTabs.find((t) => t.id === stsTabId)
     if (existing) {
-      // Remove individual ship tabs for both ships
-      setShipTabs((prev) => prev.filter((t) => t.id !== shipId && t.id !== partnerShipId))
       setActiveShipTab(stsTabId)
     } else {
-      // Remove individual ship tabs and add the STS tab
+      // Add STS tab but keep existing ship tabs so user can switch back
       setShipTabs((prev) => [
-        ...prev.filter((t) => t.id !== shipId && t.id !== partnerShipId),
+        ...prev,
         { id: stsTabId, name: 'Ship-to-Ship', type: 'sts', stsType: detectionType, shipIds: [shipId, partnerShipId] },
       ])
       setActiveShipTab(stsTabId)
