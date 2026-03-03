@@ -29,7 +29,7 @@ export function ShipProvider({ children }) {
     }
   }, [shipTabs])
 
-  const openStsTab = useCallback((shipId, partnerShipId, detectionType = 'sts') => {
+  const openStsTab = useCallback((shipId, partnerShipId, detectionType = 'sts', detectionId = null) => {
     const ship = ships[shipId]
     const partner = ships[partnerShipId]
     if (!ship || !partner) return
@@ -48,6 +48,7 @@ export function ShipProvider({ children }) {
       ])
       setActiveShipTab(stsTabId)
     }
+    if (detectionId) setSelectedDetectionId(detectionId)
   }, [shipTabs])
 
   const closeShipTab = useCallback((id) => {

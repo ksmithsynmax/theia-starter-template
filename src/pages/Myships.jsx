@@ -23,7 +23,7 @@ const detailTabs = [
 ]
 
 function Myships() {
-  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab, closeAllTabs, openStsTab, selectedDetectionId, setSelectedDetectionId, setMapDate, setActiveDetectionId } = useShipContext()
+  const { shipTabs, activeShipTab, setActiveShipTab, closeShipTab, closeAllTabs, openStsTab, selectedDetectionId, setSelectedDetectionId, mapDate, setMapDate, setActiveDetectionId } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
   const [activeStsShip, setActiveStsShip] = useState(0)
@@ -34,6 +34,7 @@ function Myships() {
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
   const tabScrollRef = useRef(null)
+  const prevMapDateRef = useRef(mapDate)
 
   const updateOverflow = useCallback(() => {
     const el = tabScrollRef.current
@@ -54,6 +55,24 @@ function Myships() {
       ro.disconnect()
     }
   }, [updateOverflow, shipTabs])
+
+  useEffect(() => {
+    if (mapDate === prevMapDateRef.current) return
+    prevMapDateRef.current = mapDate
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    if (mapDate === todayStr && activeShipTab) {
+      const tab = shipTabs.find((t) => t.id === activeShipTab)
+      const shipId = tab?.type === 'sts' ? tab.shipIds[0] : activeShipTab
+      const latest = detections.filter((d) => d.shipId === shipId).sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+      setFlashEnabled(true)
+      setActiveDetectionId(null)
+      setTabState((prev) => ({
+        ...prev,
+        [activeShipTab]: { ...prev[activeShipTab], selectedCard: latest?.id ?? null },
+      }))
+    }
+  }, [mapDate, activeShipTab, setActiveDetectionId])
 
   const currentTabState = tabState[activeShipTab] || { selectedCard: null, activeDetailTab: 0 }
   const selectedCard = currentTabState.selectedCard
@@ -122,7 +141,8 @@ function Myships() {
     : []
 
   const latestDetection = activeShipDetections[0] || null
-  const isUnattributed = activeShip?.synMaxInfo != null
+  const isStsUnattributed = isStsTab && activeTab?.stsType === 'sts' && activeStsShip === 1
+  const isUnattributed = activeShip?.synMaxInfo != null || isStsUnattributed
   const selectedDetection = selectedCard
     ? activeShipDetections.find((d) => d.id === selectedCard) || latestDetection
     : latestDetection
@@ -149,8 +169,8 @@ function Myships() {
 
   const derivedLatestEvent = latestDetection ? (
     <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      {eventIconMap[latestDetection.type]}
-      {eventLabel[latestDetection.type] || latestDetection.type}
+      {isStsUnattributed ? eventIconMap['unattributed'] : eventIconMap[latestDetection.type]}
+      {isStsUnattributed ? 'Unattributed' : (eventLabel[latestDetection.type] || latestDetection.type)}
     </Box>
   ) : null
   const isLatest = !selectedCard || selectedDetection?.id === latestDetection?.id
@@ -458,7 +478,7 @@ function Myships() {
                 eventLabel={eventLabel[selectedDetection?.type] || ''}
                 onSwitchToLatest={() => {
                   setFlashEnabled(true)
-                  updateTabState('selectedCard', null)
+                  updateTabState('selectedCard', latestDetection?.id ?? null)
                   setActiveDetectionId(null)
                   const today = new Date()
                   setMapDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`)
@@ -469,14 +489,35 @@ function Myships() {
           </Box>
           {isUnattributed ? (
             <Box style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+              <ShipDetailsPanel
+                selectedEvent={selectedDetection}
+                isLatest
+                eventLabel={isStsUnattributed ? 'Unattributed' : (eventLabel[latestDetection?.type] || '')}
+                onSwitchToLatest={() => {}}
+                flashEnabled={false}
+                unattributed
+              />
+              <Box style={{ marginTop: 8 }} />
               <EventTimelineCard
                 date={latestDetection?.date}
-                event={eventLabel[latestDetection?.type] || latestDetection?.type}
+                event={isStsUnattributed ? 'Unattributed' : (eventLabel[latestDetection?.type] || latestDetection?.type)}
                 icon={<UnattributedIcon style={{ height: 14 }} />}
                 selected
                 onSelect={() => {}}
                 aisInfo={{}}
-                synMaxInfo={activeShip.synMaxInfo}
+                synMaxInfo={activeShip.synMaxInfo || (isStsUnattributed ? {
+                  objectId: 'N/A',
+                  imageCapturedTime: latestDetection?.date || 'No info',
+                  imageSource: 'Planet Scope',
+                  status: 'Preview',
+                  latitude: activeShip.aisInfo?.latitude || 'No info',
+                  longitude: activeShip.aisInfo?.longitude || 'No info',
+                  heading: activeShip.aisInfo?.heading || 'No info',
+                  shipLength: activeShip.aisInfo?.length || 'No info',
+                  shipWidth: activeShip.aisInfo?.width || 'No info',
+                  shipType: activeShip.aisInfo?.shipType || 'No info',
+                  shipSubtype: 'Unassigned',
+                } : undefined)}
               />
             </Box>
           ) : (
@@ -556,8 +597,11 @@ function Myships() {
                                 setActiveDetectionId(null)
                               }
                             }}
-                            onViewStsShips={det.stsPartner ? () => openStsTab(det.shipId, det.stsPartner, det.type) : undefined}
+                            onViewStsShips={det.stsPartner ? () => openStsTab(det.shipId, det.stsPartner, det.type, det.id) : undefined}
                             aisInfo={activeShip.aisInfo}
+                            partnerAisInfo={det.stsPartner ? ships[det.stsPartner]?.aisInfo : undefined}
+                            shipName={activeShip.name}
+                            partnerName={det.stsPartner ? ships[det.stsPartner]?.name : undefined}
                             synMaxInfo={activeShip.synMaxInfo}
                           />
                         </Box>

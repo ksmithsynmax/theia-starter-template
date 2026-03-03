@@ -198,12 +198,12 @@ export const detections = [
   { id: 25, shipId: 'meridian-star', type: 'dark', lng: 64.0, lat: 20.5, date: ago(5, 10, 10) },
 
   // --- Wisdom Star (5 detections) ---
-  { id: 27, shipId: 'wisdom-star', type: 'light', lng: 60.2, lat: 23.5, date: ago(0, 6, 45) },
-  { id: 28, shipId: 'wisdom-star', type: 'ais', lng: 57.0, lat: 22.0, date: ago(1, 14, 20) },
-  { id: 29, shipId: 'wisdom-star', type: 'dark', lng: 56.5, lat: 20.5, date: ago(2, 9, 30) },
+  { id: 27, shipId: 'wisdom-star', type: 'light', lng: 61.5, lat: 23.5, date: ago(0, 6, 45) },
+  { id: 28, shipId: 'wisdom-star', type: 'ais', lng: 61.0, lat: 22.0, date: ago(1, 14, 20) },
+  { id: 29, shipId: 'wisdom-star', type: 'dark', lng: 60.0, lat: 20.5, date: ago(2, 9, 30) },
   { id: 30, shipId: 'wisdom-star', type: 'sts-ais', stsPartner: 'meridian-star', lng: 55.0, lat: 11.0, date: ago(4, 5, 55) },
-  { id: 31, shipId: 'wisdom-star', type: 'ais', lng: 59.0, lat: 24.5, date: ago(5, 11, 15) },
+  { id: 31, shipId: 'wisdom-star', type: 'ais', lng: 60.5, lat: 24.5, date: ago(5, 11, 15) },
 
   // --- Unknown (1 detection) ---
-  { id: 26, shipId: 'unknown', type: 'unattributed', lng: 58.8, lat: 24.1, date: ago(0, 9, 3) },
+  { id: 26, shipId: 'unknown', type: 'unattributed', lng: 60.0, lat: 24.1, date: ago(0, 9, 3) },
 ]

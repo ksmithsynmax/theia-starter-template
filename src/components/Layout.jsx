@@ -19,7 +19,7 @@ function Layout() {
         (detection.type === 'sts' || detection.type === 'sts-ais') &&
         detection.stsPartner
       ) {
-        openStsTab(detection.shipId, detection.stsPartner, detection.type)
+        openStsTab(detection.shipId, detection.stsPartner, detection.type, detection.id)
       } else {
         openShipTab(detection)
       }

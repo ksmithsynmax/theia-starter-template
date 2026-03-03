@@ -43,6 +43,9 @@ const EventTimelineCard = ({
   onSelect,
   onViewStsShips,
   aisInfo = {},
+  partnerAisInfo,
+  shipName,
+  partnerName,
   synMaxInfo,
 }) => {
   const [expanded, setExpanded] = useState(false)
@@ -61,6 +64,8 @@ const EventTimelineCard = ({
         cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 300)
       return () => clearTimeout(timer)
+    } else {
+      setExpanded(false)
     }
   }, [selected])
 
@@ -188,254 +193,94 @@ const EventTimelineCard = ({
         >
           <Box style={{ overflow: 'hidden' }}>
             <Box style={{ padding: '0 12px 12px' }}>
-              <Box
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: '#fff',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  AIS derived info
-                </Text>
-                <InfoCircle
-                  style={{ color: '#898f9d', width: 14, height: 14 }}
-                />
-                <Box
-                  style={{
-                    flex: 1,
-                    height: 1,
-                    backgroundColor: '#393C56',
-                  }}
-                />
-              </Box>
-
-              <Box style={{ display: 'flex', gap: 12 }}>
-                <img
-                  src={stsSatImage}
-                  alt="Ship-to-ship satellite imagery"
-                  style={{
-                    width: 180,
-                    height: 206,
-                    borderRadius: 4,
-                    objectFit: 'cover',
-                    flexShrink: 0,
-                  }}
-                />
-
-                <Box
-                  style={{
-                    flex: 1,
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '12px 16px',
-                  }}
-                >
-                  <KeyValuePair
-                    keyName="Latitude"
-                    value={aisInfo.latitude || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Longitude"
-                    value={aisInfo.longitude || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Width"
-                    value={aisInfo.width || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Length"
-                    value={aisInfo.length || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Ship Type"
-                    value={aisInfo.shipType || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Build Year"
-                    value={aisInfo.buildYear || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Heading"
-                    value={aisInfo.heading || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Draft"
-                    value={aisInfo.draft || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Avg. Speed"
-                    value={aisInfo.avgSpeed || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Max Speed"
-                    value={aisInfo.maxSpeed || 'No info'}
-                  />
-                </Box>
-              </Box>
-
-              <Box
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '180px 1fr 1fr',
-                  gap: '0 12px',
-                  marginTop: 12,
-                }}
-              >
-                <KeyValuePair
-                  keyName="Latest Speed"
-                  value={aisInfo.latestSpeed || 'No info'}
-                />
-                <KeyValuePair
-                  keyName="Destination"
-                  value={aisInfo.destination || 'No info'}
-                />
-                <Tooltip
-                  label={aisInfo.eta || 'No info'}
-                  position="top"
-                  withArrow
-                >
-                  <Box>
-                    <KeyValuePair
-                      keyName="ETA"
-                      value={formatEta(aisInfo.eta)}
+              {[
+                { label: shipName || 'Ship A', info: aisInfo, img: stsSatImage },
+                { label: partnerName || 'Ship B', info: partnerAisInfo || aisInfo, img: stsSatImage2 },
+              ].map((ship, idx) => (
+                <Box key={idx}>
+                  {idx > 0 && <Box style={{ height: 1, backgroundColor: '#393C56', margin: '12px 0' }} />}
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#fff',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {ship.label} — AIS derived info
+                    </Text>
+                    <InfoCircle
+                      style={{ color: '#898f9d', width: 14, height: 14 }}
+                    />
+                    <Box
+                      style={{
+                        flex: 1,
+                        height: 1,
+                        backgroundColor: '#393C56',
+                      }}
                     />
                   </Box>
-                </Tooltip>
-              </Box>
 
-              <Box
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginTop: 12,
-                  marginBottom: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: '#fff',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  AIS derived info
-                </Text>
-                <InfoCircle
-                  style={{ color: '#898f9d', width: 14, height: 14 }}
-                />
-                <Box
-                  style={{
-                    flex: 1,
-                    height: 1,
-                    backgroundColor: '#393C56',
-                  }}
-                />
-              </Box>
-
-              <Box style={{ display: 'flex', gap: 12 }}>
-                <img
-                  src={stsSatImage2}
-                  alt="Ship-to-ship satellite imagery"
-                  style={{
-                    width: 180,
-                    height: 206,
-                    borderRadius: 4,
-                    objectFit: 'cover',
-                    flexShrink: 0,
-                  }}
-                />
-
-                <Box
-                  style={{
-                    flex: 1,
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '12px 16px',
-                  }}
-                >
-                  <KeyValuePair
-                    keyName="Latitude"
-                    value={aisInfo.latitude || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Longitude"
-                    value={aisInfo.longitude || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Width"
-                    value={aisInfo.width || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Length"
-                    value={aisInfo.length || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Ship Type"
-                    value={aisInfo.shipType || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Build Year"
-                    value={aisInfo.buildYear || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Heading"
-                    value={aisInfo.heading || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Draft"
-                    value={aisInfo.draft || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Avg. Speed"
-                    value={aisInfo.avgSpeed || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="Max Speed"
-                    value={aisInfo.maxSpeed || 'No info'}
-                  />
-                </Box>
-              </Box>
-
-              <Box
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '180px 1fr 1fr',
-                  gap: '0 12px',
-                  marginTop: 12,
-                }}
-              >
-                <KeyValuePair
-                  keyName="Latest Speed"
-                  value={aisInfo.latestSpeed || 'No info'}
-                />
-                <KeyValuePair
-                  keyName="Destination"
-                  value={aisInfo.destination || 'No info'}
-                />
-                <Tooltip
-                  label={aisInfo.eta || 'No info'}
-                  position="top"
-                  withArrow
-                >
-                  <Box>
-                    <KeyValuePair
-                      keyName="ETA"
-                      value={formatEta(aisInfo.eta)}
+                  <Box style={{ display: 'flex', gap: 12 }}>
+                    <img
+                      src={ship.img}
+                      alt="Ship-to-ship satellite imagery"
+                      style={{
+                        width: 180,
+                        height: 206,
+                        borderRadius: 4,
+                        objectFit: 'cover',
+                        flexShrink: 0,
+                      }}
                     />
+
+                    <Box
+                      style={{
+                        flex: 1,
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '12px 16px',
+                      }}
+                    >
+                      <KeyValuePair keyName="Latitude" value={ship.info.latitude || 'No info'} />
+                      <KeyValuePair keyName="Longitude" value={ship.info.longitude || 'No info'} />
+                      <KeyValuePair keyName="Width" value={ship.info.width || 'No info'} />
+                      <KeyValuePair keyName="Length" value={ship.info.length || 'No info'} />
+                      <KeyValuePair keyName="Ship Type" value={ship.info.shipType || 'No info'} />
+                      <KeyValuePair keyName="Build Year" value={ship.info.buildYear || 'No info'} />
+                      <KeyValuePair keyName="Heading" value={ship.info.heading || 'No info'} />
+                      <KeyValuePair keyName="Draft" value={ship.info.draft || 'No info'} />
+                      <KeyValuePair keyName="Avg. Speed" value={ship.info.avgSpeed || 'No info'} />
+                      <KeyValuePair keyName="Max Speed" value={ship.info.maxSpeed || 'No info'} />
+                    </Box>
                   </Box>
-                </Tooltip>
-              </Box>
+
+                  <Box
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '180px 1fr 1fr',
+                      gap: '0 12px',
+                      marginTop: 12,
+                    }}
+                  >
+                    <KeyValuePair keyName="Latest Speed" value={ship.info.latestSpeed || 'No info'} />
+                    <KeyValuePair keyName="Destination" value={ship.info.destination || 'No info'} />
+                    <Tooltip label={ship.info.eta || 'No info'} position="top" withArrow>
+                      <Box>
+                        <KeyValuePair keyName="ETA" value={formatEta(ship.info.eta)} />
+                      </Box>
+                    </Tooltip>
+                  </Box>
+                </Box>
+              ))}
             </Box>
           </Box>
         </Box>

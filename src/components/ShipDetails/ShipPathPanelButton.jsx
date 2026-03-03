@@ -1,14 +1,17 @@
 import { Box, Text } from '@mantine/core'
 
-const ShipPathPanelButton = ({ icon, label }) => {
+const ShipPathPanelButton = ({ icon, label, disabled }) => {
   return (
     <Box
       style={{
         flex: 1,
         borderRadius: 6,
         padding: 2,
-        background: 'linear-gradient(180deg, rgba(0, 148, 255, 0.35) 0%, rgba(13, 51, 92, 0.2) 100%)',
-        cursor: 'pointer',
+        background: disabled
+          ? 'rgba(57, 60, 86, 0.4)'
+          : 'linear-gradient(180deg, rgba(0, 148, 255, 0.35) 0%, rgba(13, 51, 92, 0.2) 100%)',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
       }}
     >
       <Box
@@ -21,8 +24,9 @@ const ShipPathPanelButton = ({ icon, label }) => {
           padding: 12,
           borderRadius: 4,
           height: 72,
-          background:
-            'linear-gradient(180deg, #0D335C 0%, #0870B8 100%)',
+          background: disabled
+            ? '#1B1D2E'
+            : 'linear-gradient(180deg, #0D335C 0%, #0870B8 100%)',
         }}
       >
         <Box

@@ -18,19 +18,19 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/myships" replace />} />
-          <Route path="myships" element={<Myships />} />
-          <Route path="ports" element={<Ports />} />
-          <Route path="alerts" element={<Alerts />} />
-          <Route path="events" element={<Events />} />
-          <Route path="tip-cue" element={<TipCue />} />
-          <Route path="similarsearch" element={<SimilarSearch />} />
-          <Route path="osint" element={<Osint />} />
-          <Route path="webcams" element={<Webcams />} />
-          <Route path="polygons" element={<Polygons />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+            <Route index element={<Navigate to="/myships" replace />} />
+            <Route path="myships" element={<Myships />} />
+            <Route path="ports" element={<Ports />} />
+            <Route path="alerts" element={<Alerts />} />
+            <Route path="events" element={<Events />} />
+            <Route path="tip-cue" element={<TipCue />} />
+            <Route path="similarsearch" element={<SimilarSearch />} />
+            <Route path="osint" element={<Osint />} />
+            <Route path="webcams" element={<Webcams />} />
+            <Route path="polygons" element={<Polygons />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
     </ShipProvider>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Box, Text, Checkbox, Radio, Group } from '@mantine/core'
+import { Box, Text, Checkbox, Radio, Group, Modal, Button, Loader } from '@mantine/core'
 import { ChevronUp, ChevronDown } from '@untitledui/icons'
 import ShipPathPanelButton from './ShipPathPanelButton'
 import ViewExtendedPathIcon from '../../custom-icons/ViewExtendedPathIcon'
@@ -38,7 +38,7 @@ const eventIconMap = {
   unattributed: <UnattributedIcon style={{ height: 14 }} />,
 }
 
-const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLatest, flashEnabled }) => {
+const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLatest, flashEnabled, unattributed }) => {
   const eventType = selectedEvent?.type
   const flashColor = eventColorMap[eventType] || null
   const dateDisplay = selectedEvent
@@ -47,6 +47,8 @@ const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLates
 
   const [flashing, setFlashing] = useState(false)
   const [toolsVisible, setToolsVisible] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [switching, setSwitching] = useState(false)
   const prevEventRef = useRef(selectedEvent?.id)
 
   useEffect(() => {
@@ -94,7 +96,7 @@ const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLates
                 <>
                   <Text style={{ color: '#898f9d', fontSize: 11 }}>|</Text>
                   <Text
-                    onClick={onSwitchToLatest}
+                    onClick={() => setModalOpen(true)}
                     style={{
                       color: '#0094FF',
                       fontSize: 11,
@@ -136,42 +138,46 @@ const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLates
           <>
             <Box style={{ height: 1, background: '#393C56' }} />
             <Box style={{ padding: '16px' }}>
-              <Box style={{ display: 'flex', gap: 16 }}>
-                <Checkbox
-                  defaultChecked
-                  label="Show AIS path"
-                  size="xs"
-                  style={{ color: '#fff' }}
-                />
-                <Radio.Group name="favoriteFramework">
-                  <Group>
-                    <Radio
-                      size="xs"
-                      variant="outline"
-                      value="Line"
-                      label="Line"
-                      style={{ color: '#fff' }}
-                    />
-                    <Radio
-                      size="xs"
-                      variant="outline"
-                      value="AisSignal"
-                      label="AIS Signal"
-                      style={{ color: '#fff' }}
-                    />
-                  </Group>
-                </Radio.Group>
-              </Box>
+              {!unattributed && (
+                <Box style={{ display: 'flex', gap: 16 }}>
+                  <Checkbox
+                    defaultChecked
+                    label="Show AIS path"
+                    size="xs"
+                    style={{ color: '#fff' }}
+                  />
+                  <Radio.Group name="favoriteFramework">
+                    <Group>
+                      <Radio
+                        size="xs"
+                        variant="outline"
+                        value="Line"
+                        label="Line"
+                        style={{ color: '#fff' }}
+                      />
+                      <Radio
+                        size="xs"
+                        variant="outline"
+                        value="AisSignal"
+                        label="AIS Signal"
+                        style={{ color: '#fff' }}
+                      />
+                    </Group>
+                  </Radio.Group>
+                </Box>
+              )}
               <Box
-                style={{ display: 'flex', gap: 6, marginBottom: 6, marginTop: 16 }}
+                style={{ display: 'flex', gap: 6, marginBottom: 6, marginTop: unattributed ? 0 : 16 }}
               >
                 <ShipPathPanelButton
                   label="View Extended Path"
                   icon={<ViewExtendedPathIcon />}
+                  disabled={unattributed}
                 />
                 <ShipPathPanelButton
                   label="View Path Playback"
                   icon={<ViewPathPlaybackIcon />}
+                  disabled={unattributed}
                 />
                 <ShipPathPanelButton
                   label="Future Path Prediction"
@@ -180,27 +186,84 @@ const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLates
                 <ShipPathPanelButton
                   label="View Estimated Location"
                   icon={<ViewEstimatedLocationIcon />}
+                  disabled={unattributed}
                 />
               </Box>
               <Box style={{ display: 'flex', gap: 6 }}>
                 <ShipPathPanelButton
                   label="Task Satellite Imagery"
                   icon={<SatelliteIcon />}
+                  disabled={unattributed}
                 />
                 <ShipPathPanelButton
                   label="Search Similar Ship"
                   icon={<SimilarSearchIcon />}
+                  disabled={unattributed}
                 />
-                <ShipPathPanelButton label="Create Ship Alert" icon={<AlertIcon />} />
+                <ShipPathPanelButton label="Create Ship Alert" icon={<AlertIcon />} disabled={unattributed} />
                 <ShipPathPanelButton
                   label="Download Path in XLS"
                   icon={<DownloadPathXLS />}
+                  disabled={unattributed}
                 />
               </Box>
             </Box>
           </>
         )}
       </Box>
+      <Modal
+        opened={modalOpen}
+        onClose={() => { if (!switching) setModalOpen(false) }}
+        withCloseButton={false}
+        centered
+        overlayProps={{ backgroundOpacity: 0.6, blur: 2 }}
+        styles={{
+          content: { background: '#1B1D2E', border: '1px solid #393C56', borderRadius: 8, maxWidth: 400 },
+          body: { padding: 0 },
+        }}
+      >
+        {!switching ? (
+          <Box style={{ padding: 24 }}>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
+              Switch to Latest Event?
+            </Text>
+            <Text style={{ color: '#898f9d', fontSize: 13, lineHeight: 1.5, marginBottom: 24 }}>
+              You are currently viewing a historical detection. Switching will update the map and timeline to show the most recent event for this ship.
+            </Text>
+            <Box style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <Button
+                variant="subtle"
+                onClick={() => setModalOpen(false)}
+                styles={{
+                  root: { color: '#898f9d', fontSize: 13, fontWeight: 600, padding: '8px 16px', background: 'transparent', border: '1px solid #393C56', borderRadius: 4, '&:hover': { background: '#24263C' } },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setSwitching(true)
+                  setTimeout(() => {
+                    onSwitchToLatest()
+                    setSwitching(false)
+                    setModalOpen(false)
+                  }, 1500)
+                }}
+                styles={{
+                  root: { fontSize: 13, fontWeight: 600, padding: '8px 16px', background: '#0094FF', borderRadius: 4, '&:hover': { background: '#0080DD' } },
+                }}
+              >
+                Switch to Latest
+              </Button>
+            </Box>
+          </Box>
+        ) : (
+          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 16 }}>
+            <Loader color="#0094FF" size="md" />
+            <Text style={{ color: '#898f9d', fontSize: 13 }}>Switching to latest event...</Text>
+          </Box>
+        )}
+      </Modal>
     </Box>
   )
 }
