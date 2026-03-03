@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Box } from '@mantine/core'
 import TopNav from './TopNav'
 import LeftNav from './LeftNav'
@@ -11,7 +11,11 @@ function Layout() {
   const [panelOpen, setPanelOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-  const { openShipTab, openStsTab } = useShipContext()
+  const { openShipTab, openStsTab, shipTabs } = useShipContext()
+
+  useEffect(() => {
+    if (shipTabs.length === 0) setPanelOpen(false)
+  }, [shipTabs])
 
   const handleDetectionClick = useCallback(
     (detection) => {

@@ -50,6 +50,7 @@ function Myships() {
   const [loading, setLoading] = useState(false)
   const [overflowLeft, setOverflowLeft] = useState(false)
   const [overflowRight, setOverflowRight] = useState(false)
+  const [menuOpened, setMenuOpened] = useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
@@ -292,7 +293,9 @@ function Myships() {
   const stsHeaderType = isStsTab
     ? activeStsShip === 0
       ? 'light'
-      : activeTab.stsType === 'sts-ais' ? 'ais' : null
+      : activeTab.stsType === 'sts-ais'
+        ? 'ais'
+        : null
     : null
   const headerType = isStsUnattributed
     ? 'unattributed'
@@ -483,7 +486,7 @@ function Myships() {
             />
           </Box>
         )}
-        <Menu position="bottom-end" withinPortal>
+        <Menu position="bottom-end" withinPortal opened={menuOpened} onChange={setMenuOpened}>
           <Menu.Target>
             <Box
               style={{
@@ -516,7 +519,7 @@ function Myships() {
             <Box
               style={{
                 background: '#24263C',
-                padding: '8px 12px',
+                padding: '12px 16px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -525,7 +528,7 @@ function Myships() {
               <Text
                 style={{
                   color: '#898f9d',
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
                   textTransform: 'uppercase',
                 }}
@@ -534,10 +537,10 @@ function Myships() {
               </Text>
               {shipTabs.length > 0 && (
                 <Text
-                  onClick={closeAllTabs}
+                  onClick={() => { setMenuOpened(false); closeAllTabs() }}
                   style={{
                     color: '#F75349',
-                    fontSize: 11,
+                    fontSize: 12,
                     cursor: 'pointer',
                     fontWeight: 600,
                   }}
@@ -564,6 +567,7 @@ function Myships() {
                         item: {
                           color: '#fff',
                           fontSize: 12,
+                          padding: '12px 16px',
                           background:
                             activeShipTab === tab.id
                               ? '#393C56'
@@ -580,7 +584,7 @@ function Myships() {
                         style={{
                           height: 1,
                           background: '#393C56',
-                          margin: '0 12px',
+                          margin: 0,
                         }}
                       />
                     )}
@@ -588,7 +592,7 @@ function Myships() {
                 ))
             ) : (
               <Text
-                style={{ color: '#555', fontSize: 12, padding: '8px 12px' }}
+                style={{ color: '#555', fontSize: 12, padding: '12px 16px' }}
               >
                 No ships open
               </Text>
@@ -599,7 +603,7 @@ function Myships() {
                 <Box
                   style={{
                     background: '#24263C',
-                    padding: '8px 12px',
+                    padding: '12px 16px',
                     marginTop: 0,
                   }}
                 >
@@ -635,6 +639,7 @@ function Myships() {
                           item: {
                             color: '#fff',
                             fontSize: 12,
+                            padding: '12px 16px',
                             background:
                               activeShipTab === tab.id
                                 ? '#393C56'
@@ -651,7 +656,7 @@ function Myships() {
                           style={{
                             height: 1,
                             background: '#393C56',
-                            margin: '0 12px',
+                            margin: 0,
                           }}
                         />
                       )}
@@ -947,15 +952,51 @@ function Myships() {
                   >
                     {activeShipDetections.map((det) => {
                       const stsLightIcon = (
-                        <Box style={{ display: 'flex', alignItems: 'stretch', gap: 2 }}>
-                          <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.light }} />
-                          <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.unattributed }} />
+                        <Box
+                          style={{
+                            display: 'flex',
+                            alignItems: 'stretch',
+                            gap: 2,
+                          }}
+                        >
+                          <Box
+                            style={{
+                              width: 6,
+                              height: 14,
+                              backgroundColor: eventColorMap.light,
+                            }}
+                          />
+                          <Box
+                            style={{
+                              width: 6,
+                              height: 14,
+                              backgroundColor: eventColorMap.unattributed,
+                            }}
+                          />
                         </Box>
                       )
                       const stsAisIcon = (
-                        <Box style={{ display: 'flex', alignItems: 'stretch', gap: 2 }}>
-                          <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.ais }} />
-                          <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.light }} />
+                        <Box
+                          style={{
+                            display: 'flex',
+                            alignItems: 'stretch',
+                            gap: 2,
+                          }}
+                        >
+                          <Box
+                            style={{
+                              width: 6,
+                              height: 14,
+                              backgroundColor: eventColorMap.ais,
+                            }}
+                          />
+                          <Box
+                            style={{
+                              width: 6,
+                              height: 14,
+                              backgroundColor: eventColorMap.light,
+                            }}
+                          />
                         </Box>
                       )
                       const iconMap = {
@@ -993,7 +1034,11 @@ function Myships() {
                               setFlashEnabled(true)
 
                               // On STS tab, selecting a non-STS event navigates to ship tab
-                              if (isStsTab && !isDeselecting && !det.stsPartner) {
+                              if (
+                                isStsTab &&
+                                !isDeselecting &&
+                                !det.stsPartner
+                              ) {
                                 openShipTab(det)
                                 const parsed = new Date(det.date)
                                 setMapDate(
@@ -1006,7 +1051,7 @@ function Myships() {
                               const latestId = activeShipDetections[0]?.id
                               updateTabState(
                                 'selectedCard',
-                                isDeselecting ? latestId ?? det.id : det.id
+                                isDeselecting ? (latestId ?? det.id) : det.id
                               )
                               if (!isDeselecting) {
                                 const parsed = new Date(det.date)

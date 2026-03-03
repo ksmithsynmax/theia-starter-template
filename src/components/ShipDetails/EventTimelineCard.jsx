@@ -217,7 +217,7 @@ const EventTimelineCard = ({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {ship.label} — AIS derived info
+                      {ship.label} — {idx === 0 ? 'SynMax derived info' : 'AIS derived info'}
                     </Text>
                     <InfoCircle
                       style={{ color: '#898f9d', width: 14, height: 14 }}
