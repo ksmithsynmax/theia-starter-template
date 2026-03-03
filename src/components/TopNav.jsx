@@ -133,6 +133,7 @@ const TopNav = () => {
             >
               <DatePicker
                 value={mapDate}
+                maxDate={new Date()}
                 onChange={(date) => {
                   setMapDate(date)
                   setCalendarOpen(false)

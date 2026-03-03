@@ -139,12 +139,11 @@ const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLates
             <Box style={{ height: 1, background: '#393C56' }} />
             <Box style={{ padding: '16px' }}>
               {!unattributed && (
-                <Box style={{ display: 'flex', gap: 16 }}>
+                <Box className="dark-controls" style={{ display: 'flex', gap: 16 }}>
                   <Checkbox
                     defaultChecked
                     label="Show AIS path"
                     size="xs"
-                    style={{ color: '#fff' }}
                   />
                   <Radio.Group name="favoriteFramework">
                     <Group>
@@ -153,14 +152,12 @@ const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLates
                         variant="outline"
                         value="Line"
                         label="Line"
-                        style={{ color: '#fff' }}
                       />
                       <Radio
                         size="xs"
                         variant="outline"
                         value="AisSignal"
                         label="AIS Signal"
-                        style={{ color: '#fff' }}
                       />
                     </Group>
                   </Radio.Group>

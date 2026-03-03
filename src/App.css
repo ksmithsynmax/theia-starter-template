@@ -186,7 +186,14 @@
 }
 
 .datepicker-dark button[data-outside] {
-  color: #898f9d !important;
+  color: #fff !important;
+  opacity: 1;
+}
+
+.datepicker-dark button[data-disabled] {
+  color: #393C56 !important;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .datepicker-dark button[data-selected] {
@@ -202,4 +209,29 @@
 .datepicker-dark button:hover {
   background-color: #0094ff !important;
   color: #fff !important;
+}
+
+/* ===== Dark theme checkbox/radio overrides ===== */
+.dark-controls .mantine-Checkbox-input {
+  background-color: transparent !important;
+  border-color: #898f9d !important;
+}
+
+.dark-controls .mantine-Checkbox-input:checked {
+  background-color: #0094FF !important;
+  border-color: #0094FF !important;
+}
+
+.dark-controls .mantine-Radio-radio {
+  background-color: transparent !important;
+  border-color: #898f9d !important;
+}
+
+.dark-controls .mantine-Radio-radio:checked {
+  border-color: #0094FF !important;
+}
+
+.dark-controls .mantine-Checkbox-label,
+.dark-controls .mantine-Radio-label {
+  color: #fff;
 }

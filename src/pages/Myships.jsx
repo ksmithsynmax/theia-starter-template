@@ -212,7 +212,7 @@ function Myships() {
                 top: 0,
                 bottom: 0,
                 width: 40,
-                background: 'linear-gradient(to right, #24263C, transparent)',
+                background: 'linear-gradient(to right, #24263C, rgba(36, 38, 60, 0))',
                 zIndex: 2,
                 pointerEvents: 'none',
               }}
@@ -226,7 +226,7 @@ function Myships() {
                 top: 0,
                 bottom: 0,
                 width: 40,
-                background: 'linear-gradient(to left, #24263C, transparent)',
+                background: 'linear-gradient(to left, #24263C, rgba(36, 38, 60, 0))',
                 zIndex: 2,
                 pointerEvents: 'none',
               }}
