@@ -189,10 +189,21 @@ function Myships() {
     ? activeTab.shipIds[activeStsShip]
     : activeShipTab
   const activeShip = activeShipId ? ships[activeShipId] : null
+  const stsPartnerShipId = isStsTab
+    ? activeTab.shipIds[activeStsShip === 0 ? 1 : 0]
+    : null
   const activeShipDetections = activeShipId
     ? detections
         .filter((d) => d.shipId === activeShipId)
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .sort((a, b) => {
+          if (isStsTab) {
+            const aIsSts = a.stsPartner === stsPartnerShipId
+            const bIsSts = b.stsPartner === stsPartnerShipId
+            if (aIsSts && !bIsSts) return -1
+            if (bIsSts && !aIsSts) return 1
+          }
+          return new Date(b.date) - new Date(a.date)
+        })
     : []
 
   const latestDetection = activeShipDetections[0] || null
@@ -278,14 +289,19 @@ function Myships() {
     unattributed: <UnattributedIcon style={{ height: 14 }} />,
   }
 
-  const derivedLatestEvent = latestDetection ? (
+  const stsHeaderType = isStsTab
+    ? activeStsShip === 0
+      ? 'light'
+      : activeTab.stsType === 'sts-ais' ? 'ais' : null
+    : null
+  const headerType = isStsUnattributed
+    ? 'unattributed'
+    : stsHeaderType || latestDetection?.type
+
+  const derivedLatestEvent = headerType ? (
     <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      {isStsUnattributed
-        ? eventIconMap['unattributed']
-        : eventIconMap[latestDetection.type]}
-      {isStsUnattributed
-        ? 'Unattributed'
-        : eventLabel[latestDetection.type] || latestDetection.type}
+      {eventIconMap[headerType]}
+      {eventLabel[headerType] || headerType}
     </Box>
   ) : null
   const isLatest =
@@ -975,6 +991,18 @@ function Myships() {
                             onSelect={() => {
                               const isDeselecting = selectedCard === det.id
                               setFlashEnabled(true)
+
+                              // On STS tab, selecting a non-STS event navigates to ship tab
+                              if (isStsTab && !isDeselecting && !det.stsPartner) {
+                                openShipTab(det)
+                                const parsed = new Date(det.date)
+                                setMapDate(
+                                  `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`
+                                )
+                                setActiveDetectionId(det.id)
+                                return
+                              }
+
                               const latestId = activeShipDetections[0]?.id
                               updateTabState(
                                 'selectedCard',
