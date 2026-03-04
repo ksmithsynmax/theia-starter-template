@@ -1027,6 +1027,7 @@ function Myships() {
                                 : undefined
                             }
                             selected={selectedCard === det.id}
+                            selectedCard={selectedCard}
                             isLatest={det.id === latestDetection?.id}
                             onSwitchToLatest={handleSwitchToLatest}
                             onSelect={() => {

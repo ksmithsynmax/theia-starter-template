@@ -49,6 +49,7 @@ const EventTimelineCard = ({
   shipName,
   partnerName,
   synMaxInfo,
+  selectedCard,
 }) => {
   const [expanded, setExpanded] = useState(false)
   const [stsModalOpen, setStsModalOpen] = useState(false)
@@ -62,15 +63,17 @@ const EventTimelineCard = ({
   useEffect(() => {
     if (selected) {
       setExpanded(true)
-      // Wait for the card expand transition (250ms) to finish before scrolling
       const timer = setTimeout(() => {
         cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 300)
       return () => clearTimeout(timer)
-    } else {
-      setExpanded(false)
     }
   }, [selected])
+
+  // Collapse all non-selected cards when selection changes
+  useEffect(() => {
+    if (!selected) setExpanded(false)
+  }, [selectedCard])
 
   if (variant === 'port') {
     return (
