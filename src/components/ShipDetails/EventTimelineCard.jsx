@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { Box, Text, Button, Tooltip, Checkbox } from '@mantine/core'
+import { Box, Text, Button, Checkbox } from '@mantine/core'
 import { ChevronDown, ChevronUp, Check, InfoCircle } from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
 import stsSatImage from '../../assets/HAfSz3HbAAA34GM.jpeg'
-import stsSatImage2 from '../../assets/b7305b3c008782765e2f14920270f2e7834f0f17.jpg'
 import shipSatImage from '../../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
 import shipSatImage2 from '../../assets/e92d7378215156c8a7c8c4c73d773963c71bd6b1-1920x1080.avif'
+import shipIllustration from '../../assets/ShipIllustration.png'
 
 const shipImages = [shipSatImage, shipSatImage2]
 
@@ -46,9 +46,8 @@ const EventTimelineCard = ({
   onViewStsShips,
   aisInfo = {},
   partnerAisInfo,
-  shipName,
-  partnerName,
   synMaxInfo,
+  detectionType,
   selectedCard,
 }) => {
   const [expanded, setExpanded] = useState(false)
@@ -200,8 +199,8 @@ const EventTimelineCard = ({
           <Box style={{ overflow: 'hidden' }}>
             <Box style={{ padding: '0 12px 12px' }}>
               {[
-                { label: shipName || 'Ship A', info: aisInfo, img: stsSatImage },
-                { label: partnerName || 'Ship B', info: partnerAisInfo || aisInfo, img: stsSatImage2 },
+                { info: aisInfo, img: stsSatImage },
+                { info: partnerAisInfo || aisInfo, img: shipIllustration },
               ].map((ship, idx) => (
                 <Box key={idx} style={idx > 0 ? { marginTop: 24 } : undefined}>
                   <Box
@@ -220,7 +219,7 @@ const EventTimelineCard = ({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {ship.label} — {idx === 0 ? 'SynMax derived info' : 'AIS derived info'}
+                      {idx === 0 ? 'SynMax derived info' : 'AIS derived info'}
                     </Text>
                     <InfoCircle
                       style={{ color: '#898f9d', width: 14, height: 14 }}
@@ -278,11 +277,7 @@ const EventTimelineCard = ({
                   >
                     <KeyValuePair keyName="Latest Speed" value={ship.info.latestSpeed || 'No info'} />
                     <KeyValuePair keyName="Destination" value={ship.info.destination || 'No info'} />
-                    <Tooltip label={ship.info.eta || 'No info'} position="top" withArrow>
-                      <Box>
-                        <KeyValuePair keyName="ETA" value={formatEta(ship.info.eta)} />
-                      </Box>
-                    </Tooltip>
+                    <KeyValuePair keyName="ETA" value={formatEta(ship.info.eta)} />
                   </Box>
                 </Box>
               ))}
@@ -570,7 +565,7 @@ const EventTimelineCard = ({
                     }}
                   >
                     <KeyValuePair keyName="Object ID" value={synMaxInfo.objectId || 'No info'} />
-                    <KeyValuePair keyName="Image Captured Time" value={synMaxInfo.imageCapturedTime || 'No info'} />
+                    <KeyValuePair keyName="Ship Subtype" value={synMaxInfo.shipSubtype || 'No info'} />
                     <KeyValuePair keyName="Image Source" value={synMaxInfo.imageSource || 'No info'} />
                     <KeyValuePair keyName="Status" value={synMaxInfo.status || 'No info'} />
                     <KeyValuePair keyName="Latitude" value={synMaxInfo.latitude || 'No info'} />
@@ -589,21 +584,93 @@ const EventTimelineCard = ({
                     marginTop: 12,
                   }}
                 >
-                  <KeyValuePair keyName="Ship Subtype" value={synMaxInfo.shipSubtype || 'No info'} />
+                  <KeyValuePair keyName="Image Captured Time" value={synMaxInfo.imageCapturedTime || 'No info'} />
                 </Box>
+
+                {/* AIS derived info section — shown for Light detections */}
+                {detectionType === 'light' && (
+                  <>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginTop: 24,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#fff',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        AIS derived info
+                      </Text>
+                      <InfoCircle style={{ color: '#898f9d', width: 14, height: 14 }} />
+                      <Box
+                        style={{
+                          flex: 1,
+                          height: 1,
+                          backgroundColor: '#393C56',
+                        }}
+                      />
+                    </Box>
+                    <Box style={{ display: 'flex', gap: 12 }}>
+                      <img
+                        src={shipIllustration}
+                        alt="Ship illustration"
+                        style={{
+                          width: 180,
+                          height: 206,
+                          borderRadius: 4,
+                          objectFit: 'cover',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Box
+                        style={{
+                          flex: 1,
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '12px 16px',
+                        }}
+                      >
+                        <KeyValuePair keyName="Latitude" value={aisInfo.latitude || 'No info'} />
+                        <KeyValuePair keyName="Longitude" value={aisInfo.longitude || 'No info'} />
+                        <KeyValuePair keyName="Width" value={aisInfo.width || 'No info'} />
+                        <KeyValuePair keyName="Length" value={aisInfo.length || 'No info'} />
+                        <KeyValuePair keyName="Ship Type" value={aisInfo.shipType || 'No info'} />
+                        <KeyValuePair keyName="Build Year" value={aisInfo.buildYear || 'No info'} />
+                        <KeyValuePair keyName="Heading" value={aisInfo.heading || 'No info'} />
+                        <KeyValuePair keyName="Draft" value={aisInfo.draft || 'No info'} />
+                        <KeyValuePair keyName="Avg. Speed" value={aisInfo.avgSpeed || 'No info'} />
+                        <KeyValuePair keyName="Max Speed" value={aisInfo.maxSpeed || 'No info'} />
+                      </Box>
+                    </Box>
+                    <Box
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '180px 1fr 1fr',
+                        gap: '0 12px',
+                        marginTop: 12,
+                      }}
+                    >
+                      <KeyValuePair keyName="Latest Speed" value={aisInfo.latestSpeed || 'No info'} />
+                      <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
+                      <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
+                    </Box>
+                  </>
+                )}
               </>
             ) : (
               <>
                 <Box style={{ display: 'flex', gap: 12 }}>
                   <img
-                    src={
-                      shipImages[
-                        date
-                          ? date.charCodeAt(date.length - 1) % shipImages.length
-                          : 0
-                      ]
-                    }
-                    alt="Ship satellite imagery"
+                    src={shipIllustration}
+                    alt="Ship illustration"
                     style={{
                       width: 180,
                       height: 206,
@@ -642,11 +709,7 @@ const EventTimelineCard = ({
                 >
                   <KeyValuePair keyName="Latest Speed" value={aisInfo.latestSpeed || 'No info'} />
                   <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
-                  <Tooltip label={aisInfo.eta || 'No info'} position="top" withArrow>
-                    <Box>
-                      <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
-                    </Box>
-                  </Tooltip>
+                  <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
                 </Box>
               </>
             )}

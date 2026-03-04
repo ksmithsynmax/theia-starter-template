@@ -221,7 +221,7 @@ function Myships() {
   }, [activeShipTab, activeShipDetections, selectedCard])
   const isStsUnattributed =
     isStsTab && activeTab?.stsType === 'sts' && activeStsShip === 1
-  const isUnattributed = activeShip?.synMaxInfo != null || isStsUnattributed
+  const isUnattributed = activeShip?.id === 'unknown' || isStsUnattributed
   const selectedDetection = selectedCard
     ? activeShipDetections.find((d) => d.id === selectedCard) || latestDetection
     : latestDetection
@@ -1087,7 +1087,8 @@ function Myships() {
                                 ? ships[det.stsPartner]?.name
                                 : undefined
                             }
-                            synMaxInfo={activeShip.synMaxInfo}
+                            synMaxInfo={det.type === 'light' || det.type === 'dark' ? activeShip.synMaxInfo : undefined}
+                            detectionType={det.type}
                           />
                         </Box>
                       )
