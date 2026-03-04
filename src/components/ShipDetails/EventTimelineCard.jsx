@@ -542,6 +542,25 @@ const EventTimelineCard = ({
               />
             </Box>
 
+            {/* Spoofing start time section */}
+            {detectionType === 'spoofing' && synMaxInfo && (
+              <Box
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 12,
+                  marginBottom: 12,
+                  background: '#1B1D2E',
+                  border: '1px solid #393C56',
+                  borderRadius: 4,
+                  padding: 12,
+                }}
+              >
+                <KeyValuePair keyName="Start time" value={date || 'No info'} />
+                <KeyValuePair keyName="Start time" value={date || 'No info'} />
+              </Box>
+            )}
+
             {synMaxInfo ? (
               <>
                 <Box style={{ display: 'flex', gap: 12 }}>

@@ -987,14 +987,14 @@ function Myships() {
                             style={{
                               width: 6,
                               height: 14,
-                              backgroundColor: eventColorMap.ais,
+                              backgroundColor: eventColorMap.light,
                             }}
                           />
                           <Box
                             style={{
                               width: 6,
                               height: 14,
-                              backgroundColor: eventColorMap.light,
+                              backgroundColor: eventColorMap.ais,
                             }}
                           />
                         </Box>
@@ -1087,7 +1087,7 @@ function Myships() {
                                 ? ships[det.stsPartner]?.name
                                 : undefined
                             }
-                            synMaxInfo={det.type === 'light' || det.type === 'dark' ? activeShip.synMaxInfo : undefined}
+                            synMaxInfo={det.type === 'light' || det.type === 'dark' || det.type === 'spoofing' ? activeShip.synMaxInfo : undefined}
                             detectionType={det.type}
                           />
                         </Box>

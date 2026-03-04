@@ -36,8 +36,8 @@ const stsLightTwoBar = (
 )
 const stsAisTwoBar = (
   <Box style={{ display: 'flex', alignItems: 'stretch', gap: 2 }}>
-    <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.ais }} />
     <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.light }} />
+    <Box style={{ width: 6, height: 14, backgroundColor: eventColorMap.ais }} />
   </Box>
 )
 
