@@ -29,6 +29,39 @@ const formatEta = (raw) => {
   }
 }
 
+const formatSpoofingDate = (raw) => {
+  if (!raw) return 'No info'
+  try {
+    const d = new Date(raw)
+    return (
+      d.getFullYear() +
+      '-' +
+      String(d.getMonth() + 1).padStart(2, '0') +
+      '-' +
+      String(d.getDate()).padStart(2, '0') +
+      ' | ' +
+      String(d.getHours()).padStart(2, '0') +
+      ':' +
+      String(d.getMinutes()).padStart(2, '0') +
+      ':' +
+      String(d.getSeconds()).padStart(2, '0')
+    )
+  } catch {
+    return raw
+  }
+}
+
+const addHours = (raw, hours) => {
+  if (!raw) return 'No info'
+  try {
+    const d = new Date(raw)
+    d.setHours(d.getHours() + hours)
+    return formatSpoofingDate(d)
+  } catch {
+    return raw
+  }
+}
+
 const EventTimelineCard = ({
   date,
   event,
@@ -556,8 +589,8 @@ const EventTimelineCard = ({
                   padding: 12,
                 }}
               >
-                <KeyValuePair keyName="Start time" value={date || 'No info'} />
-                <KeyValuePair keyName="Start time" value={date || 'No info'} />
+                <KeyValuePair keyName="Start time" value={formatSpoofingDate(date)} />
+                <KeyValuePair keyName="End time" value={addHours(date, 3)} />
               </Box>
             )}
 
