@@ -44,7 +44,7 @@ const getDateKey = (dateStr) => {
 }
 
 const Map = ({ onDetectionClick }) => {
-  const { activeDetectionId, mapDate } = useShipContext()
+  const { activeDetectionId, mapDate, shipTabs } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
   const markersRef = useRef({})
@@ -124,6 +124,29 @@ const Map = ({ onDetectionClick }) => {
     }
     map.current.flyTo({ center: [activeDet.lng, activeDet.lat], zoom: 6, duration: 1500 })
   }, [activeDetectionId])
+
+  // Show halo on markers whose ship has an open tab
+  useEffect(() => {
+    if (!map.current) return
+    const openShipIds = new Set()
+    shipTabs.forEach((tab) => {
+      if (tab.type === 'sts' && tab.shipIds) {
+        tab.shipIds.forEach((id) => openShipIds.add(id))
+      } else {
+        openShipIds.add(tab.id)
+      }
+    })
+    detections.forEach((det) => {
+      const marker = markersRef.current[det.id]
+      if (!marker) return
+      const el = marker.getElement()
+      if (openShipIds.has(det.shipId) && !el.classList.contains('active')) {
+        el.classList.add('opened')
+      } else {
+        el.classList.remove('opened')
+      }
+    })
+  }, [shipTabs, activeDetectionId])
 
   // Filter markers by date — only show detections for the selected date
   useEffect(() => {
