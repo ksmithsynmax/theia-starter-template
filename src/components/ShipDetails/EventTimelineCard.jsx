@@ -575,8 +575,8 @@ const EventTimelineCard = ({
               />
             </Box>
 
-            {/* Spoofing start time section */}
-            {detectionType === 'spoofing' && synMaxInfo && (
+            {/* Time window section for spoofing and dark detections */}
+            {(detectionType === 'spoofing' || detectionType === 'dark') && synMaxInfo && (
               <Box
                 style={{
                   display: 'grid',

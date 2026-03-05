@@ -133,11 +133,17 @@ function Myships() {
       const shipDetections = detections
         .filter((d) => d.shipId === shipId)
         .sort((a, b) => new Date(b.date) - new Date(a.date))
+      const shouldHonorSelectedDetection = shipTab?.type !== 'sts'
+      const stsPreferredDetectionId =
+        shipTab?.type === 'sts'
+          ? shipDetections.find((d) => d.stsPartner === shipTab.shipIds[1])?.id
+          : null
       const targetId =
+        shouldHonorSelectedDetection &&
         selectedDetectionId &&
         shipDetections.some((d) => d.id === selectedDetectionId)
           ? selectedDetectionId
-          : shipDetections[0]?.id
+          : stsPreferredDetectionId || shipDetections[0]?.id
       if (targetId) {
         updateTabState('selectedCard', targetId)
         if (selectedDetectionId) setSelectedDetectionId(null)
@@ -148,10 +154,21 @@ function Myships() {
 
   useEffect(() => {
     if (selectedDetectionId != null) {
+      const activeTabForSelection = shipTabs.find((t) => t.id === activeShipTab)
+      const isCurrentTabSts = activeTabForSelection?.type === 'sts'
+      if (isCurrentTabSts) {
+        setSelectedDetectionId(null)
+        return
+      }
       updateTabState('selectedCard', selectedDetectionId)
       setSelectedDetectionId(null)
     }
-  }, [selectedDetectionId, setSelectedDetectionId])
+  }, [
+    selectedDetectionId,
+    setSelectedDetectionId,
+    shipTabs,
+    activeShipTab,
+  ])
 
   useEffect(() => {
     if (
@@ -185,9 +202,15 @@ function Myships() {
 
   const activeTab = shipTabs.find((t) => t.id === activeShipTab)
   const isStsTab = activeTab?.type === 'sts'
+  const displayStsShipIds = isStsTab
+    ? [
+        activeTab.shipIds[0],
+        activeTab.stsType === 'sts' ? 'unknown' : activeTab.shipIds[1],
+      ]
+    : null
 
   const activeShipId = isStsTab
-    ? activeTab.shipIds[activeStsShip]
+    ? displayStsShipIds[activeStsShip]
     : activeShipTab
   const activeShip = activeShipId ? ships[activeShipId] : null
   const stsPartnerShipId = isStsTab
@@ -196,29 +219,26 @@ function Myships() {
   const activeShipDetections = activeShipId
     ? detections
         .filter((d) => d.shipId === activeShipId)
-        .sort((a, b) => {
-          if (isStsTab) {
-            const aIsSts = a.stsPartner === stsPartnerShipId
-            const bIsSts = b.stsPartner === stsPartnerShipId
-            if (aIsSts && !bIsSts) return -1
-            if (bIsSts && !aIsSts) return 1
-          }
-          return new Date(b.date) - new Date(a.date)
-        })
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
     : []
 
   const latestDetection = activeShipDetections[0] || null
+  const latestNonStsDetection = activeShipDetections.find(
+    (d) => d.type !== 'sts' && d.type !== 'sts-ais'
+  )
 
   useEffect(() => {
     if (!activeShipTab || !activeShipDetections.length) return
-    const latestId = activeShipDetections[0]?.id
-    if (!latestId) return
+    const preferredId = isStsTab
+      ? activeShipDetections.find((d) => d.stsPartner === stsPartnerShipId)?.id
+      : activeShipDetections[0]?.id
+    if (!preferredId) return
     const validSelection =
       selectedCard && activeShipDetections.some((d) => d.id === selectedCard)
     if (!validSelection) {
-      updateTabState('selectedCard', latestId)
+      updateTabState('selectedCard', preferredId)
     }
-  }, [activeShipTab, activeShipDetections, selectedCard])
+  }, [activeShipTab, activeShipDetections, selectedCard, isStsTab, stsPartnerShipId])
   const isStsUnattributed =
     isStsTab && activeTab?.stsType === 'sts' && activeStsShip === 1
   const isUnattributed = activeShip?.id === 'unknown' || isStsUnattributed
@@ -231,8 +251,8 @@ function Myships() {
     light: 'Light',
     dark: 'Dark',
     spoofing: 'Spoofing',
-    sts: 'STS (Light)',
-    'sts-ais': 'STS (AIS)',
+    sts: 'STS',
+    'sts-ais': 'STS',
     unattributed: 'Unattributed',
   }
 
@@ -280,6 +300,93 @@ function Myships() {
     'sts-ais': '#00EB6C',
   }
 
+  const getLatestNonStsByShip = useCallback((shipId) => {
+    return detections
+      .filter(
+        (d) => d.shipId === shipId && d.type !== 'sts' && d.type !== 'sts-ais'
+      )
+      .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+  }, [])
+
+  const getStsTabBarColors = useCallback(
+    (tab) => {
+      if (!tab || tab.type !== 'sts') return null
+      const [ship1Id, ship2Id] = tab.shipIds
+      const latestNonSts1 = getLatestNonStsByShip(ship1Id)
+      const latestNonSts2 = getLatestNonStsByShip(ship2Id)
+      const color1 =
+        eventColorMap[latestNonSts1?.type] || eventColorMap.light || '#393C56'
+      const color2 =
+        tab.stsType === 'sts'
+          ? eventColorMap.unattributed
+          : eventColorMap[latestNonSts2?.type] || eventColorMap.ais || '#393C56'
+      return [color1, color2]
+    },
+    [getLatestNonStsByShip]
+  )
+
+  const renderStsBars = useCallback((colors, size) => {
+    if (!colors) return null
+    return (
+      <Box
+        style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          gap: size.gap,
+          flexShrink: 0,
+          height: size.height,
+        }}
+      >
+        <Box
+          style={{
+            width: size.width,
+            height: size.height,
+            backgroundColor: colors[0],
+          }}
+        />
+        <Box
+          style={{
+            width: size.width,
+            height: size.height,
+            backgroundColor: colors[1],
+          }}
+        />
+      </Box>
+    )
+  }, [])
+
+  const getStsDetectionBarColors = useCallback(
+    (det) => {
+      if (!det || (det.type !== 'sts' && det.type !== 'sts-ais')) return null
+      const leftType = getLatestNonStsByShip(det.shipId)?.type || 'light'
+      const rightType =
+        det.type === 'sts'
+          ? 'unattributed'
+          : getLatestNonStsByShip(det.stsPartner)?.type || 'ais'
+      return [
+        eventColorMap[leftType] || eventColorMap.light,
+        eventColorMap[rightType] || eventColorMap.unattributed,
+      ]
+    },
+    [getLatestNonStsByShip]
+  )
+
+  const renderStsTabIcon = useCallback(
+    (tab, size = { width: 8, height: 20, gap: 2 }) => {
+      const colors = getStsTabBarColors(tab)
+      return renderStsBars(colors, size)
+    },
+    [getStsTabBarColors, renderStsBars]
+  )
+  const selectedStsIcon =
+    isStsTab &&
+    (selectedDetection?.type === 'sts' || selectedDetection?.type === 'sts-ais')
+      ? (() => {
+          const colors = getStsDetectionBarColors(selectedDetection)
+          return renderStsBars(colors, { width: 6, height: 14, gap: 2 })
+        })()
+      : undefined
+
   const eventIconMap = {
     ais: <AisIcon style={{ height: 14 }} />,
     light: <LightShipIcon style={{ height: 14 }} />,
@@ -292,9 +399,9 @@ function Myships() {
 
   const stsHeaderType = isStsTab
     ? activeStsShip === 0
-      ? 'light'
+      ? latestNonStsDetection?.type
       : activeTab.stsType === 'sts-ais'
-        ? 'ais'
+        ? latestNonStsDetection?.type || 'ais'
         : null
     : null
   const headerType = isStsUnattributed
@@ -414,11 +521,7 @@ function Myships() {
                   }}
                 >
                   {tab.type === 'sts' ? (
-                    tab.stsType === 'sts-ais' ? (
-                      <STSAisIcon style={{ width: 16, height: 16 }} />
-                    ) : (
-                      <STSIcon style={{ width: 16, height: 16 }} />
-                    )
+                    renderStsTabIcon(tab, { width: 7, height: 16, gap: 2 })
                   ) : (
                     <ShipIcon style={{ width: 16, height: 16 }} />
                   )}
@@ -629,11 +732,7 @@ function Myships() {
                           setActiveShipTab(tab.id)
                         }}
                         leftSection={
-                          tab.stsType === 'sts-ais' ? (
-                            <STSAisIcon style={{ width: 14, height: 14 }} />
-                          ) : (
-                            <STSIcon style={{ width: 14, height: 14 }} />
-                          )
+                          renderStsTabIcon(tab, { width: 6, height: 14, gap: 2 })
                         }
                         styles={{
                           item: {
@@ -692,7 +791,7 @@ function Myships() {
         >
           {isStsTab &&
             (() => {
-              const [sid1, sid2] = activeTab.shipIds
+              const [sid1, sid2] = displayStsShipIds
               const s1 = ships[sid1]
               const s2 = ships[sid2]
               if (!s1 || !s2) return null
@@ -702,14 +801,28 @@ function Myships() {
               const latest2 = detections
                 .filter((d) => d.shipId === sid2)
                 .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+              const latestNonSts1 = detections
+                .filter(
+                  (d) => d.shipId === sid1 && d.type !== 'sts' && d.type !== 'sts-ais'
+                )
+                .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+              const latestNonSts2 = detections
+                .filter(
+                  (d) => d.shipId === sid2 && d.type !== 'sts' && d.type !== 'sts-ais'
+                )
+                .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
               const color1 =
                 activeTab.stsType === 'sts'
-                  ? eventColorMap.light
+                  ? eventColorMap[latestNonSts1?.type] ||
+                    eventColorMap[latest1?.type] ||
+                    eventColorMap.light
                   : eventColorMap[latest1?.type] || '#393C56'
               const color2 =
                 activeTab.stsType === 'sts'
                   ? eventColorMap.unattributed
-                  : eventColorMap[latest2?.type] || '#393C56'
+                  : eventColorMap[latestNonSts2?.type] ||
+                    eventColorMap[latest2?.type] ||
+                    '#393C56'
               const pill = (s, idx) => {
                 const isActive = activeStsShip === idx
                 return (
@@ -849,6 +962,7 @@ function Myships() {
                 selectedEvent={selectedDetection}
                 isLatest={isLatest}
                 eventLabel={eventLabel[selectedDetection?.type] || ''}
+                eventIconOverride={selectedStsIcon}
                 onSwitchToLatest={handleSwitchToLatest}
                 flashEnabled={flashEnabled}
               />
@@ -955,52 +1069,18 @@ function Myships() {
                   >
                     {activeShipDetections.map((det) => {
                       const stsLightIcon = (
-                        <Box
-                          style={{
-                            display: 'flex',
-                            alignItems: 'stretch',
-                            gap: 2,
-                          }}
-                        >
-                          <Box
-                            style={{
-                              width: 6,
-                              height: 14,
-                              backgroundColor: eventColorMap.light,
-                            }}
-                          />
-                          <Box
-                            style={{
-                              width: 6,
-                              height: 14,
-                              backgroundColor: eventColorMap.unattributed,
-                            }}
-                          />
-                        </Box>
+                        renderStsBars(getStsDetectionBarColors(det), {
+                          width: 6,
+                          height: 14,
+                          gap: 2,
+                        })
                       )
                       const stsAisIcon = (
-                        <Box
-                          style={{
-                            display: 'flex',
-                            alignItems: 'stretch',
-                            gap: 2,
-                          }}
-                        >
-                          <Box
-                            style={{
-                              width: 6,
-                              height: 14,
-                              backgroundColor: eventColorMap.light,
-                            }}
-                          />
-                          <Box
-                            style={{
-                              width: 6,
-                              height: 14,
-                              backgroundColor: eventColorMap.ais,
-                            }}
-                          />
-                        </Box>
+                        renderStsBars(getStsDetectionBarColors(det), {
+                          width: 6,
+                          height: 14,
+                          gap: 2,
+                        })
                       )
                       const iconMap = {
                         ais: <AisIcon style={{ height: 14 }} />,

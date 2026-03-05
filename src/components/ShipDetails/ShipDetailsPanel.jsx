@@ -51,7 +51,15 @@ const eventIconMap = {
   unattributed: <UnattributedIcon style={{ height: 14 }} />,
 }
 
-const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLatest, flashEnabled, unattributed }) => {
+const ShipDetailsPanel = ({
+  selectedEvent,
+  isLatest,
+  eventLabel,
+  eventIconOverride,
+  onSwitchToLatest,
+  flashEnabled,
+  unattributed,
+}) => {
   const eventType = selectedEvent?.type
   const flashColor = unattributed ? eventColorMap.unattributed : (eventColorMap[eventType] || null)
   const dateDisplay = selectedEvent
@@ -126,7 +134,9 @@ const ShipDetailsPanel = ({ selectedEvent, isLatest, eventLabel, onSwitchToLates
               <Text style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                 {dateDisplay}
               </Text>
-              {(unattributed ? eventIconMap.unattributed : eventType && eventIconMap[eventType])}
+              {(unattributed
+                ? eventIconMap.unattributed
+                : eventIconOverride || (eventType && eventIconMap[eventType]))}
               {eventLabel && (
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>
                   {eventLabel}

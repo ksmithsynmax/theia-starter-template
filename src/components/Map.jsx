@@ -21,20 +21,44 @@ const spoofingSvg = `<svg width="20" height="20" viewBox="0 0 23 23" fill="none"
 // Unattributed - red ship with magnifying glass
 const unattributedSvg = `<svg width="14" height="22" viewBox="0 0 14 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.74999 20.9387L12.75 20.9387L12.75 16.18C12.75 5.45464 6.74998 0.93869 6.74998 0.93869C6.74998 0.93869 0.749988 5.45464 0.749994 16.18L0.749997 20.9387H6.74999Z" fill="#F75349" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/><ellipse cx="6.72543" cy="12.4387" rx="2.57571" ry="2.5" stroke="#111326" stroke-width="1.5"/><path d="M9.15069 17.4049C9.38254 17.7481 9.85378 17.8461 10.2032 17.6237C10.5527 17.4014 10.648 16.9428 10.4162 16.5996L9.78344 17.0022L9.15069 17.4049ZM8.08876 14.4934L7.45601 14.896L9.15069 17.4049L9.78344 17.0022L10.4162 16.5996L8.72151 14.0907L8.08876 14.4934Z" fill="#111326"/></svg>`
 
-// Ship-to-Ship - blue/red split rectangle
-const stsSvg = `<svg width="16" height="16" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.75" y="0.75" width="9.5" height="19" fill="#00A3E3"/><rect x="10.25" y="0.75" width="9.5" height="19" fill="#F75349"/><rect x="0.75" y="0.75" width="19" height="19" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/><path d="M10.25 0.75L10.25 19.75" stroke="#111326" stroke-width="1.5" stroke-linecap="round"/></svg>`
-
-// Ship-to-Ship AIS - green/blue split rectangle
-const stsAisSvg = `<svg width="16" height="16" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.75" y="0.75" width="9.5" height="19" fill="#00EB6C"/><rect x="10.25" y="0.75" width="9.5" height="19" fill="#00A3E3"/><rect x="0.75" y="0.75" width="19" height="19" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/><path d="M10.25 0.75L10.25 19.75" stroke="#111326" stroke-width="1.5" stroke-linecap="round"/></svg>`
-
 const svgByType = {
   ais: aisSvg,
   dark: darkShipSvg,
   light: lightShipSvg,
   spoofing: spoofingSvg,
   unattributed: unattributedSvg,
-  sts: stsSvg,
-  'sts-ais': stsAisSvg,
+}
+
+const eventColorMap = {
+  ais: '#00EB6C',
+  light: '#00A3E3',
+  dark: '#FFA500',
+  spoofing: '#FF6D99',
+  unattributed: '#F75349',
+}
+
+const buildStsSvg = (leftColor, rightColor) =>
+  `<svg width="16" height="16" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.75" y="0.75" width="9.5" height="19" fill="${leftColor}"/><rect x="10.25" y="0.75" width="9.5" height="19" fill="${rightColor}"/><rect x="0.75" y="0.75" width="19" height="19" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/><path d="M10.25 0.75L10.25 19.75" stroke="#111326" stroke-width="1.5" stroke-linecap="round"/></svg>`
+
+const getLatestNonStsTypeForShip = (shipId) => {
+  return detections
+    .filter((d) => d.shipId === shipId && d.type !== 'sts' && d.type !== 'sts-ais')
+    .sort((a, b) => new Date(b.date) - new Date(a.date))[0]?.type
+}
+
+const getMarkerSvg = (detection) => {
+  if (detection.type === 'sts' || detection.type === 'sts-ais') {
+    const leftType = getLatestNonStsTypeForShip(detection.shipId) || 'light'
+    const rightType =
+      detection.type === 'sts'
+        ? 'unattributed'
+        : getLatestNonStsTypeForShip(detection.stsPartner) || 'ais'
+    return buildStsSvg(
+      eventColorMap[leftType] || eventColorMap.light,
+      eventColorMap[rightType] || eventColorMap.unattributed
+    )
+  }
+  return svgByType[detection.type]
 }
 
 // Get just the date part (no time) from a detection date string like "Feb 27, 2026 09:53"
@@ -66,7 +90,7 @@ const Map = ({ onDetectionClick }) => {
     })
 
     detections.forEach((detection) => {
-      const svg = svgByType[detection.type]
+      const svg = getMarkerSvg(detection)
       if (!svg) return
       const el = document.createElement('div')
       el.innerHTML = svg
@@ -103,6 +127,17 @@ const Map = ({ onDetectionClick }) => {
       map.current = null
     }
   }, [])
+
+  // Refresh marker SVGs so STS colors stay in sync
+  useEffect(() => {
+    detections.forEach((det) => {
+      const marker = markersRef.current[det.id]
+      if (!marker) return
+      const el = marker.getElement()
+      const svg = getMarkerSvg(det)
+      if (svg) el.innerHTML = svg
+    })
+  }, [mapDate, shipTabs, activeDetectionId])
 
   // When a detection is selected from the timeline, highlight it and fly to it
   useEffect(() => {
