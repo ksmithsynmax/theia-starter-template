@@ -8,10 +8,9 @@ const ShipPathPanelButton = ({ icon, label, disabled }) => {
         borderRadius: 6,
         padding: 2,
         background: disabled
-          ? 'rgba(57, 60, 86, 0.4)'
+          ? '#2A2D3E'
           : 'linear-gradient(180deg, rgba(0, 148, 255, 0.35) 0%, rgba(13, 51, 92, 0.2) 100%)',
-        cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled ? 0.4 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
       <Box
@@ -25,7 +24,7 @@ const ShipPathPanelButton = ({ icon, label, disabled }) => {
           borderRadius: 4,
           height: 72,
           background: disabled
-            ? '#1B1D2E'
+            ? '#2A2D3E'
             : 'linear-gradient(180deg, #0D335C 0%, #0870B8 100%)',
         }}
       >
@@ -35,6 +34,7 @@ const ShipPathPanelButton = ({ icon, label, disabled }) => {
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
+            opacity: disabled ? 0.3 : 1,
           }}
         >
           {icon}
@@ -43,6 +43,7 @@ const ShipPathPanelButton = ({ icon, label, disabled }) => {
           style={{
             fontSize: 10,
             color: '#fff',
+            opacity: disabled ? 0.3 : 1,
             textAlign: 'center',
             lineHeight: '12px',
             minHeight: 24,
