@@ -855,51 +855,54 @@ function Myships() {
             )}
           </Box>
           {isUnattributed ? (
-            <Box style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
-              <ShipDetailsPanel
-                selectedEvent={selectedDetection}
-                isLatest
-                eventLabel={
-                  isStsUnattributed
-                    ? 'Unattributed'
-                    : eventLabel[latestDetection?.type] || ''
-                }
-                onSwitchToLatest={() => {}}
-                flashEnabled={false}
-                unattributed
-              />
-              <Box style={{ marginTop: 8 }} />
-              <EventTimelineCard
-                date={latestDetection?.date}
-                event={
-                  isStsUnattributed
-                    ? 'Unattributed'
-                    : eventLabel[latestDetection?.type] || latestDetection?.type
-                }
-                icon={<UnattributedIcon style={{ height: 14 }} />}
-                selected
-                onSelect={() => {}}
-                aisInfo={{}}
-                synMaxInfo={
-                  activeShip.synMaxInfo ||
-                  (isStsUnattributed
-                    ? {
-                        objectId: 'N/A',
-                        imageCapturedTime: latestDetection?.date || 'No info',
-                        imageSource: 'Planet Scope',
-                        status: 'Preview',
-                        latitude: activeShip.aisInfo?.latitude || 'No info',
-                        longitude: activeShip.aisInfo?.longitude || 'No info',
-                        heading: activeShip.aisInfo?.heading || 'No info',
-                        shipLength: activeShip.aisInfo?.length || 'No info',
-                        shipWidth: activeShip.aisInfo?.width || 'No info',
-                        shipType: activeShip.aisInfo?.shipType || 'No info',
-                        shipSubtype: 'Unassigned',
-                      }
-                    : undefined)
-                }
-              />
-            </Box>
+            <>
+              <Box style={{ flexShrink: 0, padding: '20px 20px 0 20px' }}>
+                <ShipDetailsPanel
+                  selectedEvent={selectedDetection}
+                  isLatest
+                  eventLabel={
+                    isStsUnattributed
+                      ? 'Unattributed'
+                      : eventLabel[latestDetection?.type] || ''
+                  }
+                  onSwitchToLatest={() => {}}
+                  flashEnabled={false}
+                  unattributed
+                />
+              </Box>
+              <Box className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 20px 20px' }}>
+                <EventTimelineCard
+                  date={latestDetection?.date}
+                  event={
+                    isStsUnattributed
+                      ? 'Unattributed'
+                      : eventLabel[latestDetection?.type] || latestDetection?.type
+                  }
+                  icon={<UnattributedIcon style={{ height: 14 }} />}
+                  selected
+                  onSelect={() => {}}
+                  aisInfo={{}}
+                  synMaxInfo={
+                    activeShip.synMaxInfo ||
+                    (isStsUnattributed
+                      ? {
+                          objectId: 'N/A',
+                          imageCapturedTime: latestDetection?.date || 'No info',
+                          imageSource: 'Planet Scope',
+                          status: 'Preview',
+                          latitude: activeShip.aisInfo?.latitude || 'No info',
+                          longitude: activeShip.aisInfo?.longitude || 'No info',
+                          heading: activeShip.aisInfo?.heading || 'No info',
+                          shipLength: activeShip.aisInfo?.length || 'No info',
+                          shipWidth: activeShip.aisInfo?.width || 'No info',
+                          shipType: activeShip.aisInfo?.shipType || 'No info',
+                          shipSubtype: 'Unassigned',
+                        }
+                      : undefined)
+                  }
+                />
+              </Box>
+            </>
           ) : (
             <>
               <Box
