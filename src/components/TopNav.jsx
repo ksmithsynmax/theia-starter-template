@@ -1,5 +1,5 @@
-import React from 'react'
-import { Box, Text } from '@mantine/core'
+import React, { useState } from 'react'
+import { Box, Menu, Text } from '@mantine/core'
 import {
   Plus,
   Grid01,
@@ -12,26 +12,40 @@ import {
   BarChart01,
   ChevronDown,
   Save01,
+  XClose,
 } from '@untitledui/icons'
 
 import TheiaLogo from '../assets/TheiaLogo.svg'
 
 const TopNav = () => {
+  const [selectedVersion, setSelectedVersion] = useState('Version A')
+  const [toastMessage, setToastMessage] = useState('')
+  const [versionMenuOpened, setVersionMenuOpened] = useState(false)
+  const versionMenuWidth = 180
+
+  const handleVersionSelect = (version) => {
+    setSelectedVersion(version)
+    setToastMessage(version)
+  }
+
   return (
-    <div>
+    <div style={{ position: 'relative' }}>
       <Box
         style={{
           backgroundColor: '#181926',
           display: 'flex',
+          alignItems: 'stretch',
+          height: 58,
         }}
       >
         <Box
           style={{
-            padding: '16px 24px',
+            padding: '0 24px',
             borderRight: '1px solid #393C56',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            height: '100%',
           }}
         >
           <img src={TheiaLogo} alt="Theia Logo" />
@@ -40,7 +54,7 @@ const TopNav = () => {
           component="button"
           type="button"
           className="topnav-icon-btn"
-          style={{ borderRight: '1px solid #393C56' }}
+          style={{ borderRight: '1px solid #393C56', height: '100%' }}
         >
           <Grid01 color="white" size={20} />
         </Box>
@@ -49,15 +63,85 @@ const TopNav = () => {
             Untitled Station
           </Text>
         </Box>
-        <Box component="button" type="button" className="topnav-icon-btn">
+        <Box
+          component="button"
+          type="button"
+          className="topnav-icon-btn"
+          style={{ height: '100%' }}
+        >
           <Plus color="white" size={20} />
         </Box>
         <Box style={{ flex: 1 }}></Box>
-        <Box component="button" type="button" className="topnav-icon-btn">
+        {/* <Box component="button" type="button" className="topnav-icon-btn">
           <Bell02 color="white" size={20} />
         </Box>
         <Box component="button" type="button" className="topnav-icon-btn">
           <User03 color="white" size={20} />
+        </Box> */}
+        <Box style={{ height: '100%', display: 'flex', alignItems: 'center', marginRight: 12 }}>
+          <Menu
+            shadow="md"
+            width={versionMenuWidth}
+            opened={versionMenuOpened}
+            onChange={setVersionMenuOpened}
+          >
+            <Menu.Target>
+              <Box
+                component="button"
+                type="button"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  height: 36,
+                  width: versionMenuWidth,
+                  background: '#0085E6',
+                  border: '1px solid #0085E6',
+                  borderRadius: 4,
+                  padding: '0 12px',
+                  cursor: 'pointer',
+                }}
+              >
+                <Text variant="body1" c="#fff" style={{ fontWeight: 600 }}>
+                  Version Testing
+                </Text>
+                <ChevronDown
+                  color="white"
+                  size={18}
+                  style={{
+                    transform: versionMenuOpened ? 'rotate(180deg)' : 'none',
+                  }}
+                />
+              </Box>
+            </Menu.Target>
+            <Menu.Dropdown
+              style={{
+                background: '#24263C',
+                border: '1px solid #4D5171',
+                borderRadius: 4,
+                padding: 8,
+              }}
+            >
+              {['Version A', 'Version B', 'Version C'].map((version) => (
+                <Menu.Item
+                  key={version}
+                  onClick={() => handleVersionSelect(version)}
+                  style={{
+                    color: version === selectedVersion ? '#0094FF' : '#fff',
+                    background:
+                      version === selectedVersion ? '#1F4978' : 'transparent',
+                    borderRadius: 4,
+                    margin: 0,
+                    padding: '8px 14px',
+                    fontSize: 14,
+                  }}
+                >
+                  {version}
+                </Menu.Item>
+              ))}
+            </Menu.Dropdown>
+          </Menu>
         </Box>
       </Box>
       <Box
@@ -109,6 +193,52 @@ const TopNav = () => {
           </Text>
         </Box>
       </Box>
+      {toastMessage && (
+        <Box
+          style={{
+            position: 'absolute',
+            right: 20,
+            top: 120,
+            zIndex: 10,
+            background: '#24263C',
+            border: '1px solid #4D5171',
+            borderRadius: 4,
+            padding: '14px 18px 16px 18px',
+            minWidth: 300,
+            maxWidth: 360,
+          }}
+        >
+          <Box
+            style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}
+          >
+            <Text
+              style={{ color: '#fff', fontSize: 16, fontWeight: 700, flex: 1 }}
+            >
+              {toastMessage}
+            </Text>
+            <Box
+              component="button"
+              type="button"
+              onClick={() => setToastMessage('')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              <XClose color="#C3C7D4" size={18} />
+            </Box>
+          </Box>
+          <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 1.4 }}>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
+            eiusmod tempor incididunt ut labore et dolore magna aliqua.
+          </Text>
+        </Box>
+      )}
     </div>
   )
 }
