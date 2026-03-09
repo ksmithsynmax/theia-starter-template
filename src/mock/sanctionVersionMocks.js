@@ -99,3 +99,10 @@ export const sanctionVersionB = {
   description: 'Timeline-only variant without summary block.',
 }
 
+export const sanctionVersionC = {
+  ...sanctionVersionA,
+  title: 'Version C',
+  description:
+    'Progressive-disclosure timeline with lean default rows and on-demand secondary details.',
+}
+

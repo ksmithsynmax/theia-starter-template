@@ -22,6 +22,14 @@ const TopNav = () => {
   const [toastMessage, setToastMessage] = useState('Version A')
   const [versionMenuOpened, setVersionMenuOpened] = useState(false)
   const versionMenuWidth = 180
+  const versionDescriptions = {
+    'Version A':
+      'Timeline-first layout with a full sanctions summary block for quick context.',
+    'Version B':
+      'Timeline-first layout with compact summary styling and event badges for faster scanning.',
+    'Version C':
+      'Progressive-disclosure timeline with lean default rows and expandable secondary details.',
+  }
 
   const handleVersionSelect = (version) => {
     setSelectedVersion(version)
@@ -129,7 +137,7 @@ const TopNav = () => {
                 padding: 8,
               }}
             >
-              {['Version A', 'Version B'].map((version) => (
+              {['Version A', 'Version B', 'Version C'].map((version) => (
                 <Menu.Item
                   key={version}
                   onClick={() => handleVersionSelect(version)}
@@ -240,8 +248,8 @@ const TopNav = () => {
             </Box>
           </Box>
           <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 1.4 }}>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
-            eiusmod tempor incididunt ut labore et dolore magna aliqua.
+            {versionDescriptions[toastMessage] ||
+              'Prototype version updated.'}
           </Text>
         </Box>
       )}

@@ -25,7 +25,8 @@ function Layout() {
   )
 
   const closePanel = useCallback(() => {
-    setPanelOpen(false)
+    // Prototype behavior: keep panel open when collapse button is clicked.
+    // setPanelOpen(false)
   }, [])
 
   return (

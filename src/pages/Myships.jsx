@@ -13,6 +13,7 @@ import AlertIcon from '../custom-icons/AlertIcon'
 import {
   sanctionVersionA,
   sanctionVersionB,
+  sanctionVersionC,
 } from '../mock/sanctionVersionMocks'
 
 const Myships = () => {
@@ -20,8 +21,12 @@ const Myships = () => {
   const [selectedVersionKey, setSelectedVersionKey] = React.useState('A')
   const [expandedEventId, setExpandedEventId] = React.useState(null)
   const tabs = ['Event Timeline', 'Ownership', 'Sanction Details']
-  const versionData =
-    selectedVersionKey === 'B' ? sanctionVersionB : sanctionVersionA
+  const versionDataByKey = {
+    A: sanctionVersionA,
+    B: sanctionVersionB,
+    C: sanctionVersionC,
+  }
+  const versionData = versionDataByKey[selectedVersionKey] || sanctionVersionA
   const events = versionData.events
   const badgeStyles = {
     sanctions: { background: '#F84B4B', color: '#fff' },
@@ -43,7 +48,7 @@ const Myships = () => {
   React.useEffect(() => {
     const onVersionChange = (evt) => {
       const key = evt?.detail?.key
-      if (key === 'A' || key === 'B') {
+      if (key === 'A' || key === 'B' || key === 'C') {
         setSelectedVersionKey(key)
         setExpandedEventId(null)
       }
@@ -377,6 +382,58 @@ const Myships = () => {
                 </Text>
               </Box>
             )}
+            {selectedVersionKey === 'C' && (
+              <Box style={{ marginBottom: 12 }}>
+                <Box
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    marginBottom: 12,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {versionData.overview.programs.map((program) => (
+                    <Box
+                      key={program}
+                      style={{
+                        background: '#24263C',
+                        borderRadius: 4,
+                        padding: '6px 12px',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#fff',
+                          fontSize: 16,
+                          fontWeight: 500,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {program}
+                      </Text>
+                    </Box>
+                  ))}
+                  <Box
+                    style={{
+                      background: '#24263C',
+                      borderRadius: 4,
+                      padding: '6px 12px',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#fff',
+                        fontSize: 16,
+                        fontWeight: 500,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {versionData.overview.vesselOwner}
+                    </Text>
+                  </Box>
+                </Box>
+              </Box>
+            )}
 
             <Box
               style={{
@@ -394,15 +451,25 @@ const Myships = () => {
                   width: 1,
                   backgroundImage:
                     'repeating-linear-gradient(to bottom, #A7ADBF 0 3px, transparent 3px 7px)',
+                  display: selectedVersionKey === 'C' ? 'none' : 'block',
                 }}
               />
               {events.map((event, index) => {
+                const isVersionC = selectedVersionKey === 'C'
                 const isExpanded = expandedEventId === event.id
                 const hasDetails = (event.detailFields || []).length > 0
-                const canExpand = hasDetails && event.eventType === 'scrapped'
+                const canExpandInVersionC = [
+                  'sanction_added',
+                  'scrapped',
+                ].includes(event.eventType)
+                const canExpand = isVersionC
+                  ? canExpandInVersionC && (hasDetails || Boolean(event.code))
+                  : hasDetails && event.eventType === 'scrapped'
                 const isFlagChangeEvent = event.eventType === 'flag_change'
+                const showBadges =
+                  selectedVersionKey === 'B' || selectedVersionKey === 'C'
                 const hideDuplicateChangeHeadline =
-                  selectedVersionKey === 'B' &&
+                  (selectedVersionKey === 'B' || selectedVersionKey === 'C') &&
                   ['mmsi_change', 'name_change', 'flag_change'].includes(
                     event.eventType
                   )
@@ -411,189 +478,257 @@ const Myships = () => {
                     key={event.id}
                     style={{
                       display: 'flex',
-                      gap: 14,
+                      gap: isVersionC ? 0 : 14,
                       paddingBottom: index < events.length - 1 ? 10 : 0,
                     }}
                   >
+                    {!isVersionC && (
+                      <Box
+                        style={{
+                          width: 22,
+                          flexShrink: 0,
+                          position: 'relative',
+                        }}
+                      >
+                        <Box
+                          style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: 3,
+                            background: '#FFFFFF',
+                            outline: '2px solid #181926',
+                            position: 'absolute',
+                            left: 5,
+                            top: 5,
+                            flexShrink: 0,
+                          }}
+                        />
+                      </Box>
+                    )}
                     <Box
                       style={{
-                        width: 22,
-                        flexShrink: 0,
-                        position: 'relative',
+                        flex: 1,
+                        paddingBottom: isVersionC ? 0 : 10,
+                        background: isVersionC ? '#24263C' : 'transparent',
+                        border: isVersionC ? '1px solid #393C56' : 'none',
+                        borderRadius: isVersionC ? 4 : 0,
                       }}
                     >
                       <Box
-                        style={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: 3,
-                          background: '#FFFFFF',
-                          outline: '2px solid #181926',
-                          position: 'absolute',
-                          left: 5,
-                          top: 5,
-                          flexShrink: 0,
-                        }}
-                      />
-                    </Box>
-                    <Box style={{ flex: 1, paddingBottom: 10 }}>
-                      <Box
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          marginBottom: 6,
-                          flexWrap: 'wrap',
-                        }}
+                        style={
+                          isVersionC
+                            ? {
+                                padding: '10px 12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                              }
+                            : {}
+                        }
                       >
-                        <Text
-                          style={{
-                            color: '#8D95AA',
-                            fontSize: 14,
-                            lineHeight: '22px',
-                          }}
-                        >
-                          {event.effectiveDate}
-                        </Text>
-                        {selectedVersionKey === 'B' &&
-                          event.chips?.map((chip) => {
-                            const labelOverride =
-                              chip.tone === 'name'
-                                ? 'Name Change'
-                                : chip.tone === 'mmsi'
-                                  ? 'MMSI Change'
-                                  : chip.tone === 'flag'
-                                    ? 'Flag Change'
-                                    : chip.label
-                            return (
-                              <Box
-                                key={`${event.id}-${chip.label}`}
-                                style={{
-                                  background:
-                                    badgeStyles[chip.tone]?.background ||
-                                    '#2B3350',
-                                  borderRadius: 4,
-                                  padding: '4px 8px',
-                                }}
-                              >
-                                <Text
-                                  style={{
-                                    color:
-                                      badgeStyles[chip.tone]?.color || '#fff',
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    lineHeight: 1.2,
-                                  }}
-                                >
-                                  {labelOverride}
-                                </Text>
-                              </Box>
-                            )
-                          })}
-                      </Box>
-                      {!hideDuplicateChangeHeadline && (
-                        <Text
-                          style={{
-                            color: '#FFFFFF',
-                            fontSize: 16,
-                            fontWeight: 500,
-                            marginBottom: 2,
-                          }}
-                        >
-                          {event.headline}
-                        </Text>
-                      )}
-                      {event.code && (
-                        <Text
-                          style={{
-                            color: '#8D95AA',
-                            fontSize: 14,
-                            marginBottom: 4,
-                          }}
-                        >
-                          {event.code}
-                        </Text>
-                      )}
-                      {(event.beforeValue || event.afterValue) && (
+                        <Box style={isVersionC ? { flex: 1, minWidth: 0 } : {}}>
                         <Box
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 10,
+                            gap: 8,
                             marginBottom: 6,
                             flexWrap: 'wrap',
                           }}
                         >
-                          {isFlagChangeEvent ? (
-                            <Box
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                              }}
-                            >
-                              {countryFlags[event.beforeValue] && (
-                                <Text style={{ fontSize: 16, lineHeight: 1 }}>
-                                  {countryFlags[event.beforeValue]}
+                          <Text
+                            style={{
+                              color: '#8D95AA',
+                              fontSize: 14,
+                              lineHeight: '22px',
+                            }}
+                          >
+                            {event.effectiveDate}
+                          </Text>
+                          {showBadges &&
+                            event.chips?.map((chip) => {
+                              const labelOverride =
+                                chip.tone === 'name'
+                                  ? 'Name Change'
+                                  : chip.tone === 'mmsi'
+                                    ? 'MMSI Change'
+                                    : chip.tone === 'flag'
+                                      ? 'Flag Change'
+                                      : chip.label
+                              return (
+                                <Box
+                                  key={`${event.id}-${chip.label}`}
+                                  style={{
+                                    background:
+                                      badgeStyles[chip.tone]?.background ||
+                                      '#2B3350',
+                                    borderRadius: 4,
+                                    padding: '4px 8px',
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      color:
+                                        badgeStyles[chip.tone]?.color || '#fff',
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      lineHeight: 1.2,
+                                    }}
+                                  >
+                                    {labelOverride}
+                                  </Text>
+                                </Box>
+                              )
+                            })}
+                        </Box>
+                        {!hideDuplicateChangeHeadline && (
+                          <Text
+                            style={{
+                              color: '#FFFFFF',
+                              fontSize: 16,
+                              fontWeight: 500,
+                              marginBottom: 2,
+                            }}
+                          >
+                            {event.headline}
+                          </Text>
+                        )}
+                        {event.code && (!isVersionC || isExpanded) && (
+                          <Text
+                            style={{
+                              color: '#8D95AA',
+                              fontSize: 14,
+                              marginBottom: 4,
+                            }}
+                          >
+                            {event.code}
+                          </Text>
+                        )}
+                        {(event.beforeValue || event.afterValue) && (
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 10,
+                              marginBottom: 6,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            {isFlagChangeEvent ? (
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                }}
+                              >
+                                {countryFlags[event.beforeValue] && (
+                                  <Text style={{ fontSize: 16, lineHeight: 1 }}>
+                                    {countryFlags[event.beforeValue]}
+                                  </Text>
+                                )}
+                                <Text style={{ color: '#fff', fontSize: 16 }}>
+                                  {event.beforeValue}
                                 </Text>
-                              )}
+                              </Box>
+                            ) : (
                               <Text style={{ color: '#fff', fontSize: 16 }}>
                                 {event.beforeValue}
                               </Text>
-                            </Box>
-                          ) : (
-                            <Text style={{ color: '#fff', fontSize: 16 }}>
-                              {event.beforeValue}
-                            </Text>
-                          )}
-                          <ArrowRight
-                            style={{ width: 18, height: 16, color: '#888F9E' }}
-                          />
-                          {isFlagChangeEvent ? (
-                            <Box
+                            )}
+                            <ArrowRight
                               style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
+                                width: 18,
+                                height: 16,
+                                color: '#888F9E',
                               }}
-                            >
-                              {countryFlags[event.afterValue] && (
-                                <Text style={{ fontSize: 16, lineHeight: 1 }}>
-                                  {countryFlags[event.afterValue]}
+                            />
+                            {isFlagChangeEvent ? (
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                }}
+                              >
+                                {countryFlags[event.afterValue] && (
+                                  <Text style={{ fontSize: 16, lineHeight: 1 }}>
+                                    {countryFlags[event.afterValue]}
+                                  </Text>
+                                )}
+                                <Text
+                                  style={{ color: '#FFFFFF', fontSize: 16 }}
+                                >
+                                  {event.afterValue}
                                 </Text>
-                              )}
+                              </Box>
+                            ) : (
                               <Text style={{ color: '#FFFFFF', fontSize: 16 }}>
                                 {event.afterValue}
                               </Text>
-                            </Box>
-                          ) : (
-                            <Text style={{ color: '#FFFFFF', fontSize: 16 }}>
-                              {event.afterValue}
+                            )}
+                          </Box>
+                        )}
+                        {canExpand &&
+                          (!isVersionC ? (
+                            <Text
+                              onClick={() =>
+                                setExpandedEventId(isExpanded ? null : event.id)
+                              }
+                              style={{
+                                color: '#0085E6',
+                                fontSize: 14,
+                                cursor: 'pointer',
+                                textDecoration: 'underline',
+                                marginBottom: isExpanded ? 8 : 0,
+                              }}
+                            >
+                              {isExpanded ? 'Hide details' : 'View details'}
                             </Text>
-                          )}
+                          ) : null)}
                         </Box>
-                      )}
-                      {canExpand && (
-                        <Text
-                          onClick={() =>
-                            setExpandedEventId(isExpanded ? null : event.id)
-                          }
-                          style={{
-                            color: '#0085E6',
-                            fontSize: 14,
-                            cursor: 'pointer',
-                            textDecoration: 'underline',
-                            marginBottom: isExpanded ? 8 : 0,
-                          }}
-                        >
-                          {isExpanded ? 'Hide details' : 'View details'}
-                        </Text>
-                      )}
-                      {canExpand && isExpanded && (
+                        {isVersionC && canExpand && (
+                          <Box
+                            component="button"
+                            type="button"
+                            onClick={() =>
+                              setExpandedEventId(isExpanded ? null : event.id)
+                            }
+                            style={{
+                              width: 30,
+                              height: 30,
+                              background: 'transparent',
+                              border: '1px solid #D9DEEB',
+                              borderRadius: 4,
+                              color: '#D9DEEB',
+                              cursor: 'pointer',
+                              padding: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <ChevronDown
+                              style={{
+                                width: 18,
+                                height: 18,
+                                transform: isExpanded
+                                  ? 'rotate(180deg)'
+                                  : 'rotate(0deg)',
+                                transition: 'transform 160ms ease',
+                              }}
+                            />
+                          </Box>
+                        )}
+                      </Box>
+                      {canExpand && isExpanded && hasDetails && (
                         <Box
                           style={{
-                            border: '1px solid #393C56',
-                            borderRadius: 8,
+                            marginTop: isVersionC ? 8 : 0,
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            borderRadius: isVersionC ? 4 : 8,
                             background: '#24263C',
                             padding: 14,
                             display: 'grid',
