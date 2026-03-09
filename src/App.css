@@ -85,7 +85,7 @@
 }
 
 .slide-panel--open {
-  width: 400px;
+  width: 500px;
 }
 
 .slide-panel-header {
@@ -97,8 +97,6 @@
 }
 
 .slide-panel-close {
-
-
   background-color: transparent;
 
   cursor: pointer;
