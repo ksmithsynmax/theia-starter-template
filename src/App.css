@@ -111,3 +111,35 @@
   overflow-y: auto;
   min-width: 500px;
 }
+
+/* Subtle scrollbar for inner timeline/content regions */
+.subtle-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #626982 transparent;
+}
+
+.subtle-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-thumb {
+  background: #626982;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #7a8199;
+  background-clip: content-box;
+}
+
+/* Prototype-only: hide Mapbox branding controls */
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib {
+  display: none !important;
+}

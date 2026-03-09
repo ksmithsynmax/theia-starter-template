@@ -19,13 +19,19 @@ import TheiaLogo from '../assets/TheiaLogo.svg'
 
 const TopNav = () => {
   const [selectedVersion, setSelectedVersion] = useState('Version A')
-  const [toastMessage, setToastMessage] = useState('')
+  const [toastMessage, setToastMessage] = useState('Version A')
   const [versionMenuOpened, setVersionMenuOpened] = useState(false)
   const versionMenuWidth = 180
 
   const handleVersionSelect = (version) => {
     setSelectedVersion(version)
     setToastMessage(version)
+    const key = version.split(' ').pop()
+    window.dispatchEvent(
+      new CustomEvent('version-testing-change', {
+        detail: { version, key },
+      })
+    )
   }
 
   return (
@@ -123,7 +129,7 @@ const TopNav = () => {
                 padding: 8,
               }}
             >
-              {['Version A', 'Version B', 'Version C'].map((version) => (
+              {['Version A', 'Version B'].map((version) => (
                 <Menu.Item
                   key={version}
                   onClick={() => handleVersionSelect(version)}

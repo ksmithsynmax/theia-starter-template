@@ -1,0 +1,101 @@
+export const sanctionVersionA = {
+  title: 'Version A',
+  description: 'Timeline-first with expanded event cards.',
+  overview: {
+    programs: ['UK: Russia Sanctions 2019', 'EU Sanctions'],
+    sanctionsList: ['EU', 'UK'],
+    remarks: [
+      'UK [RUS2550] | Sanction date: 2025-05-09',
+      'EU [EU.9247883] | Sanction date: 2025-05-21',
+    ],
+    vesselOwner: 'HCC Shipmanagement Inc',
+  },
+  events: [
+    {
+      id: 'a1',
+      eventType: 'sanction_added',
+      effectiveDate: '2025-05-19',
+      headline: 'Added to EU Sanctions',
+      code: 'EU_9247883',
+      subtitle: 'Also known as Hatti',
+      chips: [{ label: 'Sanctions', tone: 'sanctions' }, { label: 'EU', tone: 'provider' }],
+      detailFields: [
+        { label: 'Provider', value: 'EU' },
+        { label: 'Sanctions List', value: 'EU Consolidated List' },
+        { label: 'Program', value: 'EU.9247883' },
+        { label: 'Status', value: 'Active' },
+      ],
+    },
+    {
+      id: 'a2',
+      eventType: 'sanction_added',
+      effectiveDate: '2025-05-09',
+      headline: 'Added to UK Russian Sanctions 2019',
+      code: 'RUS2550',
+      subtitle: 'Also known as Hatti',
+      chips: [{ label: 'Sanctions', tone: 'sanctions' }, { label: 'UK', tone: 'provider' }],
+      detailFields: [
+        { label: 'Provider', value: 'UK' },
+        { label: 'Sanctions List', value: 'UK Sanctions List' },
+        { label: 'Program', value: 'RUS2550' },
+        { label: 'Status', value: 'Active' },
+      ],
+    },
+    {
+      id: 'a3',
+      eventType: 'mmsi_change',
+      effectiveDate: '2024-06-01',
+      headline: 'MMSI Change',
+      beforeValue: '667001111',
+      afterValue: '667002270',
+      chips: [{ label: 'MMSI', tone: 'mmsi' }],
+      detailFields: [{ label: 'Source', value: 'Registry update' }],
+    },
+    {
+      id: 'a4',
+      eventType: 'name_change',
+      effectiveDate: '2024-11-03',
+      headline: 'Name Change',
+      beforeValue: 'CAPE HORN',
+      afterValue: 'SAPNA',
+      code: 'EU_9247883',
+      chips: [{ label: 'Name', tone: 'name' }],
+      detailFields: [{ label: 'Source', value: 'Registry update' }],
+    },
+    {
+      id: 'a5',
+      eventType: 'flag_change',
+      effectiveDate: '2023-09-10',
+      headline: 'Flag Change',
+      beforeValue: 'Tanzania',
+      afterValue: 'Sierra Leone',
+      chips: [{ label: 'Flag', tone: 'flag' }],
+      detailFields: [{ label: 'Source', value: 'Port authority filing' }],
+    },
+    {
+      id: 'a6',
+      eventType: 'scrapped',
+      effectiveDate: '2025-02-28',
+      headline: 'Reported scrapped',
+      code: 'Alang, India',
+      chips: [
+        { label: 'Scrapped', tone: 'scrapped' },
+        { label: 'Breach: EU SRR', tone: 'warning' },
+      ],
+      detailFields: [
+        { label: 'Yard', value: 'Shree Ram Vessel Scrap Pvt Ltd' },
+        { label: 'Location', value: 'Alang, India' },
+        { label: 'Flag Prior', value: 'Cameroon' },
+        { label: 'Beneficial Owner', value: 'JOINT STOCK COMPANY SOVCOMFLOT' },
+        { label: 'Commercial Operator', value: 'SCF Management Services' },
+      ],
+    },
+  ],
+}
+
+export const sanctionVersionB = {
+  ...sanctionVersionA,
+  title: 'Version B',
+  description: 'Timeline-only variant without summary block.',
+}
+
