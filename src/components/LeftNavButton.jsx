@@ -4,12 +4,17 @@ import { NavLink } from 'react-router-dom'
 
 const LeftNavButton = ({ icon, to, onNavClick }) => {
   const handleClick = (e) => {
-    e.preventDefault()
-    onNavClick(to)
+    // e.preventDefault()
+    // onNavClick(to)
   }
 
   return (
-    <Box component={NavLink} to={to} className="leftnav-btn" onClick={handleClick}>
+    <Box
+      component={NavLink}
+      to={to}
+      className="leftnav-btn"
+      onClick={handleClick}
+    >
       {icon}
     </Box>
   )
