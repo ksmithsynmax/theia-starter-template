@@ -215,7 +215,7 @@ const TopNav = () => {
             top: 120,
             zIndex: 10,
             background: '#24263C',
-            border: '1px solid #4D5171',
+            border: '1px solid #393C56',
             borderRadius: 4,
             padding: '14px 18px 16px 18px',
             minWidth: 300,

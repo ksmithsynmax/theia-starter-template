@@ -143,3 +143,49 @@
 .mapboxgl-ctrl-attrib {
   display: none !important;
 }
+
+.prototype-lock {
+  min-height: 100vh;
+  background: #181926;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.prototype-lock-card {
+  width: 100%;
+  max-width: 320px;
+  background: #24263C;
+  border: 1px solid #393C56;
+  border-radius: 6px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prototype-lock-title {
+  margin: 0;
+  color: #8d95aa;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.prototype-lock-button {
+  border: none;
+  background: #0085E6;
+  color: #ffffff;
+  border-radius: 4px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.prototype-lock-error {
+  margin: 0;
+  color: #ff7272;
+  font-size: 12px;
+}

@@ -253,14 +253,105 @@ const Myships = () => {
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: 8,
                   marginBottom: 12,
                 }}
               >
+                <Box
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  <Box style={{ padding: 8 }}>
+                    <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
+                      Vessel Owner
+                    </Text>
+                    <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 1.25 }}>
+                      {versionData.overview.vesselOwner}
+                    </Text>
+                  </Box>
+                  {versionData.overview.remarks?.map((remark, idx) => {
+                    const provider = remark.startsWith('UK ')
+                      ? 'UK'
+                      : remark.startsWith('EU ')
+                        ? 'EU'
+                        : ''
+                    const programRaw = versionData.overview.programs[idx] || ''
+                    const programText = provider
+                      ? programRaw.replace(new RegExp(`^${provider}:?\\s*`), '')
+                      : programRaw
+                    const normalizedRemarkText = remark
+                      .replace(/^(UK|EU)\s+/, '')
+                      .replace(/\s*\|\s*/g, ' ')
+                      .replace(/Sanction date:\s*/i, '')
+                    const codeMatch = normalizedRemarkText.match(/\[[^\]]+\]/)
+                    const codeText = codeMatch
+                      ? codeMatch[0].replace(/^\[|\]$/g, '')
+                      : ''
+                    const dateText = codeMatch
+                      ? normalizedRemarkText
+                          .slice((codeMatch.index || 0) + codeMatch[0].length)
+                          .trim()
+                      : normalizedRemarkText
+                    return (
+                      <Box
+                        key={remark}
+                        style={{
+                          padding: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 16,
+                        }}
+                      >
+                        <Box style={{ minWidth: 0 }}>
+                          <Text
+                            style={{
+                              color: '#FFFFFF',
+                              fontSize: 12,
+                              lineHeight: 1.25,
+                              marginBottom: 3,
+                            }}
+                          >
+                            {provider ? `${provider}: ${programText}` : programText}
+                          </Text>
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <Text style={{ color: '#8D95AA', fontSize: 10 }}>
+                              {dateText}
+                            </Text>
+                            <Text style={{ color: '#8D95AA', fontSize: 10 }}>
+                              {'\u2022'}
+                            </Text>
+                            <Text style={{ color: '#FFFFFF', fontSize: 10 }}>
+                              {codeText}
+                            </Text>
+                          </Box>
+                        </Box>
+                      </Box>
+                    )
+                  })}
+                </Box>
+              </Box>
+            )}
+            {selectedVersionKey === 'B' && (
+              <Box
+                style={{
+                  marginBottom: 12,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
                 <Box>
-                  <Text
-                    style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}
-                  >
+                  <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}>
                     Program(s)
                   </Text>
                   <Box
@@ -271,166 +362,143 @@ const Myships = () => {
                       flexWrap: 'wrap',
                     }}
                   >
-                    <Text
-                      style={{
-                        color: '#FFFFFF',
-                        fontSize: 14,
-                        lineHeight: 1.35,
-                      }}
+                    <Box
+                      style={{ background: '#393C56', borderRadius: 4, padding: '4px 8px' }}
                     >
-                      {versionData.overview.programs[0]}
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        UK
+                      </Text>
+                    </Box>
+                    <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
+                      Russia Sanctions 2019
                     </Text>
-                    <Text
-                      style={{
-                        color: '#888F9E',
-                        fontSize: 14,
-                        lineHeight: 1.35,
-                      }}
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>{'\u2022'}</Text>
+                    <Box
+                      style={{ background: '#393C56', borderRadius: 4, padding: '4px 8px' }}
                     >
-                      {'\u2022'}
-                    </Text>
-                    <Text
-                      style={{
-                        color: '#888F9E',
-                        fontSize: 14,
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      {versionData.overview.programs[1]}
-                    </Text>
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        EU
+                      </Text>
+                    </Box>
+                    <Text style={{ color: '#FFFFFF', fontSize: 14 }}>Sanctions</Text>
                   </Box>
                 </Box>
                 <Box>
-                  <Text
-                    style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}
-                  >
+                  <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}>
                     Vessel Owner
                   </Text>
-                  <Text
-                    style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 1.35 }}
-                  >
+                  <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
                     {versionData.overview.vesselOwner}
                   </Text>
                 </Box>
-                <Box>
-                  <Text
-                    style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}
-                  >
-                    Sanctions List
-                  </Text>
-                  <Box
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: '#FFFFFF',
-                        fontSize: 14,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {versionData.overview.sanctionsList[0]}
-                    </Text>
-                    <Text style={{ color: '#888F9E', fontSize: 14 }}>
-                      {'\u2022'}
-                    </Text>
-                    <Text style={{ color: '#888F9E', fontSize: 14 }}>
-                      {versionData.overview.sanctionsList[1]}
-                    </Text>
-                  </Box>
-                </Box>
-              </Box>
-            )}
-            {selectedVersionKey === 'B' && (
-              <Box style={{ marginBottom: 12 }}>
-                <Box
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    marginBottom: 12,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  {versionData.overview.programs.map((program) => (
-                    <Box
-                      key={program}
-                      style={{
-                        background: '#24263C',
-                        borderRadius: 4,
-                        padding: '6px 12px',
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: '#fff',
-                          fontSize: 16,
-                          fontWeight: 500,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {program}
-                      </Text>
-                    </Box>
-                  ))}
-                </Box>
-                <Text style={{ color: '#8D95AA', fontSize: 16 }}>
-                  Vessel Owner: {versionData.overview.vesselOwner}
-                </Text>
               </Box>
             )}
             {selectedVersionKey === 'C' && (
-              <Box style={{ marginBottom: 12 }}>
+              <Box
+                style={{
+                  marginBottom: 12,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
                 <Box
                   style={{
-                    display: 'flex',
-                    gap: 8,
-                    marginBottom: 12,
-                    flexWrap: 'wrap',
+                    border: '1px solid #393C56',
+                    borderRadius: 4,
+                    background: '#24263C',
+                    overflow: 'hidden',
                   }}
                 >
-                  {versionData.overview.programs.map((program) => (
-                    <Box
-                      key={program}
-                      style={{
-                        background: '#24263C',
-                        borderRadius: 4,
-                        padding: '6px 12px',
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: '#fff',
-                          fontSize: 16,
-                          fontWeight: 500,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {program}
-                      </Text>
-                    </Box>
-                  ))}
-                  <Box
-                    style={{
-                      background: '#24263C',
-                      borderRadius: 4,
-                      padding: '6px 12px',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: '#fff',
-                        fontSize: 16,
-                        fontWeight: 500,
-                        lineHeight: 1.2,
-                      }}
-                    >
+                  <Box style={{ padding: 8, borderBottom: '1px solid #393C56' }}>
+                    <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
+                      Vessel Owner
+                    </Text>
+                    <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 1.25 }}>
                       {versionData.overview.vesselOwner}
                     </Text>
                   </Box>
+                  {versionData.overview.remarks?.map((remark, idx) => {
+                    const provider = remark.startsWith('UK ')
+                      ? 'UK'
+                      : remark.startsWith('EU ')
+                        ? 'EU'
+                        : ''
+                    const programRaw = versionData.overview.programs[idx] || ''
+                    const programText = provider
+                      ? programRaw.replace(new RegExp(`^${provider}:?\\s*`), '')
+                      : programRaw
+                    const normalizedRemarkText = remark
+                      .replace(/^(UK|EU)\s+/, '')
+                      .replace(/\s*\|\s*/g, ' ')
+                      .replace(/Sanction date:\s*/i, '')
+                    const codeMatch = normalizedRemarkText.match(/\[[^\]]+\]/)
+                    const codeText = codeMatch
+                      ? codeMatch[0].replace(/^\[|\]$/g, '')
+                      : ''
+                    const dateText = codeMatch
+                      ? normalizedRemarkText
+                          .slice((codeMatch.index || 0) + codeMatch[0].length)
+                          .trim()
+                      : normalizedRemarkText
+                    return (
+                      <Box
+                        key={remark}
+                        style={{
+                          padding: '8px',
+                          background: '#24263C',
+                          borderBottom:
+                            idx < versionData.overview.remarks.length - 1
+                              ? '1px solid #393C56'
+                              : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 16,
+                        }}
+                      >
+                        <Box style={{ minWidth: 0 }}>
+                          <Text
+                            style={{
+                              color: '#FFFFFF',
+                              fontSize: 12,
+                              lineHeight: 1.25,
+                              marginBottom: 3,
+                            }}
+                          >
+                            {provider ? `${provider}: ${programText}` : programText}
+                          </Text>
+                          <Text style={{ color: '#8D95AA', fontSize: 10 }}>
+                            {dateText}
+                          </Text>
+                        </Box>
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 10,
+                            lineHeight: 1.2,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {codeText}
+                        </Text>
+                      </Box>
+                    )
+                  })}
                 </Box>
               </Box>
             )}
@@ -466,6 +534,12 @@ const Myships = () => {
                   ? canExpandInVersionC && (hasDetails || Boolean(event.code))
                   : hasDetails && event.eventType === 'scrapped'
                 const isFlagChangeEvent = event.eventType === 'flag_change'
+                const hasBeforeAndAfter = Boolean(
+                  event.beforeValue && event.afterValue
+                )
+                const hasSingleValue =
+                  !hasBeforeAndAfter &&
+                  Boolean(event.afterValue || event.beforeValue)
                 const showBadges =
                   selectedVersionKey === 'B' || selectedVersionKey === 'C'
                 const hideDuplicateChangeHeadline =
@@ -604,7 +678,7 @@ const Myships = () => {
                             {event.code}
                           </Text>
                         )}
-                        {(event.beforeValue || event.afterValue) && (
+                        {hasBeforeAndAfter && (
                           <Box
                             style={{
                               display: 'flex',
@@ -669,6 +743,17 @@ const Myships = () => {
                             )}
                           </Box>
                         )}
+                        {hasSingleValue && (
+                          <Text
+                            style={{
+                              color: '#FFFFFF',
+                              fontSize: 16,
+                              marginBottom: 6,
+                            }}
+                          >
+                            {event.afterValue || event.beforeValue}
+                          </Text>
+                        )}
                         {canExpand &&
                           (!isVersionC ? (
                             <Text
@@ -728,7 +813,8 @@ const Myships = () => {
                             marginTop: isVersionC ? 8 : 0,
                             width: '100%',
                             boxSizing: 'border-box',
-                            borderRadius: isVersionC ? 4 : 8,
+                            border: isVersionC ? 'none' : '1px solid #393C56',
+                            borderRadius: 4,
                             background: '#24263C',
                             padding: 14,
                             display: 'grid',
