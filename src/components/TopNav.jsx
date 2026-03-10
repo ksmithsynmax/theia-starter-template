@@ -12,6 +12,7 @@ import {
   BarChart01,
   ChevronDown,
   Save01,
+  XClose,
 } from '@untitledui/icons'
 
 import TheiaLogo from '../assets/TheiaLogo.svg'
@@ -20,7 +21,14 @@ import { useShipContext } from '../context/ShipContext'
 const TopNav = () => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
+  const [previousMapDate, setPreviousMapDate] = useState(null)
+  const [showHistoricalToast, setShowHistoricalToast] = useState(true)
   const calendarRef = useRef(null)
+  const lastMapDateRef = useRef(mapDate)
+
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const isHistoricalDate = mapDate !== todayStr
 
   useEffect(() => {
     if (!calendarOpen) return
@@ -32,6 +40,17 @@ const TopNav = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [calendarOpen])
+
+  useEffect(() => {
+    if (lastMapDateRef.current !== mapDate) {
+      setPreviousMapDate(lastMapDateRef.current)
+      lastMapDateRef.current = mapDate
+    }
+  }, [mapDate])
+
+  useEffect(() => {
+    if (isHistoricalDate) setShowHistoricalToast(true)
+  }, [isHistoricalDate, mapDate])
 
   return (
     <div>
@@ -111,7 +130,11 @@ const TopNav = () => {
             onClick={() => setCalendarOpen(!calendarOpen)}
           >
             <Calendar color="white" size={20} />
-            <Text variant="body1" c="#fff" style={{ margin: '0 8px' }}>
+            <Text
+              variant="body1"
+              c="#fff"
+              style={{ margin: '0 8px' }}
+            >
               {mapDate.replace(/-/g, '/')}
             </Text>
           </Box>
@@ -166,6 +189,76 @@ const TopNav = () => {
           </Text>
         </Box>
       </Box>
+      {isHistoricalDate && showHistoricalToast && (
+        <Box
+          style={{
+            position: 'fixed',
+            top: 122,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1200,
+            background: '#090B14',
+            border: '1px solid #393C56',
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 20,
+            width: 'min(560px, calc(100vw - 80px))',
+            padding: '14px 16px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+          }}
+        >
+          <Box style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Text style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>
+              Viewing historical date
+            </Text>
+            <Text style={{ color: '#BFC4CE', fontSize: 14 }}>
+              {mapDate.replace(/-/g, '/')}
+            </Text>
+          </Box>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            {previousMapDate && (
+              <Box
+                onClick={() => setMapDate(previousMapDate)}
+                style={{
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: '1px solid #fff',
+                  borderRadius: 4,
+                  padding: '8px 10px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Back to previous date
+              </Box>
+            )}
+            <Box
+              onClick={() => setMapDate(todayStr)}
+              style={{
+                color: '#fff',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: '1px solid #fff',
+                borderRadius: 4,
+                padding: '8px 10px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Go to today
+            </Box>
+            <Box
+              onClick={() => setShowHistoricalToast(false)}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              <XClose style={{ color: '#fff', width: 18, height: 18 }} />
+            </Box>
+          </Box>
+        </Box>
+      )}
     </div>
   )
 }
