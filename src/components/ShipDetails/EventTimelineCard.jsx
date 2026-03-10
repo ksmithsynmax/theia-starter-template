@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Box, Text, Button, Checkbox } from '@mantine/core'
-import { ChevronDown, ChevronUp, Check, InfoCircle } from '@untitledui/icons'
+import { Box, Text, Button } from '@mantine/core'
+import { ChevronDown, ChevronUp, Check, InfoCircle, Calendar } from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
 import stsSatImage from '../../assets/HAfSz3HbAAA34GM.jpeg'
 import shipSatImage from '../../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
@@ -8,8 +8,6 @@ import shipSatImage2 from '../../assets/e92d7378215156c8a7c8c4c73d773963c71bd6b1
 import shipIllustration from '../../assets/ShipIllustration.png'
 
 const shipImages = [shipSatImage, shipSatImage2]
-
-let skipWarningModal = false
 
 const formatEta = (raw) => {
   if (!raw || raw === 'No info') return 'No info'
@@ -84,13 +82,7 @@ const EventTimelineCard = ({
   selectedCard,
 }) => {
   const [expanded, setExpanded] = useState(false)
-  const [stsModalOpen, setStsModalOpen] = useState(false)
-  const [selectModalOpen, setSelectModalOpen] = useState(false)
-  const [switchToLatestModalOpen, setSwitchToLatestModalOpen] = useState(false)
-  const [dontShowChecked, setDontShowChecked] = useState(false)
   const cardRef = useRef(null)
-
-  const modalSuppressed = () => skipWarningModal
 
   useEffect(() => {
     if (selected) {
@@ -177,28 +169,24 @@ const EventTimelineCard = ({
             <Button
               size="xs"
               onClick={() => {
-                if (modalSuppressed()) {
-                  onSelect?.()
-                  onViewStsShips?.()
-                } else {
-                  setStsModalOpen(true)
-                }
+                onSelect?.()
+                onViewStsShips?.()
               }}
-              leftSection={
-                selected ? <Check style={{ width: 14, height: 14 }} /> : null
-              }
+              leftSection={selected ? <Check style={{ width: 14, height: 14 }} /> : null}
+              rightSection={!selected ? <Calendar style={{ width: 14, height: 14 }} /> : null}
               style={{
-                backgroundColor: selected ? 'transparent' : '#0094FF',
-                border: 'none',
+                backgroundColor: selected ? 'transparent' : 'transparent',
+                border: selected ? '1px solid #0094FF' : '1px solid #5F6578',
+                color: '#fff',
                 borderRadius: 4,
                 fontWeight: 600,
-                fontSize: 14,
+                fontSize: 13,
                 height: 32,
                 padding: '0 12px',
                 transform: 'none',
               }}
             >
-              {selected ? 'Selected' : 'Select'}
+              {selected ? 'Selected' : 'Go to Date'}
             </Button>
             <Box
               onClick={() => setExpanded(!expanded)}
@@ -206,13 +194,19 @@ const EventTimelineCard = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: 32,
+                gap: 6,
+                padding: '0 10px',
+                minWidth: 32,
                 height: 32,
-                border: '1px solid #393C56',
+                border: '1px solid #0094FF',
                 borderRadius: 4,
                 cursor: 'pointer',
+                background: '#0094FF',
               }}
             >
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
+                {expanded ? 'Hide' : 'Preview'}
+              </Text>
               {expanded ? (
                 <ChevronUp style={{ color: '#fff', width: 16, height: 16 }} />
               ) : (
@@ -318,107 +312,6 @@ const EventTimelineCard = ({
           </Box>
         </Box>
 
-        {stsModalOpen && (
-          <Box
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0, 0, 0, 0.6)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-            }}
-            onClick={() => setStsModalOpen(false)}
-          >
-            <Box
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: '#24263C',
-                border: '1px solid #393C56',
-                borderRadius: 8,
-                padding: 24,
-                width: 420,
-                maxWidth: '90vw',
-              }}
-            >
-              <Text
-                style={{
-                  color: '#fff',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  marginBottom: 8,
-                }}
-              >
-                Warning
-              </Text>
-              <Text
-                style={{
-                  color: '#898f9d',
-                  fontSize: 13,
-                  marginBottom: 20,
-                }}
-              >
-                This will update the map and ship positions to{' '}
-                <b>
-                  <span style={{ color: '#fff' }}>
-                    {date?.replace(/\s\d{2}:\d{2}$/, '')}
-                  </span>
-                </b>
-                {' '}and open the Ship-to-Ship tab. You can return to today's view using the calendar in the header.
-              </Text>
-              <Checkbox
-                checked={dontShowChecked}
-                onChange={(e) => setDontShowChecked(e.currentTarget.checked)}
-                label="Don't show this again"
-                styles={{
-                  label: { color: '#898f9d', fontSize: 13 },
-                  input: { backgroundColor: dontShowChecked ? '#0094FF' : 'transparent', borderColor: dontShowChecked ? '#0094FF' : '#393C56' },
-                }}
-                style={{ marginBottom: 20 }}
-              />
-              <Box
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <Text
-                  onClick={() => { setStsModalOpen(false); setDontShowChecked(false) }}
-                  style={{
-                    color: '#fff',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancel
-                </Text>
-                <Button
-                  onClick={() => {
-                    if (dontShowChecked) skipWarningModal = true
-                    setStsModalOpen(false)
-                    setDontShowChecked(false)
-                    onSelect?.()
-                    onViewStsShips?.()
-                  }}
-                  style={{
-                    backgroundColor: '#0094FF',
-                    border: 'none',
-                    borderRadius: 4,
-                    fontWeight: 600,
-                    fontSize: 14,
-                    padding: '8px 24px',
-                    transform: 'none',
-                  }}
-                >
-                  Yes
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        )}
       </Box>
     )
   }
@@ -494,27 +387,30 @@ const EventTimelineCard = ({
               if (selected) {
                 onSelect?.()
               } else if (isLatest) {
-                setSwitchToLatestModalOpen(true)
-              } else if (modalSuppressed()) {
-                onSelect?.()
+                if (onSwitchToLatest) {
+                  onSwitchToLatest()
+                } else {
+                  onSelect?.()
+                }
               } else {
-                setSelectModalOpen(true)
+                onSelect?.()
               }
             }}
-            leftSection={
-              selected ? <Check style={{ width: 14, height: 14 }} /> : null
-            }
+            leftSection={selected ? <Check style={{ width: 14, height: 14 }} /> : null}
+            rightSection={!selected ? <Calendar style={{ width: 14, height: 14 }} /> : null}
             style={{
-              backgroundColor: selected ? 'transparent' : '#0094FF',
-              border: 'none',
+              backgroundColor: selected ? 'transparent' : 'transparent',
+              border: selected ? '1px solid #0094FF' : '1px solid #5F6578',
+              color: '#fff',
               borderRadius: 4,
               fontWeight: 600,
-              fontSize: 14,
-              padding: '8px 12px',
+              fontSize: 13,
+              height: 32,
+              padding: '0 12px',
               transform: 'none',
             }}
           >
-            {selected ? 'Selected' : 'Select'}
+            {selected ? 'Selected' : 'Go to Date'}
           </Button>
           <Box
             onClick={() => setExpanded(!expanded)}
@@ -522,13 +418,19 @@ const EventTimelineCard = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 32,
+              gap: 6,
+              padding: '0 10px',
+              minWidth: 32,
               height: 32,
-              border: '1px solid #393C56',
+              border: '1px solid #0094FF',
               borderRadius: 4,
               cursor: 'pointer',
+              background: '#0094FF',
             }}
           >
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
+              {expanded ? 'Hide' : 'Preview'}
+            </Text>
             {expanded ? (
               <ChevronUp style={{ color: '#fff', width: 16, height: 16 }} />
             ) : (
@@ -768,203 +670,6 @@ const EventTimelineCard = ({
           </Box>
         </Box>
       </Box>
-
-      {selectModalOpen && (
-        <Box
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => setSelectModalOpen(false)}
-        >
-          <Box
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#24263C',
-              border: '1px solid #393C56',
-              borderRadius: 8,
-              padding: 24,
-              width: 420,
-              maxWidth: '90vw',
-            }}
-          >
-            <Text
-              style={{
-                color: '#fff',
-                fontSize: 15,
-                fontWeight: 600,
-                marginBottom: 8,
-              }}
-            >
-              Warning
-            </Text>
-            <Text
-              style={{
-                color: '#898f9d',
-                fontSize: 13,
-                marginBottom: 20,
-              }}
-            >
-              This will update the map and ship positions to{' '}
-              <b>
-                <span style={{ color: '#fff' }}>
-                  {date?.replace(/\s\d{2}:\d{2}$/, '')}
-                </span>
-              </b>
-              . You can return to today's view using the calendar in the header.
-            </Text>
-            <Checkbox
-              checked={dontShowChecked}
-              onChange={(e) => setDontShowChecked(e.currentTarget.checked)}
-              label="Don't show this again"
-              styles={{
-                label: { color: '#898f9d', fontSize: 13 },
-                input: { backgroundColor: 'transparent', borderColor: '#393C56' },
-              }}
-              style={{ marginBottom: 20 }}
-            />
-            <Box
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Text
-                onClick={() => { setSelectModalOpen(false); setDontShowChecked(false) }}
-                style={{
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </Text>
-              <Button
-                onClick={() => {
-                  if (dontShowChecked) skipWarningModal = true
-                  setSelectModalOpen(false)
-                  setDontShowChecked(false)
-                  onSelect?.()
-                }}
-                style={{
-                  backgroundColor: '#0094FF',
-                  border: 'none',
-                  borderRadius: 4,
-                  fontWeight: 600,
-                  fontSize: 14,
-                  padding: '8px 24px',
-                  transform: 'none',
-                }}
-              >
-                Yes
-              </Button>
-            </Box>
-          </Box>
-        </Box>
-      )}
-
-      {switchToLatestModalOpen && (
-        <Box
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => setSwitchToLatestModalOpen(false)}
-        >
-          <Box
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#1B1D2E',
-              border: '1px solid #393C56',
-              borderRadius: 8,
-              padding: 24,
-              width: 420,
-              maxWidth: '90vw',
-            }}
-          >
-            <Text
-              style={{
-                color: '#fff',
-                fontSize: 16,
-                fontWeight: 700,
-                marginBottom: 8,
-              }}
-            >
-              Switch to Latest Event?
-            </Text>
-            <Text
-              style={{
-                color: '#898f9d',
-                fontSize: 13,
-                lineHeight: 1.5,
-                marginBottom: 24,
-              }}
-            >
-              You are currently viewing a historical detection. Switching will update the map and timeline to show the most recent event for this ship.
-            </Text>
-            <Box
-              style={{
-                display: 'flex',
-                gap: 12,
-                justifyContent: 'flex-end',
-              }}
-            >
-              <Button
-                variant="subtle"
-                onClick={() => setSwitchToLatestModalOpen(false)}
-                styles={{
-                  root: {
-                    color: '#898f9d',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    padding: '8px 16px',
-                    background: 'transparent',
-                    border: '1px solid #393C56',
-                    borderRadius: 4,
-                    '&:hover': { background: '#24263C' },
-                  },
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  setSwitchToLatestModalOpen(false)
-                  if (onSwitchToLatest) {
-                    onSwitchToLatest()
-                  } else {
-                    onSelect?.()
-                  }
-                }}
-                styles={{
-                  root: {
-                    fontSize: 13,
-                    fontWeight: 600,
-                    padding: '8px 16px',
-                    background: '#0094FF',
-                    borderRadius: 4,
-                    '&:hover': { background: '#0080DD' },
-                  },
-                }}
-              >
-                Switch to Latest
-              </Button>
-            </Box>
-          </Box>
-        </Box>
-      )}
 
     </Box>
   )
