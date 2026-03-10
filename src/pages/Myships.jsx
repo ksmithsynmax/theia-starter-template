@@ -51,11 +51,15 @@ function Myships() {
   const [overflowLeft, setOverflowLeft] = useState(false)
   const [overflowRight, setOverflowRight] = useState(false)
   const [menuOpened, setMenuOpened] = useState(false)
+  const [isResizingTimeline, setIsResizingTimeline] = useState(false)
+  const [topSectionHeight, setTopSectionHeight] = useState(null)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
   const tabScrollRef = useRef(null)
   const prevMapDateRef = useRef(mapDate)
+  const panelContainerRef = useRef(null)
+  const topSectionRef = useRef(null)
 
   const updateOverflow = useCallback(() => {
     const el = tabScrollRef.current
@@ -200,6 +204,37 @@ function Myships() {
     }
   }, [selectedCard])
 
+  useEffect(() => {
+    if (!isResizingTimeline) return undefined
+
+    const handleMouseMove = (e) => {
+      if (!panelContainerRef.current) return
+      const rect = panelContainerRef.current.getBoundingClientRect()
+      const pointerY = e.clientY - rect.top
+      const minTopHeight = 240
+      const maxTopHeight = rect.height - 260
+      const next = Math.max(minTopHeight, Math.min(maxTopHeight, pointerY))
+      setTopSectionHeight(next)
+    }
+
+    const handleMouseUp = () => setIsResizingTimeline(false)
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizingTimeline])
+
+  const handleTimelineResizeStart = (e) => {
+    e.preventDefault()
+    if (topSectionHeight == null && topSectionRef.current) {
+      setTopSectionHeight(topSectionRef.current.getBoundingClientRect().height)
+    }
+    setIsResizingTimeline(true)
+  }
+
   const activeTab = shipTabs.find((t) => t.id === activeShipTab)
   const isStsTab = activeTab?.type === 'sts'
   const displayStsShipIds = isStsTab
@@ -221,6 +256,9 @@ function Myships() {
         .filter((d) => d.shipId === activeShipId)
         .sort((a, b) => new Date(b.date) - new Date(a.date))
     : []
+  const timelineDetections = activeShipDetections.filter(
+    (d) => d.type !== 'ais'
+  )
 
   const latestDetection = activeShipDetections[0] || null
   const latestNonStsDetection = activeShipDetections.find(
@@ -388,13 +426,13 @@ function Myships() {
       : undefined
 
   const eventIconMap = {
-    ais: <AisIcon style={{ height: 14 }} />,
-    light: <LightShipIcon style={{ height: 14 }} />,
-    dark: <DarkShipIcon style={{ height: 14 }} />,
-    spoofing: <SpoofingIcon style={{ height: 14 }} />,
-    sts: <STSIcon style={{ height: 14 }} />,
-    'sts-ais': <STSAisIcon style={{ height: 14 }} />,
-    unattributed: <UnattributedIcon style={{ height: 14 }} />,
+    ais: <AisIcon style={{ height: 12 }} />,
+    light: <LightShipIcon style={{ height: 12 }} />,
+    dark: <DarkShipIcon style={{ height: 12 }} />,
+    spoofing: <SpoofingIcon style={{ height: 12 }} />,
+    sts: <STSIcon style={{ height: 12 }} />,
+    'sts-ais': <STSAisIcon style={{ height: 12 }} />,
+    unattributed: <UnattributedIcon style={{ height: 12 }} />,
   }
 
   const stsHeaderType = isStsTab
@@ -409,9 +447,11 @@ function Myships() {
     : stsHeaderType || latestDetection?.type
 
   const derivedLatestEvent = headerType ? (
-    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    <Box style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#fff' }}>
       {eventIconMap[headerType]}
-      {eventLabel[headerType] || headerType}
+      <Text size="xs" style={{ color: '#fff' }}>
+        {eventLabel[headerType] || headerType}
+      </Text>
     </Box>
   ) : null
   const isLatest =
@@ -782,6 +822,7 @@ function Myships() {
 
       {activeShip && !loading && (
         <Box
+          ref={panelContainerRef}
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -893,7 +934,16 @@ function Myships() {
                 </Box>
               )
             })()}
-          <Box style={{ padding: '20px' }}>
+          <Box
+            ref={topSectionRef}
+            style={{
+              padding: '20px',
+              flexShrink: 0,
+              ...(topSectionHeight != null
+                ? { height: topSectionHeight, overflowY: 'auto' }
+                : {}),
+            }}
+          >
             <Box style={{ display: 'flex', marginBottom: '16px' }}>
               <Box
                 style={{
@@ -923,39 +973,98 @@ function Myships() {
                 <Star01 style={{ color: '#fff', width: 20, height: 20 }} />
               </Box>
             </Box>
-            <Box style={{ display: 'flex', gap: '64px', marginBottom: '8px' }}>
-              <KeyValuePair keyName="Latest Event" value={derivedLatestEvent} />
+            <Box
+              style={{
+                display: 'flex',
+                marginBottom: '12px',
+                alignItems: 'flex-start',
+              }}
+            >
+              <Box>
+                <Text style={{ color: '#888F9E', fontSize: '10px', whiteSpace: 'nowrap' }}>
+                  Latest Event
+                </Text>
+                <Box style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {derivedLatestEvent}
+                  {!isLatest && (
+                    <Text
+                      onClick={handleSwitchToLatest}
+                      style={{
+                        color: '#0094FF',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Back to Latest
+                    </Text>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+            <Box
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'max-content max-content minmax(140px, 220px) minmax(0, 1fr)',
+                columnGap: '32px',
+                marginBottom: '16px',
+                alignItems: 'flex-start',
+              }}
+            >
               <KeyValuePair keyName="IMO" value={activeShip.imo || 'No info'} />
               <KeyValuePair
                 keyName="MMSI"
                 value={activeShip.mmsi || 'No info'}
               />
-            </Box>
-            <Box
-              style={{
-                display: 'flex',
-                alignItems: 'end',
-                gap: 8,
-                marginBottom: '16px',
-              }}
-            >
-              <KeyValuePair
-                keyName="SynMax Ship ID"
-                value={activeShip.shipId || 'No info'}
-              />
-              {activeShip.shipId && (
-                <Copy02
-                  style={{
-                    color: '#fff',
-                    width: 16,
-                    height: 16,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() =>
-                    navigator.clipboard.writeText(activeShip.shipId)
-                  }
-                />
-              )}
+              <Box style={{ minWidth: 0, width: '100%' }}>
+                <Text style={{ color: '#888F9E', fontSize: '10px' }}>
+                  SynMax Ship ID
+                </Text>
+                <Box style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <Text
+                    size="xs"
+                    style={{
+                      color: 'white',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      minWidth: 0,
+                      flex: 1,
+                    }}
+                    title={activeShip.shipId || 'No info'}
+                  >
+                    {activeShip.shipId || 'No info'}
+                  </Text>
+                  {activeShip.shipId && (
+                    <Box
+                      onClick={() =>
+                        navigator.clipboard.writeText(activeShip.shipId)
+                      }
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        color: '#0094FF',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Copy02 style={{ width: 14, height: 14 }} />
+                      <Text
+                        style={{
+                          color: '#0094FF',
+                          fontSize: 12,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Copy
+                      </Text>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
             </Box>
             {!isUnattributed && (
               <ShipDetailsPanel
@@ -963,7 +1072,6 @@ function Myships() {
                 isLatest={isLatest}
                 eventLabel={eventLabel[selectedDetection?.type] || ''}
                 eventIconOverride={selectedStsIcon}
-                onSwitchToLatest={handleSwitchToLatest}
                 flashEnabled={flashEnabled}
               />
             )}
@@ -979,7 +1087,6 @@ function Myships() {
                       ? 'Unattributed'
                       : eventLabel[latestDetection?.type] || ''
                   }
-                  onSwitchToLatest={() => {}}
                   flashEnabled={false}
                   unattributed
                 />
@@ -1055,6 +1162,40 @@ function Myships() {
                 ))}
               </Box>
               <Box
+                onMouseDown={handleTimelineResizeStart}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: 8,
+                  flexShrink: 0,
+                  cursor: 'ns-resize',
+                  background: isResizingTimeline
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'transparent',
+                  position: 'relative',
+                }}
+                title="Drag up to resize timeline"
+              >
+                {isResizingTimeline && (
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      bottom: 10,
+                      background: '#5C6270',
+                      color: '#fff',
+                      fontSize: 11,
+                      padding: '6px 10px',
+                      borderRadius: 4,
+                      whiteSpace: 'nowrap',
+                      zIndex: 3,
+                    }}
+                  >
+                    Drag up to resize timeline
+                  </Box>
+                )}
+              </Box>
+              <Box
                 ref={scrollContainerRef}
                 style={{ flex: 1, overflowY: 'auto' }}
               >
@@ -1067,7 +1208,7 @@ function Myships() {
                       gap: 8,
                     }}
                   >
-                    {activeShipDetections.map((det) => {
+                    {timelineDetections.map((det) => {
                       const stsLightIcon = (
                         renderStsBars(getStsDetectionBarColors(det), {
                           width: 6,
