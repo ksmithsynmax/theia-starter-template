@@ -18,8 +18,8 @@ import {
 import TheiaLogo from '../assets/TheiaLogo.svg'
 
 const TopNav = () => {
-  const [selectedVersion, setSelectedVersion] = useState('Version A')
-  const [toastMessage, setToastMessage] = useState('Version A')
+  const [selectedVersion, setSelectedVersion] = useState('Version B')
+  const [toastMessage, setToastMessage] = useState('Version B')
   const [versionMenuOpened, setVersionMenuOpened] = useState(false)
   const versionMenuWidth = 180
   const versionDescriptions = {

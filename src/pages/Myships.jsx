@@ -18,7 +18,7 @@ import {
 
 const Myships = () => {
   const [activeTab, setActiveTab] = React.useState('Sanction Details')
-  const [selectedVersionKey, setSelectedVersionKey] = React.useState('A')
+  const [selectedVersionKey, setSelectedVersionKey] = React.useState('B')
   const [expandedEventId, setExpandedEventId] = React.useState(null)
   const tabs = ['Event Timeline', 'Ownership', 'Sanction Details']
   const versionDataByKey = {
@@ -27,7 +27,14 @@ const Myships = () => {
     C: sanctionVersionC,
   }
   const versionData = versionDataByKey[selectedVersionKey] || sanctionVersionA
-  const events = versionData.events
+  const events = React.useMemo(
+    () =>
+      [...(versionData.events || [])].sort(
+        (a, b) =>
+          new Date(b.effectiveDate).getTime() - new Date(a.effectiveDate).getTime()
+      ),
+    [versionData]
+  )
   const badgeStyles = {
     sanctions: { background: '#F84B4B', color: '#fff' },
     provider: { background: '#393C56', color: '#fff' },
@@ -264,14 +271,6 @@ const Myships = () => {
                     gap: 10,
                   }}
                 >
-                  <Box style={{ padding: 8 }}>
-                    <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
-                      Vessel Owner
-                    </Text>
-                    <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 1.25 }}>
-                      {versionData.overview.vesselOwner}
-                    </Text>
-                  </Box>
                   {versionData.overview.remarks?.map((remark, idx) => {
                     const provider = remark.startsWith('UK ')
                       ? 'UK'
@@ -338,6 +337,14 @@ const Myships = () => {
                       </Box>
                     )
                   })}
+                  <Box style={{ padding: 8 }}>
+                    <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
+                      Vessel Owner
+                    </Text>
+                    <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 1.25 }}>
+                      {versionData.overview.vesselOwner}
+                    </Text>
+                  </Box>
                 </Box>
               </Box>
             )}
@@ -416,23 +423,8 @@ const Myships = () => {
                   gap: 8,
                 }}
               >
-                <Box
-                  style={{
-                    border: '1px solid #393C56',
-                    borderRadius: 4,
-                    background: '#24263C',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Box style={{ padding: 8, borderBottom: '1px solid #393C56' }}>
-                    <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
-                      Vessel Owner
-                    </Text>
-                    <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 1.25 }}>
-                      {versionData.overview.vesselOwner}
-                    </Text>
-                  </Box>
-                  {versionData.overview.remarks?.map((remark, idx) => {
+                <Box style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {versionData.overview.remarks?.map((remark) => {
                     const provider = remark.startsWith('UK ')
                       ? 'UK'
                       : remark.startsWith('EU ')
@@ -460,14 +452,8 @@ const Myships = () => {
                         key={remark}
                         style={{
                           padding: '8px',
-                          background: '#24263C',
-                          borderBottom:
-                            idx < versionData.overview.remarks.length - 1
-                              ? '1px solid #393C56'
-                              : 'none',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'space-between',
                           gap: 16,
                         }}
                       >
@@ -486,19 +472,32 @@ const Myships = () => {
                             {dateText}
                           </Text>
                         </Box>
-                        <Text
+                        <Box
                           style={{
-                            color: '#FFFFFF',
-                            fontSize: 10,
-                            lineHeight: 1.2,
-                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            flexWrap: 'wrap',
                           }}
                         >
-                          {codeText}
-                        </Text>
+                          <Text style={{ color: '#8D95AA', fontSize: 10 }}>
+                            {'\u2022'}
+                          </Text>
+                          <Text style={{ color: '#FFFFFF', fontSize: 10 }}>
+                            {codeText}
+                          </Text>
+                        </Box>
                       </Box>
                     )
                   })}
+                  <Box style={{ padding: 8 }}>
+                    <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
+                      Vessel Owner
+                    </Text>
+                    <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 1.25 }}>
+                      {versionData.overview.vesselOwner}
+                    </Text>
+                  </Box>
                 </Box>
               </Box>
             )}
@@ -519,20 +518,13 @@ const Myships = () => {
                   width: 1,
                   backgroundImage:
                     'repeating-linear-gradient(to bottom, #A7ADBF 0 3px, transparent 3px 7px)',
-                  display: selectedVersionKey === 'C' ? 'none' : 'block',
+                  display: 'block',
                 }}
               />
               {events.map((event, index) => {
-                const isVersionC = selectedVersionKey === 'C'
                 const isExpanded = expandedEventId === event.id
                 const hasDetails = (event.detailFields || []).length > 0
-                const canExpandInVersionC = [
-                  'sanction_added',
-                  'scrapped',
-                ].includes(event.eventType)
-                const canExpand = isVersionC
-                  ? canExpandInVersionC && (hasDetails || Boolean(event.code))
-                  : hasDetails && event.eventType === 'scrapped'
+                const canExpand = hasDetails && event.eventType === 'scrapped'
                 const isFlagChangeEvent = event.eventType === 'flag_change'
                 const hasBeforeAndAfter = Boolean(
                   event.beforeValue && event.afterValue
@@ -552,55 +544,42 @@ const Myships = () => {
                     key={event.id}
                     style={{
                       display: 'flex',
-                      gap: isVersionC ? 0 : 14,
+                      gap: 14,
                       paddingBottom: index < events.length - 1 ? 10 : 0,
                     }}
                   >
-                    {!isVersionC && (
-                      <Box
-                        style={{
-                          width: 22,
-                          flexShrink: 0,
-                          position: 'relative',
-                        }}
-                      >
-                        <Box
-                          style={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: 3,
-                            background: '#FFFFFF',
-                            outline: '2px solid #181926',
-                            position: 'absolute',
-                            left: 5,
-                            top: 5,
-                            flexShrink: 0,
-                          }}
-                        />
-                      </Box>
-                    )}
                     <Box
                       style={{
-                        flex: 1,
-                        paddingBottom: isVersionC ? 0 : 10,
-                        background: isVersionC ? '#24263C' : 'transparent',
-                        border: isVersionC ? '1px solid #393C56' : 'none',
-                        borderRadius: isVersionC ? 4 : 0,
+                        width: 22,
+                        flexShrink: 0,
+                        position: 'relative',
                       }}
                     >
                       <Box
-                        style={
-                          isVersionC
-                            ? {
-                                padding: '10px 12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 10,
-                              }
-                            : {}
-                        }
-                      >
-                        <Box style={isVersionC ? { flex: 1, minWidth: 0 } : {}}>
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 3,
+                          background: '#FFFFFF',
+                          outline: '2px solid #181926',
+                          position: 'absolute',
+                          left: 5,
+                          top: 5,
+                          flexShrink: 0,
+                        }}
+                      />
+                    </Box>
+                    <Box
+                      style={{
+                        flex: 1,
+                        paddingBottom: 10,
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: 0,
+                      }}
+                    >
+                      <Box>
+                        <Box style={{ minWidth: 0 }}>
                         <Box
                           style={{
                             display: 'flex',
@@ -667,7 +646,7 @@ const Myships = () => {
                             {event.headline}
                           </Text>
                         )}
-                        {event.code && (!isVersionC || isExpanded) && (
+                        {event.code && (
                           <Text
                             style={{
                               color: '#8D95AA',
@@ -755,65 +734,31 @@ const Myships = () => {
                           </Text>
                         )}
                         {canExpand &&
-                          (!isVersionC ? (
-                            <Text
-                              onClick={() =>
-                                setExpandedEventId(isExpanded ? null : event.id)
-                              }
-                              style={{
-                                color: '#0085E6',
-                                fontSize: 14,
-                                cursor: 'pointer',
-                                textDecoration: 'underline',
-                                marginBottom: isExpanded ? 8 : 0,
-                              }}
-                            >
-                              {isExpanded ? 'Hide details' : 'View details'}
-                            </Text>
-                          ) : null)}
-                        </Box>
-                        {isVersionC && canExpand && (
-                          <Box
-                            component="button"
-                            type="button"
+                          (
+                          <Text
                             onClick={() =>
                               setExpandedEventId(isExpanded ? null : event.id)
                             }
                             style={{
-                              width: 30,
-                              height: 30,
-                              background: 'transparent',
-                              border: '1px solid #D9DEEB',
-                              borderRadius: 4,
-                              color: '#D9DEEB',
+                              color: '#0085E6',
+                              fontSize: 14,
                               cursor: 'pointer',
-                              padding: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
+                              textDecoration: 'underline',
+                              marginBottom: isExpanded ? 8 : 0,
                             }}
                           >
-                            <ChevronDown
-                              style={{
-                                width: 18,
-                                height: 18,
-                                transform: isExpanded
-                                  ? 'rotate(180deg)'
-                                  : 'rotate(0deg)',
-                                transition: 'transform 160ms ease',
-                              }}
-                            />
-                          </Box>
+                            {isExpanded ? 'Hide details' : 'View details'}
+                          </Text>
                         )}
+                        </Box>
                       </Box>
                       {canExpand && isExpanded && hasDetails && (
                         <Box
                           style={{
-                            marginTop: isVersionC ? 8 : 0,
+                            marginTop: 0,
                             width: '100%',
                             boxSizing: 'border-box',
-                            border: isVersionC ? 'none' : '1px solid #393C56',
+                            border: '1px solid #393C56',
                             borderRadius: 4,
                             background: '#24263C',
                             padding: 14,
