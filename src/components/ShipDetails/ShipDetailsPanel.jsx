@@ -58,6 +58,7 @@ const ShipDetailsPanel = ({
   eventIconOverride,
   flashEnabled,
   unattributed,
+  onToolsVisibleChange,
 }) => {
   const eventType = selectedEvent?.type
   const flashColor = unattributed ? eventColorMap.unattributed : (eventColorMap[eventType] || null)
@@ -80,6 +81,10 @@ const ShipDetailsPanel = ({
     }
     prevEventRef.current = selectedEvent?.id
   }, [selectedEvent?.id, flashEnabled])
+
+  useEffect(() => {
+    onToolsVisibleChange?.(toolsVisible)
+  }, [toolsVisible, onToolsVisibleChange])
 
   return (
     <Box

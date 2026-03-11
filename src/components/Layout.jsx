@@ -9,6 +9,7 @@ import { useShipContext } from '../context/ShipContext'
 
 function Layout() {
   const [panelOpen, setPanelOpen] = useState(false)
+  const [collapseBtnHovered, setCollapseBtnHovered] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { openShipTab, openStsTab, shipTabs } = useShipContext()
@@ -78,8 +79,12 @@ function Layout() {
                   cursor: 'pointer',
                   pointerEvents: 'auto',
                 }}
+                onMouseEnter={() => setCollapseBtnHovered(true)}
+                onMouseLeave={() => setCollapseBtnHovered(false)}
               >
-                <CollapseButton />
+                <CollapseButton
+                  backgroundColor={collapseBtnHovered ? '#4C5070' : '#393C56'}
+                />
               </Box>
             </Box>
             <Box className="slide-panel-content">
