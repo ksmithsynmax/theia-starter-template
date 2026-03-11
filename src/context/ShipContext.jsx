@@ -13,6 +13,7 @@ export function ShipProvider({ children }) {
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const [mapDate, setMapDate] = useState(todayStr)
   const [activeDetectionId, setActiveDetectionId] = useState(null)
+  const [previewDetectionId, setPreviewDetectionId] = useState(null)
 
   const openShipTab = useCallback((detection) => {
     const ship = ships[detection.shipId]
@@ -86,6 +87,8 @@ export function ShipProvider({ children }) {
         setMapDate,
         activeDetectionId,
         setActiveDetectionId,
+        previewDetectionId,
+        setPreviewDetectionId,
       }}
     >
       {children}

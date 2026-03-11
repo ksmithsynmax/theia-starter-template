@@ -18,7 +18,10 @@ import {
 import TheiaLogo from '../assets/TheiaLogo.svg'
 import { useShipContext } from '../context/ShipContext'
 
-const TopNav = () => {
+const LEFT_NAV_WIDTH = 50
+const DETAIL_PANEL_WIDTH = 500
+
+const TopNav = ({ panelOpen = false }) => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [previousMapDate, setPreviousMapDate] = useState(null)
@@ -29,6 +32,7 @@ const TopNav = () => {
   const today = new Date()
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const isHistoricalDate = mapDate !== todayStr
+  const toastLeftInset = LEFT_NAV_WIDTH + (panelOpen ? DETAIL_PANEL_WIDTH : 0)
 
   useEffect(() => {
     if (!calendarOpen) return
@@ -194,8 +198,9 @@ const TopNav = () => {
           style={{
             position: 'fixed',
             top: 122,
-            left: '50%',
+            left: `calc(${toastLeftInset}px + (100vw - ${toastLeftInset}px) / 2)`,
             transform: 'translateX(-50%)',
+            transition: 'left 0.3s ease',
             zIndex: 1200,
             background: '#090B14',
             border: '1px solid #393C56',

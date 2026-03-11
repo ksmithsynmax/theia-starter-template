@@ -53,7 +53,7 @@ function Layout() {
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TopNav />
+      <TopNav panelOpen={panelOpen} />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map onDetectionClick={handleDetectionClick} />
         <Box

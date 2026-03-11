@@ -43,6 +43,7 @@ function Myships() {
     mapDate,
     setMapDate,
     setActiveDetectionId,
+    setPreviewDetectionId,
   } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
@@ -94,21 +95,25 @@ function Myships() {
         .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
       setFlashEnabled(true)
       setActiveDetectionId(null)
+      setPreviewDetectionId(null)
       setTabState((prev) => ({
         ...prev,
         [activeShipTab]: {
           ...prev[activeShipTab],
           selectedCard: latest?.id ?? null,
+          previewCard: null,
         },
       }))
     }
-  }, [mapDate, activeShipTab, setActiveDetectionId])
+  }, [mapDate, activeShipTab, setActiveDetectionId, setPreviewDetectionId])
 
   const currentTabState = tabState[activeShipTab] || {
     selectedCard: null,
+    previewCard: null,
     activeDetailTab: 0,
   }
   const selectedCard = currentTabState.selectedCard
+  const previewCard = currentTabState.previewCard
   const activeDetailTab = currentTabState.activeDetailTab
 
   const updateTabState = (key, value) => {
@@ -117,6 +122,7 @@ function Myships() {
       [activeShipTab]: {
         ...prev[activeShipTab],
         selectedCard: prev[activeShipTab]?.selectedCard ?? null,
+        previewCard: prev[activeShipTab]?.previewCard ?? null,
         activeDetailTab: prev[activeShipTab]?.activeDetailTab ?? 0,
         [key]: value,
       },
@@ -150,6 +156,9 @@ function Myships() {
           : stsPreferredDetectionId || shipDetections[0]?.id
       if (targetId) {
         updateTabState('selectedCard', targetId)
+        updateTabState('previewCard', null)
+        setActiveDetectionId(targetId)
+        setPreviewDetectionId(null)
         if (selectedDetectionId) setSelectedDetectionId(null)
       }
     }, 1500)
@@ -165,11 +174,16 @@ function Myships() {
         return
       }
       updateTabState('selectedCard', selectedDetectionId)
+      updateTabState('previewCard', null)
+      setActiveDetectionId(selectedDetectionId)
+      setPreviewDetectionId(null)
       setSelectedDetectionId(null)
     }
   }, [
     selectedDetectionId,
+    setActiveDetectionId,
     setSelectedDetectionId,
+    setPreviewDetectionId,
     shipTabs,
     activeShipTab,
   ])
@@ -203,6 +217,10 @@ function Myships() {
       }
     }
   }, [selectedCard])
+
+  useEffect(() => {
+    setPreviewDetectionId(previewCard ?? null)
+  }, [activeShipTab, previewCard, setPreviewDetectionId])
 
   useEffect(() => {
     if (!isResizingTimeline) return undefined
@@ -300,11 +318,9 @@ function Myships() {
     const targetDetection = latestAisDetection || latestDetection
     if (!targetDetection) return
 
-    const parsed = new Date(targetDetection.date)
-    const targetDate = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`
     setFlashEnabled(true)
-    setMapDate(targetDate)
     setActiveDetectionId(targetDetection.id)
+    setPreviewDetectionId(null)
 
     if (isStsTab && activeTab) {
       const currentShipId = activeTab.shipIds[activeStsShip]
@@ -317,6 +333,7 @@ function Myships() {
           [currentShipId]: {
             ...prev[currentShipId],
             selectedCard: targetDetection.id,
+            previewCard: null,
             activeDetailTab: prev[currentShipId]?.activeDetailTab ?? 0,
           },
         }))
@@ -325,10 +342,12 @@ function Myships() {
         openShipTab(targetDetection)
       } else {
         updateTabState('selectedCard', targetDetection.id)
+        updateTabState('previewCard', null)
         setActiveShipTab(activeShipTab)
       }
     } else {
       updateTabState('selectedCard', targetDetection.id)
+      updateTabState('previewCard', null)
       setActiveShipTab(activeShipTab)
     }
   }
@@ -1244,6 +1263,8 @@ function Myships() {
                           <UnattributedIcon style={{ height: 14 }} />
                         ),
                       }
+                      const parsedDetDate = new Date(det.date)
+                      const detDateKey = `${parsedDetDate.getFullYear()}-${String(parsedDetDate.getMonth() + 1).padStart(2, '0')}-${String(parsedDetDate.getDate()).padStart(2, '0')}`
                       return (
                         <Box
                           key={det.id}
@@ -1261,12 +1282,28 @@ function Myships() {
                                 : undefined
                             }
                             selected={selectedCard === det.id}
-                            selectedCard={selectedCard}
-                            isLatest={det.id === latestDetection?.id}
-                            onSwitchToLatest={handleSwitchToAis}
+                            isPreviewed={previewCard === det.id}
+                            onTogglePreview={() => {
+                              const nextPreviewId =
+                                previewCard === det.id ? null : det.id
+                              updateTabState('previewCard', nextPreviewId)
+                              setPreviewDetectionId(nextPreviewId)
+                            }}
+                            onGoToDate={
+                              detDateKey !== mapDate
+                                ? () => {
+                                    setMapDate(detDateKey)
+                                    setActiveDetectionId(det.id)
+                                    setPreviewDetectionId(null)
+                                    updateTabState('previewCard', null)
+                                  }
+                                : undefined
+                            }
                             onSelect={() => {
                               const isDeselecting = selectedCard === det.id
                               setFlashEnabled(true)
+                              setPreviewDetectionId(null)
+                              updateTabState('previewCard', null)
 
                               // On STS tab, selecting a non-STS event navigates to ship tab
                               if (
@@ -1275,10 +1312,6 @@ function Myships() {
                                 !det.stsPartner
                               ) {
                                 openShipTab(det)
-                                const parsed = new Date(det.date)
-                                setMapDate(
-                                  `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`
-                                )
                                 setActiveDetectionId(det.id)
                                 return
                               }
@@ -1289,10 +1322,6 @@ function Myships() {
                                 isDeselecting ? (latestId ?? det.id) : det.id
                               )
                               if (!isDeselecting) {
-                                const parsed = new Date(det.date)
-                                setMapDate(
-                                  `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`
-                                )
                                 setActiveDetectionId(det.id)
                               } else {
                                 setActiveDetectionId(null)

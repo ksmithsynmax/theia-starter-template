@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Box, Text, Button } from '@mantine/core'
-import { ChevronDown, ChevronUp, Check, InfoCircle, Calendar } from '@untitledui/icons'
+import { ChevronDown, ChevronUp, InfoCircle, Calendar } from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
 import stsSatImage from '../../assets/HAfSz3HbAAA34GM.jpeg'
 import shipSatImage from '../../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
@@ -71,33 +71,38 @@ const EventTimelineCard = ({
   newFlag,
   previousFlag,
   selected,
-  isLatest,
   onSelect,
-  onSwitchToLatest,
+  onGoToDate,
+  isPreviewed,
+  onTogglePreview,
   onViewStsShips,
   aisInfo = {},
   partnerAisInfo,
   synMaxInfo,
   detectionType,
-  selectedCard,
 }) => {
-  const [expanded, setExpanded] = useState(false)
+  const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false)
+  const [detailsHovered, setDetailsHovered] = useState(false)
+  const expanded = Boolean(isPreviewed || (selected && !isSelectedCollapsed))
   const cardRef = useRef(null)
+
+  const handlePreviewToggle = () => {
+    if (selected && !isPreviewed) {
+      setIsSelectedCollapsed((prev) => !prev)
+      return
+    }
+    onTogglePreview?.()
+  }
 
   useEffect(() => {
     if (selected) {
-      setExpanded(true)
+      setIsSelectedCollapsed(false)
       const timer = setTimeout(() => {
         cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 300)
       return () => clearTimeout(timer)
     }
   }, [selected])
-
-  // Collapse all non-selected cards when selection changes
-  useEffect(() => {
-    if (!selected) setExpanded(false)
-  }, [selectedCard])
 
   if (variant === 'port') {
     return (
@@ -166,30 +171,51 @@ const EventTimelineCard = ({
             </Box>
           </Box>
           <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Button
-              size="xs"
-              onClick={() => {
-                onSelect?.()
-                onViewStsShips?.()
-              }}
-              leftSection={selected ? <Check style={{ width: 14, height: 14 }} /> : null}
-              rightSection={!selected ? <Calendar style={{ width: 14, height: 14 }} /> : null}
-              style={{
-                backgroundColor: selected ? 'transparent' : 'transparent',
-                border: selected ? '1px solid #0094FF' : '1px solid #5F6578',
-                color: '#fff',
-                borderRadius: 4,
-                fontWeight: 600,
-                fontSize: 12,
-                height: 32,
-                padding: '0 12px',
-                transform: 'none',
-              }}
-            >
-              {selected ? 'Selected' : 'Go to Date'}
-            </Button>
+            {!selected && (
+              <Button
+                size="xs"
+                onClick={() => {
+                  onSelect?.()
+                  onViewStsShips?.()
+                }}
+                style={{
+                  backgroundColor: '#0094FF',
+                  border: '1px solid #0094FF',
+                  color: '#fff',
+                  borderRadius: 4,
+                  fontWeight: 600,
+                  fontSize: 12,
+                  height: 32,
+                  padding: '0 12px',
+                  transform: 'none',
+                }}
+              >
+                Select
+              </Button>
+            )}
+            {selected && onGoToDate && (
+              <Button
+                size="xs"
+                onClick={onGoToDate}
+                leftSection={<Calendar style={{ width: 14, height: 14 }} />}
+                style={{
+                  color: '#fff',
+                  border: '1px solid #fff',
+                  backgroundColor: 'transparent',
+                  borderRadius: 4,
+                  fontWeight: 600,
+                  fontSize: 12,
+                  height: 32,
+                  padding: '0 12px',
+                }}
+              >
+                Go to Date
+              </Button>
+            )}
             <Box
-              onClick={() => setExpanded(!expanded)}
+              onClick={handlePreviewToggle}
+              onMouseEnter={() => setDetailsHovered(true)}
+              onMouseLeave={() => setDetailsHovered(false)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -198,14 +224,16 @@ const EventTimelineCard = ({
                 padding: '0 10px',
                 minWidth: 32,
                 height: 32,
-                border: '1px solid #0094FF',
+                border: '1px solid #fff',
                 borderRadius: 4,
                 cursor: 'pointer',
-                background: '#0094FF',
+                background: detailsHovered
+                  ? 'rgba(255, 255, 255, 0.14)'
+                  : 'transparent',
               }}
             >
               <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
-                {expanded ? 'Hide' : 'Preview'}
+                {expanded ? 'Hide Details' : 'Show Details'}
               </Text>
               {expanded ? (
                 <ChevronUp style={{ color: '#fff', width: 16, height: 16 }} />
@@ -381,39 +409,50 @@ const EventTimelineCard = ({
           </Box>
         </Box>
         <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Button
-            size="xs"
-            onClick={() => {
-              if (selected) {
+          {!selected && (
+            <Button
+              size="xs"
+              onClick={() => {
                 onSelect?.()
-              } else if (isLatest) {
-                if (onSwitchToLatest) {
-                  onSwitchToLatest()
-                } else {
-                  onSelect?.()
-                }
-              } else {
-                onSelect?.()
-              }
-            }}
-            leftSection={selected ? <Check style={{ width: 14, height: 14 }} /> : null}
-            rightSection={!selected ? <Calendar style={{ width: 14, height: 14 }} /> : null}
-            style={{
-              backgroundColor: selected ? 'transparent' : 'transparent',
-              border: selected ? '1px solid #0094FF' : '1px solid #5F6578',
-              color: '#fff',
-              borderRadius: 4,
-              fontWeight: 600,
-              fontSize: 12,
-              height: 32,
-              padding: '0 12px',
-              transform: 'none',
-            }}
-          >
-            {selected ? 'Selected' : 'Go to Date'}
-          </Button>
+              }}
+              style={{
+                backgroundColor: '#0094FF',
+                border: '1px solid #0094FF',
+                color: '#fff',
+                borderRadius: 4,
+                fontWeight: 600,
+                fontSize: 12,
+                height: 32,
+                padding: '0 12px',
+                transform: 'none',
+              }}
+            >
+              Select
+            </Button>
+          )}
+          {selected && onGoToDate && (
+            <Button
+              size="xs"
+              onClick={onGoToDate}
+              leftSection={<Calendar style={{ width: 14, height: 14 }} />}
+              style={{
+                color: '#fff',
+                border: '1px solid #fff',
+                backgroundColor: 'transparent',
+                borderRadius: 4,
+                fontWeight: 600,
+                fontSize: 12,
+                height: 32,
+                padding: '0 12px',
+              }}
+            >
+              Go to Date
+            </Button>
+          )}
           <Box
-            onClick={() => setExpanded(!expanded)}
+            onClick={handlePreviewToggle}
+            onMouseEnter={() => setDetailsHovered(true)}
+            onMouseLeave={() => setDetailsHovered(false)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -422,14 +461,16 @@ const EventTimelineCard = ({
               padding: '0 10px',
               minWidth: 32,
               height: 32,
-              border: '1px solid #0094FF',
+              border: '1px solid #fff',
               borderRadius: 4,
               cursor: 'pointer',
-              background: '#0094FF',
+              background: detailsHovered
+                ? 'rgba(255, 255, 255, 0.14)'
+                : 'transparent',
             }}
           >
             <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
-              {expanded ? 'Hide' : 'Preview'}
+              {expanded ? 'Hide Details' : 'Show Details'}
             </Text>
             {expanded ? (
               <ChevronUp style={{ color: '#fff', width: 16, height: 16 }} />
@@ -477,8 +518,8 @@ const EventTimelineCard = ({
               />
             </Box>
 
-            {/* Time window section for spoofing and dark detections */}
-            {(detectionType === 'spoofing' || detectionType === 'dark') && synMaxInfo && (
+            {/* Time window section for dark detections */}
+            {detectionType === 'dark' && synMaxInfo && (
               <Box
                 style={{
                   display: 'grid',

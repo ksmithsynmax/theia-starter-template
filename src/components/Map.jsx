@@ -67,8 +67,13 @@ const getDateKey = (dateStr) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+const getMarkerDateLabel = (dateStr) => {
+  const d = new Date(dateStr)
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
 const Map = ({ onDetectionClick }) => {
-  const { activeDetectionId, mapDate, shipTabs } = useShipContext()
+  const { activeDetectionId, previewDetectionId, mapDate, shipTabs } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
   const markersRef = useRef({})
@@ -99,6 +104,7 @@ const Map = ({ onDetectionClick }) => {
       el.dataset.detectionId = detection.id
       el.dataset.shipId = detection.shipId
       el.dataset.detectionType = detection.type
+      el.dataset.markerDate = getMarkerDateLabel(detection.date)
       // Hide markers that don't match the current date
       if (getDateKey(detection.date) !== mapDate) {
         el.style.display = 'none'
@@ -106,6 +112,7 @@ const Map = ({ onDetectionClick }) => {
       el.addEventListener('click', () => {
         Object.values(markersRef.current).forEach((m) => {
           m.getElement().classList.remove('active')
+          m.getElement().classList.remove('previewed')
         })
         el.classList.add('active')
         onDetectionClickRef.current?.(detection)
@@ -139,26 +146,32 @@ const Map = ({ onDetectionClick }) => {
     })
   }, [mapDate, shipTabs, activeDetectionId])
 
-  // When a detection is selected from the timeline, highlight it and fly to it
+  // When a detection is selected or previewed from timeline, highlight it and fly to it
   useEffect(() => {
     if (!map.current) return
 
-    // Clear all active highlights
+    // Clear all selection/preview highlights
     Object.values(markersRef.current).forEach((m) => {
       m.getElement().classList.remove('active')
+      m.getElement().classList.remove('previewed')
     })
 
-    if (!activeDetectionId) return
-
-    const activeDet = detections.find((d) => d.id === activeDetectionId)
-    if (!activeDet) return
-
-    const activeMarker = markersRef.current[activeDetectionId]
-    if (activeMarker) {
-      activeMarker.getElement().classList.add('active')
+    if (activeDetectionId) {
+      const selectedMarker = markersRef.current[activeDetectionId]
+      selectedMarker?.getElement().classList.add('active')
     }
-    map.current.flyTo({ center: [activeDet.lng, activeDet.lat], zoom: 6, duration: 1500 })
-  }, [activeDetectionId])
+
+    if (previewDetectionId && previewDetectionId !== activeDetectionId) {
+      const previewMarker = markersRef.current[previewDetectionId]
+      previewMarker?.getElement().classList.add('previewed')
+    }
+
+    const focusDetectionId = previewDetectionId || activeDetectionId
+    if (!focusDetectionId) return
+    const focusDet = detections.find((d) => d.id === focusDetectionId)
+    if (!focusDet) return
+    map.current.flyTo({ center: [focusDet.lng, focusDet.lat], zoom: 6, duration: 1500 })
+  }, [activeDetectionId, previewDetectionId])
 
   // Show halo on markers whose ship has an open tab
   useEffect(() => {
@@ -175,15 +188,18 @@ const Map = ({ onDetectionClick }) => {
       const marker = markersRef.current[det.id]
       if (!marker) return
       const el = marker.getElement()
-      if (openShipIds.has(det.shipId) && !el.classList.contains('active')) {
+      if (
+        openShipIds.has(det.shipId) &&
+        !el.classList.contains('active')
+      ) {
         el.classList.add('opened')
       } else {
         el.classList.remove('opened')
       }
     })
-  }, [shipTabs, activeDetectionId])
+  }, [shipTabs, activeDetectionId, previewDetectionId])
 
-  // Filter markers by date — only show detections for the selected date
+  // Filter markers by date, but keep selected/preview detection visible
   useEffect(() => {
     if (!map.current) return
 
@@ -191,9 +207,13 @@ const Map = ({ onDetectionClick }) => {
       const marker = markersRef.current[det.id]
       if (!marker) return
       const el = marker.getElement()
-      el.style.display = getDateKey(det.date) === mapDate ? '' : 'none'
+      const isSelected = det.id === activeDetectionId
+      const isPreviewed = det.id === previewDetectionId
+      const isCurrentDate = getDateKey(det.date) === mapDate
+      el.dataset.historical = isCurrentDate ? 'false' : 'true'
+      el.style.display = isCurrentDate || isSelected || isPreviewed ? '' : 'none'
     })
-  }, [mapDate])
+  }, [mapDate, activeDetectionId, previewDetectionId])
 
   return (
     <div

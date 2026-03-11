@@ -137,7 +137,7 @@ const ShipDetailsPanel = ({
               cursor: 'pointer',
               flexShrink: 0,
               border: '1px solid #fff',
-              borderRadius: 6,
+              borderRadius: 4,
               padding: '6px 10px',
               background: toolsToggleHovered
                 ? 'rgba(255, 255, 255, 0.14)'
