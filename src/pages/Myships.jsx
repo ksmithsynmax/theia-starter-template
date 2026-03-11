@@ -261,6 +261,8 @@ function Myships() {
   )
 
   const latestDetection = activeShipDetections[0] || null
+  const latestAisDetection =
+    activeShipDetections.find((d) => d.type === 'ais') || null
   const latestNonStsDetection = activeShipDetections.find(
     (d) => d.type !== 'sts' && d.type !== 'sts-ais'
   )
@@ -294,12 +296,15 @@ function Myships() {
     unattributed: 'Unattributed',
   }
 
-  const handleSwitchToLatest = () => {
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const handleSwitchToAis = () => {
+    const targetDetection = latestAisDetection || latestDetection
+    if (!targetDetection) return
+
+    const parsed = new Date(targetDetection.date)
+    const targetDate = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`
     setFlashEnabled(true)
-    setMapDate(todayStr)
-    setActiveDetectionId(null)
+    setMapDate(targetDate)
+    setActiveDetectionId(targetDetection.id)
 
     if (isStsTab && activeTab) {
       const currentShipId = activeTab.shipIds[activeStsShip]
@@ -311,19 +316,19 @@ function Myships() {
           ...prev,
           [currentShipId]: {
             ...prev[currentShipId],
-            selectedCard: latestDetection?.id ?? null,
+            selectedCard: targetDetection.id,
             activeDetailTab: prev[currentShipId]?.activeDetailTab ?? 0,
           },
         }))
         setActiveShipTab(currentShipId)
-      } else if (latestDetection) {
-        openShipTab(latestDetection)
+      } else if (targetDetection) {
+        openShipTab(targetDetection)
       } else {
-        updateTabState('selectedCard', latestDetection?.id ?? null)
+        updateTabState('selectedCard', targetDetection.id)
         setActiveShipTab(activeShipTab)
       }
     } else {
-      updateTabState('selectedCard', latestDetection?.id ?? null)
+      updateTabState('selectedCard', targetDetection.id)
       setActiveShipTab(activeShipTab)
     }
   }
@@ -444,7 +449,9 @@ function Myships() {
     : null
   const headerType = isStsUnattributed
     ? 'unattributed'
-    : stsHeaderType || latestDetection?.type
+    : selectedDetection?.type === 'ais'
+      ? 'ais'
+      : stsHeaderType || latestDetection?.type
 
   const derivedLatestEvent = headerType ? (
     <Box style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#fff' }}>
@@ -456,6 +463,9 @@ function Myships() {
   ) : null
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
+  const isAisSelected =
+    latestAisDetection != null &&
+    selectedDetection?.id === latestAisDetection.id
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -982,13 +992,13 @@ function Myships() {
             >
               <Box>
                 <Text style={{ color: '#888F9E', fontSize: '10px', whiteSpace: 'nowrap' }}>
-                  Latest Event
+                  Event
                 </Text>
                 <Box style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {derivedLatestEvent}
-                  {!isLatest && (
+                  {latestAisDetection && !isAisSelected && (
                     <Text
-                      onClick={handleSwitchToLatest}
+                      onClick={handleSwitchToAis}
                       style={{
                         color: '#0094FF',
                         fontSize: 12,
@@ -997,7 +1007,7 @@ function Myships() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      Back to Latest
+                      Switch to AIS
                     </Text>
                   )}
                 </Box>
@@ -1253,7 +1263,7 @@ function Myships() {
                             selected={selectedCard === det.id}
                             selectedCard={selectedCard}
                             isLatest={det.id === latestDetection?.id}
-                            onSwitchToLatest={handleSwitchToLatest}
+                            onSwitchToLatest={handleSwitchToAis}
                             onSelect={() => {
                               const isDeselecting = selectedCard === det.id
                               setFlashEnabled(true)
