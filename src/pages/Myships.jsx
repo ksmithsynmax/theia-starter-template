@@ -40,6 +40,14 @@ const detailTabs = [
   'Ship Information',
 ]
 const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
+const GO_TO_DATE_CONFIRM_DELAY_MS = 1400
+const GO_TO_DATE_MODAL_TRANSITION_MS = 220
+const getDetectionDateKey = (dateStr) => {
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`
+}
 
 // Keep drag-resize code for possible future re-enable.
 const ENABLE_TIMELINE_DRAG = false
@@ -76,6 +84,7 @@ function Myships() {
   const [dontShowGoToDateAgain, setDontShowGoToDateAgain] = useState(false)
   const [skipGoToDateWarning, setSkipGoToDateWarning] = useState(false)
   const [pendingGoToDate, setPendingGoToDate] = useState(null)
+  const [goToDateSubmitting, setGoToDateSubmitting] = useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
@@ -83,6 +92,8 @@ function Myships() {
   const prevMapDateRef = useRef(mapDate)
   const panelContainerRef = useRef(null)
   const topSectionRef = useRef(null)
+  const goToDateTimerRef = useRef(null)
+  const goToDateCloseTimerRef = useRef(null)
 
   const updateOverflow = useCallback(() => {
     const el = tabScrollRef.current
@@ -98,11 +109,45 @@ function Myships() {
 
   const applyGoToDate = useCallback(
     (dateKey, detectionId) => {
+      const sourceDetection = detections.find((d) => d.id === detectionId)
+      const sourceShipId = sourceDetection?.shipId
+      const sourceType = sourceDetection?.type
+      const shipDetectionsForDate = sourceShipId
+        ? detections
+            .filter(
+              (d) =>
+                d.shipId === sourceShipId &&
+                getDetectionDateKey(d.date) === dateKey
+            )
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+        : []
+      const resolvedDetection =
+        shipDetectionsForDate.find((d) => d.type === 'ais') ||
+        shipDetectionsForDate.find((d) => d.type === sourceType) ||
+        shipDetectionsForDate[0] ||
+        sourceDetection
+      const resolvedDetectionId = resolvedDetection?.id ?? detectionId
+
       setMapDate(dateKey)
-      setActiveDetectionId(detectionId)
       setPreviewDetectionId(null)
+      if (activeShipTab) {
+        setTabState((prev) => ({
+          ...prev,
+          [activeShipTab]: {
+            ...prev[activeShipTab],
+            selectedCard: resolvedDetectionId,
+            previewCard: null,
+            activeDetailTab: prev[activeShipTab]?.activeDetailTab ?? 0,
+          },
+        }))
+      }
+      // Force refocus even if this detection is already active.
+      setActiveDetectionId(null)
+      window.setTimeout(() => {
+        setActiveDetectionId(resolvedDetectionId)
+      }, 0)
     },
-    [setMapDate, setActiveDetectionId, setPreviewDetectionId]
+    [activeShipTab, setMapDate, setActiveDetectionId, setPreviewDetectionId]
   )
 
   const requestGoToDate = useCallback(
@@ -117,6 +162,19 @@ function Myships() {
     },
     [skipGoToDateWarning, applyGoToDate]
   )
+
+  const closeGoToDateModal = useCallback((onClosed) => {
+    setShowGoToDateModal(false)
+    if (goToDateCloseTimerRef.current) {
+      window.clearTimeout(goToDateCloseTimerRef.current)
+    }
+    goToDateCloseTimerRef.current = window.setTimeout(() => {
+      setPendingGoToDate(null)
+      setGoToDateSubmitting(false)
+      onClosed?.()
+      goToDateCloseTimerRef.current = null
+    }, GO_TO_DATE_MODAL_TRANSITION_MS)
+  }, [])
 
   useEffect(() => {
     const el = tabScrollRef.current
@@ -137,6 +195,17 @@ function Myships() {
       if (pref === 'true') setSkipGoToDateWarning(true)
     } catch {
       // Ignore storage access issues and default to showing warning.
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (goToDateTimerRef.current) {
+        window.clearTimeout(goToDateTimerRef.current)
+      }
+      if (goToDateCloseTimerRef.current) {
+        window.clearTimeout(goToDateCloseTimerRef.current)
+      }
     }
   }, [])
 
@@ -1619,13 +1688,20 @@ function Myships() {
       <Modal
         opened={showGoToDateModal && Boolean(pendingGoToDate)}
         onClose={() => {
-          setShowGoToDateModal(false)
-          setPendingGoToDate(null)
+          if (goToDateSubmitting) return
+          closeGoToDateModal()
         }}
         withCloseButton={false}
+        closeOnClickOutside={false}
+        closeOnEscape={false}
         centered
         size="md"
         radius={8}
+        transitionProps={{
+          transition: 'fade',
+          duration: GO_TO_DATE_MODAL_TRANSITION_MS,
+          timingFunction: 'ease',
+        }}
         overlayProps={{ backgroundOpacity: 0.65, blur: 1 }}
         styles={{
           content: {
@@ -1669,6 +1745,7 @@ function Myships() {
               <Checkbox
                 size="sm"
                 checked={dontShowGoToDateAgain}
+                disabled={goToDateSubmitting}
                 onChange={(e) =>
                   setDontShowGoToDateAgain(e.currentTarget.checked)
                 }
@@ -1695,9 +1772,10 @@ function Myships() {
             >
               <Button
                 variant="subtle"
+                disabled={goToDateSubmitting}
                 onClick={() => {
-                  setShowGoToDateModal(false)
-                  setPendingGoToDate(null)
+                  if (goToDateSubmitting) return
+                  closeGoToDateModal()
                 }}
                 style={{
                   color: '#fff',
@@ -1720,7 +1798,10 @@ function Myships() {
                 Cancel
               </Button>
               <Button
+                disabled={goToDateSubmitting}
+                loading={goToDateSubmitting}
                 onClick={() => {
+                  if (goToDateSubmitting || !pendingGoToDate) return
                   if (dontShowGoToDateAgain) {
                     setSkipGoToDateWarning(true)
                     try {
@@ -1732,16 +1813,23 @@ function Myships() {
                       // Ignore storage issues; behavior still applies this session.
                     }
                   }
-                  applyGoToDate(
-                    pendingGoToDate.dateKey,
-                    pendingGoToDate.detectionId
-                  )
-                  setShowGoToDateModal(false)
-                  setPendingGoToDate(null)
+                  const nextGoToDate = pendingGoToDate
+                  setGoToDateSubmitting(true)
+                  goToDateTimerRef.current = window.setTimeout(() => {
+                    closeGoToDateModal(() => {
+                      applyGoToDate(
+                        nextGoToDate.dateKey,
+                        nextGoToDate.detectionId
+                      )
+                    })
+                    goToDateTimerRef.current = null
+                  }, GO_TO_DATE_CONFIRM_DELAY_MS)
                 }}
                 style={{
-                  background: '#0094FF',
-                  color: '#fff',
+                  background: goToDateSubmitting ? '#5C6270' : '#0094FF',
+                  color: goToDateSubmitting ? '#D7DAE2' : '#fff',
+                  borderColor: goToDateSubmitting ? '#5C6270' : '#0094FF',
+                  cursor: goToDateSubmitting ? 'not-allowed' : 'pointer',
                 }}
               >
                 Yes

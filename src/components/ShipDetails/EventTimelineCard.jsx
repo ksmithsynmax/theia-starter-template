@@ -83,6 +83,7 @@ const EventTimelineCard = ({
 }) => {
   const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false)
   const [detailsHovered, setDetailsHovered] = useState(false)
+  const [goToDateHovered, setGoToDateHovered] = useState(false)
   const expanded = Boolean(isPreviewed || (selected && !isSelectedCollapsed))
   const cardRef = useRef(null)
 
@@ -197,16 +198,28 @@ const EventTimelineCard = ({
               <Button
                 size="xs"
                 onClick={onGoToDate}
+                onMouseEnter={() => setGoToDateHovered(true)}
+                onMouseLeave={() => setGoToDateHovered(false)}
                 leftSection={<Calendar style={{ width: 14, height: 14 }} />}
                 style={{
                   color: '#fff',
                   border: '1px solid #fff',
-                  backgroundColor: 'transparent',
+                  backgroundColor: goToDateHovered
+                    ? 'rgba(255, 255, 255, 0.14)'
+                    : 'transparent',
                   borderRadius: 4,
                   fontWeight: 600,
                   fontSize: 12,
                   height: 32,
                   padding: '0 12px',
+                  transform: 'none',
+                }}
+                styles={{
+                  root: {
+                    '&:active': {
+                      transform: 'none',
+                    },
+                  },
                 }}
               >
                 Go to Date
@@ -434,16 +447,28 @@ const EventTimelineCard = ({
             <Button
               size="xs"
               onClick={onGoToDate}
+              onMouseEnter={() => setGoToDateHovered(true)}
+              onMouseLeave={() => setGoToDateHovered(false)}
               leftSection={<Calendar style={{ width: 14, height: 14 }} />}
               style={{
                 color: '#fff',
                 border: '1px solid #fff',
-                backgroundColor: 'transparent',
+                backgroundColor: goToDateHovered
+                  ? 'rgba(255, 255, 255, 0.14)'
+                  : 'transparent',
                 borderRadius: 4,
                 fontWeight: 600,
                 fontSize: 12,
                 height: 32,
                 padding: '0 12px',
+                transform: 'none',
+              }}
+              styles={{
+                root: {
+                  '&:active': {
+                    transform: 'none',
+                  },
+                },
               }}
             >
               Go to Date
