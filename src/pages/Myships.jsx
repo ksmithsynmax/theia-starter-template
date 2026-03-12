@@ -449,6 +449,9 @@ function Myships() {
   const isStsUnattributed =
     isStsTab && activeTab?.stsType === 'sts' && activeStsShip === 1
   const isUnattributed = activeShip?.id === 'unknown' || isStsUnattributed
+  const canCopyImo = !isUnattributed && Boolean(activeShip?.imo)
+  const canCopyMmsi = !isUnattributed && Boolean(activeShip?.mmsi)
+  const canCopyShipId = !isUnattributed && Boolean(activeShip?.shipId)
   const selectedDetection = selectedCard
     ? activeShipDetections.find((d) => d.id === selectedCard) || latestDetection
     : latestDetection
@@ -1301,20 +1304,122 @@ function Myships() {
                   style={{
                     display: 'grid',
                     gridTemplateColumns:
-                      'max-content max-content minmax(140px, 220px) minmax(0, 1fr)',
+                      'max-content max-content minmax(0, 1fr)',
                     columnGap: '32px',
                     marginBottom: '16px',
                     alignItems: 'flex-start',
                   }}
                 >
-                  <KeyValuePair
-                    keyName="IMO"
-                    value={activeShip.imo || 'No info'}
-                  />
-                  <KeyValuePair
-                    keyName="MMSI"
-                    value={activeShip.mmsi || 'No info'}
-                  />
+                  <Box>
+                    <Text style={{ color: '#888F9E', fontSize: '10px' }}>IMO</Text>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        minWidth: 0,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <Text
+                        size="xs"
+                        style={{
+                          color: 'white',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          minWidth: 0,
+                        }}
+                        title={activeShip.imo || 'No info'}
+                      >
+                        {activeShip.imo || 'No info'}
+                      </Text>
+                      {canCopyImo && (
+                        <Tooltip
+                          label="Copy IMO"
+                          withArrow
+                          color="#393C56"
+                          styles={{
+                            tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
+                          }}
+                        >
+                          <Box
+                            onClick={() =>
+                              navigator.clipboard.writeText(String(activeShip.imo))
+                            }
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 18,
+                              height: 18,
+                              color: '#0094ff',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Copy02
+                              style={{ width: 14, height: 14, color: '#0094ff' }}
+                            />
+                          </Box>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Box>
+                  <Box>
+                    <Text style={{ color: '#888F9E', fontSize: '10px' }}>MMSI</Text>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        minWidth: 0,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <Text
+                        size="xs"
+                        style={{
+                          color: 'white',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          minWidth: 0,
+                        }}
+                        title={activeShip.mmsi || 'No info'}
+                      >
+                        {activeShip.mmsi || 'No info'}
+                      </Text>
+                      {canCopyMmsi && (
+                        <Tooltip
+                          label="Copy MMSI"
+                          withArrow
+                          color="#393C56"
+                          styles={{
+                            tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
+                          }}
+                        >
+                          <Box
+                            onClick={() =>
+                              navigator.clipboard.writeText(String(activeShip.mmsi))
+                            }
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 18,
+                              height: 18,
+                              color: '#0094ff',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Copy02
+                              style={{ width: 14, height: 14, color: '#0094ff' }}
+                            />
+                          </Box>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Box>
                   <Box style={{ minWidth: 0, width: '100%' }}>
                     <Text style={{ color: '#888F9E', fontSize: '10px' }}>
                       SynMax Ship ID
@@ -1325,47 +1430,78 @@ function Myships() {
                         alignItems: 'center',
                         gap: 8,
                         minWidth: 0,
+                        width: '100%',
                       }}
                     >
-                      <Text
-                        size="xs"
+                      <Box
+                        title={activeShip.shipId || 'No info'}
                         style={{
                           color: 'white',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
                           minWidth: 0,
                           flex: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          fontSize: 12,
                         }}
-                        title={activeShip.shipId || 'No info'}
                       >
-                        {activeShip.shipId || 'No info'}
-                      </Text>
-                      {activeShip.shipId && (
-                        <Box
-                          onClick={() =>
-                            navigator.clipboard.writeText(activeShip.shipId)
-                          }
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            color: '#0094FF',
-                            cursor: 'pointer',
-                            flexShrink: 0,
+                        {activeShip.shipId ? (
+                          <>
+                            <Box component="span" style={{ flexShrink: 0 }}>
+                              ...
+                            </Box>
+                            <Box
+                              component="span"
+                              style={{
+                                display: 'inline-block',
+                                flex: 1,
+                                minWidth: 0,
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap',
+                                textOverflow: 'clip',
+                                direction: 'rtl',
+                                unicodeBidi: 'plaintext',
+                                textAlign: 'left',
+                              }}
+                            >
+                              {String(activeShip.shipId).slice(1)}
+                            </Box>
+                          </>
+                        ) : (
+                          'No info'
+                        )}
+                      </Box>
+                      {canCopyShipId && (
+                        <Tooltip
+                          label="Copy SynMax Ship Id"
+                          withArrow
+                          color="#393C56"
+                          styles={{
+                            tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
                           }}
                         >
-                          <Copy02 style={{ width: 14, height: 14 }} />
-                          <Text
+                          <Box
+                            onClick={() =>
+                              navigator.clipboard.writeText(activeShip.shipId)
+                            }
                             style={{
-                              color: '#0094FF',
-                              fontSize: 12,
-                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 18,
+                              height: 18,
+                              color: '#0094ff',
+                              cursor: 'pointer',
+                              flexShrink: 0,
                             }}
                           >
-                            Copy
-                          </Text>
-                        </Box>
+                            <Copy02
+                              style={{ width: 14, height: 14, color: '#0094ff' }}
+                            />
+                          </Box>
+                        </Tooltip>
                       )}
                     </Box>
                   </Box>
