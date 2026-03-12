@@ -42,6 +42,7 @@ const detailTabs = [
 const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
 const GO_TO_DATE_CONFIRM_DELAY_MS = 1400
 const GO_TO_DATE_MODAL_TRANSITION_MS = 220
+const TIMELINE_MIN_HEIGHT = 260
 const getDetectionDateKey = (dateStr) => {
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
@@ -50,7 +51,7 @@ const getDetectionDateKey = (dateStr) => {
 }
 
 // Keep drag-resize code for possible future re-enable.
-const ENABLE_TIMELINE_DRAG = false
+const ENABLE_TIMELINE_DRAG = true
 
 function Myships() {
   const {
@@ -76,6 +77,7 @@ function Myships() {
   const [overflowRight, setOverflowRight] = useState(false)
   const [menuOpened, setMenuOpened] = useState(false)
   const [isResizingTimeline, setIsResizingTimeline] = useState(false)
+  const [isDragHandleHovered, setIsDragHandleHovered] = useState(false)
   const [topSectionHeight, setTopSectionHeight] = useState(null)
   const [isTopSummaryCollapsed, setIsTopSummaryCollapsed] = useState(false)
   const [hoveredTopAction, setHoveredTopAction] = useState(null)
@@ -92,6 +94,8 @@ function Myships() {
   const prevMapDateRef = useRef(mapDate)
   const panelContainerRef = useRef(null)
   const topSectionRef = useRef(null)
+  const topSummaryHeaderRef = useRef(null)
+  const lastExpandedTopHeightRef = useRef(null)
   const goToDateTimerRef = useRef(null)
   const goToDateCloseTimerRef = useRef(null)
 
@@ -102,9 +106,36 @@ function Myships() {
     setOverflowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
   }, [])
 
-  const getMinTopHeight = useCallback(
-    () => (detailToolsVisible ? 300 : 250),
-    [detailToolsVisible]
+  const getMinTopHeight = useCallback(() => {
+    const FALLBACK_MIN = 96
+    if (!topSummaryHeaderRef.current || !topSectionRef.current) return FALLBACK_MIN
+
+    const headerRect = topSummaryHeaderRef.current.getBoundingClientRect()
+    const topSectionStyles = window.getComputedStyle(topSectionRef.current)
+    const headerStyles = window.getComputedStyle(topSummaryHeaderRef.current)
+
+    const paddingTop = parseFloat(topSectionStyles.paddingTop) || 0
+    const paddingBottom = parseFloat(topSectionStyles.paddingBottom) || 0
+    const marginBottom = parseFloat(headerStyles.marginBottom) || 0
+
+    return Math.ceil(headerRect.height + paddingTop + paddingBottom + marginBottom)
+  }, [])
+
+  const getTopSectionBounds = useCallback(() => {
+    if (!panelContainerRef.current) return null
+    const rect = panelContainerRef.current.getBoundingClientRect()
+    const maxTopHeight = Math.max(0, rect.height - TIMELINE_MIN_HEIGHT)
+    const minTopHeight = Math.min(getMinTopHeight(), maxTopHeight)
+    return { minTopHeight, maxTopHeight }
+  }, [getMinTopHeight])
+
+  const getPreferredExpandedTopHeight = useCallback(
+    (minTopHeight, maxTopHeight) => {
+      const naturalHeight = topSectionRef.current?.scrollHeight ?? maxTopHeight
+      const preferredHeight = lastExpandedTopHeightRef.current ?? naturalHeight
+      return Math.max(minTopHeight, Math.min(maxTopHeight, preferredHeight))
+    },
+    []
   )
 
   const applyGoToDate = useCallback(
@@ -351,14 +382,38 @@ function Myships() {
     const handleMouseMove = (e) => {
       if (!panelContainerRef.current) return
       const rect = panelContainerRef.current.getBoundingClientRect()
+      const bounds = getTopSectionBounds()
+      if (!bounds) return
       const pointerY = e.clientY - rect.top
-      const maxTopHeight = rect.height - 260
-      const minTopHeight = Math.min(getMinTopHeight(), maxTopHeight)
+      const { minTopHeight, maxTopHeight } = bounds
       const next = Math.max(minTopHeight, Math.min(maxTopHeight, pointerY))
       setTopSectionHeight(next)
     }
 
-    const handleMouseUp = () => setIsResizingTimeline(false)
+    const handleMouseUp = () => {
+      const bounds = getTopSectionBounds()
+      if (bounds && topSectionHeight != null) {
+        const { minTopHeight, maxTopHeight } = bounds
+        const preferredHeight = getPreferredExpandedTopHeight(
+          minTopHeight,
+          maxTopHeight
+        )
+        const snapPoints = [minTopHeight, preferredHeight, maxTopHeight]
+        const snappedHeight = snapPoints.reduce((closest, candidate) => {
+          if (Math.abs(candidate - topSectionHeight) < Math.abs(closest - topSectionHeight)) {
+            return candidate
+          }
+          return closest
+        }, minTopHeight)
+        const collapsed = Math.abs(snappedHeight - minTopHeight) <= 2
+        setTopSectionHeight(snappedHeight)
+        setIsTopSummaryCollapsed(collapsed)
+        if (!collapsed) {
+          lastExpandedTopHeightRef.current = snappedHeight
+        }
+      }
+      setIsResizingTimeline(false)
+    }
 
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
@@ -366,13 +421,18 @@ function Myships() {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isResizingTimeline, getMinTopHeight])
+  }, [
+    isResizingTimeline,
+    getTopSectionBounds,
+    getPreferredExpandedTopHeight,
+    topSectionHeight,
+  ])
 
   useEffect(() => {
-    if (topSectionHeight == null || !panelContainerRef.current) return
-    const rect = panelContainerRef.current.getBoundingClientRect()
-    const maxTopHeight = rect.height - 260
-    const minTopHeight = Math.min(getMinTopHeight(), maxTopHeight)
+    if (topSectionHeight == null) return
+    const bounds = getTopSectionBounds()
+    if (!bounds) return
+    const { minTopHeight, maxTopHeight } = bounds
     const clamped = Math.max(
       minTopHeight,
       Math.min(maxTopHeight, topSectionHeight)
@@ -380,12 +440,24 @@ function Myships() {
     if (clamped !== topSectionHeight) {
       setTopSectionHeight(clamped)
     }
-  }, [topSectionHeight, getMinTopHeight])
+  }, [topSectionHeight, getTopSectionBounds])
+
+  useEffect(() => {
+    if (topSectionHeight != null && !isTopSummaryCollapsed) {
+      lastExpandedTopHeightRef.current = topSectionHeight
+    }
+  }, [topSectionHeight, isTopSummaryCollapsed])
 
   useEffect(() => {
     if (!topSectionRef.current) return
     topSectionRef.current.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [detailToolsVisible])
+    // If tools are hidden after a drag-resize, release fixed height so
+    // the timeline immediately moves up and no empty gap remains.
+    if (!detailToolsVisible && !isTopSummaryCollapsed && !isResizingTimeline) {
+      setTopSectionHeight(null)
+      lastExpandedTopHeightRef.current = null
+    }
+  }, [detailToolsVisible, isTopSummaryCollapsed, isResizingTimeline])
 
   const handleTimelineResizeStart = (e) => {
     if (!ENABLE_TIMELINE_DRAG) return
@@ -393,7 +465,28 @@ function Myships() {
     if (topSectionHeight == null && topSectionRef.current) {
       setTopSectionHeight(topSectionRef.current.getBoundingClientRect().height)
     }
+    setIsTopSummaryCollapsed(false)
     setIsResizingTimeline(true)
+  }
+
+  const handleTopSummaryToggle = () => {
+    const bounds = getTopSectionBounds()
+    if (!bounds) {
+      setIsTopSummaryCollapsed((v) => !v)
+      return
+    }
+    const { minTopHeight, maxTopHeight } = bounds
+    if (isTopSummaryCollapsed) {
+      // Treat button expand as a reset to default, not a restore of partial drag.
+      setTopSectionHeight(null)
+      setIsTopSummaryCollapsed(false)
+      lastExpandedTopHeightRef.current = null
+      return
+    }
+    // Clear custom drag memory when collapsing via the button.
+    lastExpandedTopHeightRef.current = null
+    setTopSectionHeight(minTopHeight)
+    setIsTopSummaryCollapsed(true)
   }
 
   const activeTab = shipTabs.find((t) => t.id === activeShipTab)
@@ -1143,7 +1236,10 @@ function Myships() {
                 : {}),
             }}
           >
-            <Box style={{ display: 'flex', marginBottom: '16px' }}>
+            <Box
+              ref={topSummaryHeaderRef}
+              style={{ display: 'flex', marginBottom: '16px' }}
+            >
               <Box
                 style={{
                   display: 'flex',
@@ -1232,7 +1328,7 @@ function Myships() {
                 </Tooltip>
                 <Tooltip label="Expand/collapse" withArrow openDelay={200}>
                   <Box
-                    onClick={() => setIsTopSummaryCollapsed((v) => !v)}
+                    onClick={handleTopSummaryToggle}
                     onMouseEnter={() => setHoveredTopAction('resize')}
                     onMouseLeave={() => setHoveredTopAction(null)}
                     style={{
@@ -1614,40 +1710,46 @@ function Myships() {
                 ))}
               </Box>
               {ENABLE_TIMELINE_DRAG && (
-                <Box
-                  onMouseDown={handleTimelineResizeStart}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: 8,
-                    flexShrink: 0,
-                    cursor: 'ns-resize',
-                    background: isResizingTimeline
-                      ? 'rgba(255, 255, 255, 0.08)'
-                      : 'transparent',
-                    position: 'relative',
+                <Tooltip
+                  label="Drag to resize timeline"
+                  position="bottom"
+                  withArrow
+                  openDelay={0}
+                  closeDelay={0}
+                  color="#393C56"
+                  styles={{
+                    tooltip: { color: '#fff', fontSize: 11, fontWeight: 600 },
                   }}
-                  title="Drag up to resize timeline"
                 >
-                  {isResizingTimeline && (
+                  <Box
+                    onMouseDown={handleTimelineResizeStart}
+                    onMouseEnter={() => setIsDragHandleHovered(true)}
+                    onMouseLeave={() => setIsDragHandleHovered(false)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      height: 10,
+                      flexShrink: 0,
+                      cursor: 'ns-resize',
+                      background: 'transparent',
+                      position: 'relative',
+                    }}
+                  >
                     <Box
                       style={{
-                        position: 'absolute',
-                        bottom: 10,
-                        background: '#5C6270',
-                        color: '#fff',
-                        fontSize: 11,
-                        padding: '6px 10px',
-                        borderRadius: 4,
-                        whiteSpace: 'nowrap',
-                        zIndex: 3,
+                        width: isResizingTimeline || isDragHandleHovered ? 54 : 42,
+                        height: 3,
+                        borderRadius: 999,
+                        background:
+                          isResizingTimeline || isDragHandleHovered
+                            ? '#5C6270'
+                            : 'rgba(92, 98, 112, 0.45)',
+                        transition: 'all 120ms ease',
                       }}
-                    >
-                      Drag up to resize timeline
-                    </Box>
-                  )}
-                </Box>
+                    />
+                  </Box>
+                </Tooltip>
               )}
               <Box
                 ref={scrollContainerRef}
