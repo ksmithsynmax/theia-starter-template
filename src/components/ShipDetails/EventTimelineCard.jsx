@@ -190,7 +190,7 @@ const EventTimelineCard = ({
                   transform: 'none',
                 }}
               >
-                Select
+                View Event Location
               </Button>
             )}
             {selected && onGoToDate && (
@@ -427,7 +427,7 @@ const EventTimelineCard = ({
                 transform: 'none',
               }}
             >
-              Select
+              View Event Location
             </Button>
           )}
           {selected && onGoToDate && (

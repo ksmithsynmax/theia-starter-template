@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Box, Text, Title, Loader, Menu, Tooltip } from '@mantine/core'
+import {
+  Box,
+  Text,
+  Title,
+  Loader,
+  Menu,
+  Tooltip,
+  Checkbox,
+  Modal,
+  Button,
+} from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
 import {
   File02,
@@ -29,6 +39,7 @@ const detailTabs = [
   'Sat. Imagery Timeline',
   'Ship Information',
 ]
+const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
 
 // Keep drag-resize code for possible future re-enable.
 const ENABLE_TIMELINE_DRAG = false
@@ -61,6 +72,10 @@ function Myships() {
   const [isTopSummaryCollapsed, setIsTopSummaryCollapsed] = useState(false)
   const [hoveredTopAction, setHoveredTopAction] = useState(null)
   const [detailToolsVisible, setDetailToolsVisible] = useState(true)
+  const [showGoToDateModal, setShowGoToDateModal] = useState(false)
+  const [dontShowGoToDateAgain, setDontShowGoToDateAgain] = useState(false)
+  const [skipGoToDateWarning, setSkipGoToDateWarning] = useState(false)
+  const [pendingGoToDate, setPendingGoToDate] = useState(null)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
@@ -81,6 +96,28 @@ function Myships() {
     [detailToolsVisible]
   )
 
+  const applyGoToDate = useCallback(
+    (dateKey, detectionId) => {
+      setMapDate(dateKey)
+      setActiveDetectionId(detectionId)
+      setPreviewDetectionId(null)
+    },
+    [setMapDate, setActiveDetectionId, setPreviewDetectionId]
+  )
+
+  const requestGoToDate = useCallback(
+    (dateKey, detectionId, dateLabel) => {
+      if (skipGoToDateWarning) {
+        applyGoToDate(dateKey, detectionId)
+        return
+      }
+      setDontShowGoToDateAgain(false)
+      setPendingGoToDate({ dateKey, detectionId, dateLabel })
+      setShowGoToDateModal(true)
+    },
+    [skipGoToDateWarning, applyGoToDate]
+  )
+
   useEffect(() => {
     const el = tabScrollRef.current
     if (!el) return
@@ -93,6 +130,15 @@ function Myships() {
       ro.disconnect()
     }
   }, [updateOverflow, shipTabs])
+
+  useEffect(() => {
+    try {
+      const pref = window.localStorage.getItem(GO_TO_DATE_WARNING_PREF_KEY)
+      if (pref === 'true') setSkipGoToDateWarning(true)
+    } catch {
+      // Ignore storage access issues and default to showing warning.
+    }
+  }, [])
 
   useEffect(() => {
     if (mapDate === prevMapDateRef.current) return
@@ -229,10 +275,6 @@ function Myships() {
       }
     }
   }, [selectedCard])
-
-  useEffect(() => {
-    setPreviewDetectionId(previewCard ?? null)
-  }, [activeShipTab, previewCard, setPreviewDetectionId])
 
   useEffect(() => {
     if (!isResizingTimeline) return undefined
@@ -1085,10 +1127,14 @@ function Myships() {
                       borderRadius: 4,
                       cursor: 'pointer',
                       background:
-                        hoveredTopAction === 'alert' ? '#24263C' : 'transparent',
+                        hoveredTopAction === 'alert'
+                          ? '#24263C'
+                          : 'transparent',
                     }}
                   >
-                    <AlertIcon style={{ color: '#fff', width: 20, height: 20 }} />
+                    <AlertIcon
+                      style={{ color: '#fff', width: 20, height: 20 }}
+                    />
                   </Box>
                 </Tooltip>
                 <Tooltip label="Add to favorites" withArrow openDelay={200}>
@@ -1126,7 +1172,9 @@ function Myships() {
                       borderRadius: 4,
                       cursor: 'pointer',
                       background:
-                        hoveredTopAction === 'resize' ? '#24263C' : 'transparent',
+                        hoveredTopAction === 'resize'
+                          ? '#24263C'
+                          : 'transparent',
                     }}
                   >
                     <EnlargeVerticalIcon
@@ -1174,7 +1222,7 @@ function Myships() {
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          Switch to AIS
+                          Switch to Latest AIS
                         </Text>
                       )}
                     </Box>
@@ -1461,15 +1509,26 @@ function Myships() {
                               const nextPreviewId =
                                 previewCard === det.id ? null : det.id
                               updateTabState('previewCard', nextPreviewId)
-                              setPreviewDetectionId(nextPreviewId)
+                              // Keep "Show Details" local to the card; do not move map focus.
+                              setPreviewDetectionId(null)
                             }}
                             onGoToDate={
                               detDateKey !== mapDate
                                 ? () => {
-                                    setMapDate(detDateKey)
-                                    setActiveDetectionId(det.id)
-                                    setPreviewDetectionId(null)
-                                    updateTabState('previewCard', null)
+                                    const dateLabel =
+                                      parsedDetDate.toLocaleDateString(
+                                        'en-US',
+                                        {
+                                          month: 'short',
+                                          day: 'numeric',
+                                          year: 'numeric',
+                                        }
+                                      )
+                                    requestGoToDate(
+                                      detDateKey,
+                                      det.id,
+                                      dateLabel
+                                    )
                                   }
                                 : undefined
                             }
@@ -1557,6 +1616,140 @@ function Myships() {
           )}
         </Box>
       )}
+      <Modal
+        opened={showGoToDateModal && Boolean(pendingGoToDate)}
+        onClose={() => {
+          setShowGoToDateModal(false)
+          setPendingGoToDate(null)
+        }}
+        withCloseButton={false}
+        centered
+        size="md"
+        radius={8}
+        overlayProps={{ backgroundOpacity: 0.65, blur: 1 }}
+        styles={{
+          content: {
+            background: '#24263C',
+            border: '1px solid #393C56',
+            maxWidth: 680,
+          },
+          body: {
+            padding: 18,
+          },
+        }}
+      >
+        {pendingGoToDate && (
+          <Box>
+            <Text
+              style={{
+                color: '#fff',
+                fontSize: 20,
+                fontWeight: 700,
+                marginBottom: 16,
+              }}
+            >
+              Warning
+            </Text>
+            <Text
+              style={{
+                color: '#8D93A8',
+                fontSize: 14,
+                lineHeight: 1.2,
+                marginBottom: 24,
+              }}
+            >
+              This will update the map and ship positions to{' '}
+              <Text span style={{ color: '#fff', fontWeight: 700 }}>
+                {pendingGoToDate.dateLabel}.
+              </Text>{' '}
+              You can return to today&apos;s view using the calendar in the
+              header.
+            </Text>
+            <Box style={{ marginTop: 12, marginBottom: 16 }}>
+              <Checkbox
+                size="sm"
+                checked={dontShowGoToDateAgain}
+                onChange={(e) =>
+                  setDontShowGoToDateAgain(e.currentTarget.checked)
+                }
+                label="Don't show this again"
+                styles={{
+                  label: { color: '#8D93A8', fontSize: 14 },
+                  input: {
+                    background: 'transparent',
+                    borderColor: '#5C6270',
+                    '&[data-checked]': {
+                      background: '#0094FF',
+                      borderColor: '#0094FF',
+                    },
+                  },
+                }}
+              />
+            </Box>
+            <Box
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Button
+                variant="subtle"
+                onClick={() => {
+                  setShowGoToDateModal(false)
+                  setPendingGoToDate(null)
+                }}
+                style={{
+                  color: '#fff',
+                  paddingLeft: 0,
+                  paddingRight: 0,
+                  fontSize: 14,
+                }}
+                styles={{
+                  root: {
+                    background: 'transparent',
+                    color: '#fff',
+                    '&:hover': {
+                      background: 'transparent',
+                      color: '#BFC4CE',
+                    },
+                  },
+                  inner: { justifyContent: 'flex-start' },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (dontShowGoToDateAgain) {
+                    setSkipGoToDateWarning(true)
+                    try {
+                      window.localStorage.setItem(
+                        GO_TO_DATE_WARNING_PREF_KEY,
+                        'true'
+                      )
+                    } catch {
+                      // Ignore storage issues; behavior still applies this session.
+                    }
+                  }
+                  applyGoToDate(
+                    pendingGoToDate.dateKey,
+                    pendingGoToDate.detectionId
+                  )
+                  setShowGoToDateModal(false)
+                  setPendingGoToDate(null)
+                }}
+                style={{
+                  background: '#0094FF',
+                  color: '#fff',
+                }}
+              >
+                Yes
+              </Button>
+            </Box>
+          </Box>
+        )}
+      </Modal>
     </Box>
   )
 }
