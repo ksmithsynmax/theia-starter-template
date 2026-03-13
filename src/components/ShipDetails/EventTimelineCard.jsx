@@ -84,6 +84,7 @@ const EventTimelineCard = ({
   const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false)
   const [detailsHovered, setDetailsHovered] = useState(false)
   const [goToDateHovered, setGoToDateHovered] = useState(false)
+  const [viewLocationHovered, setViewLocationHovered] = useState(false)
   const expanded = Boolean(isPreviewed || (selected && !isSelectedCollapsed))
   const cardRef = useRef(null)
 
@@ -179,9 +180,11 @@ const EventTimelineCard = ({
                   onSelect?.()
                   onViewStsShips?.()
                 }}
+                onMouseEnter={() => setViewLocationHovered(true)}
+                onMouseLeave={() => setViewLocationHovered(false)}
                 style={{
-                  backgroundColor: '#0094FF',
-                  border: '1px solid #0094FF',
+                  backgroundColor: viewLocationHovered ? '#007DD6' : '#0094FF',
+                  border: `1px solid ${viewLocationHovered ? '#007DD6' : '#0094FF'}`,
                   color: '#fff',
                   borderRadius: 4,
                   fontWeight: 600,
@@ -428,9 +431,11 @@ const EventTimelineCard = ({
               onClick={() => {
                 onSelect?.()
               }}
+              onMouseEnter={() => setViewLocationHovered(true)}
+              onMouseLeave={() => setViewLocationHovered(false)}
               style={{
-                backgroundColor: '#0094FF',
-                border: '1px solid #0094FF',
+                backgroundColor: viewLocationHovered ? '#007DD6' : '#0094FF',
+                border: `1px solid ${viewLocationHovered ? '#007DD6' : '#0094FF'}`,
                 color: '#fff',
                 borderRadius: 4,
                 fontWeight: 600,

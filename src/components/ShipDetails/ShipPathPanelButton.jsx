@@ -1,16 +1,26 @@
+import { useState } from 'react'
 import { Box, Text } from '@mantine/core'
 
 const ShipPathPanelButton = ({ icon, label, disabled }) => {
+  const [hovered, setHovered] = useState(false)
+
   return (
     <Box
+      onMouseEnter={() => {
+        if (!disabled) setHovered(true)
+      }}
+      onMouseLeave={() => setHovered(false)}
       style={{
         flex: 1,
         borderRadius: 6,
         padding: 2,
         background: disabled
           ? '#2A2D3E'
-          : 'linear-gradient(180deg, rgba(0, 148, 255, 0.35) 0%, rgba(13, 51, 92, 0.2) 100%)',
+          : hovered
+            ? 'linear-gradient(180deg, rgba(0, 148, 255, 0.5) 0%, rgba(13, 51, 92, 0.3) 100%)'
+            : 'linear-gradient(180deg, rgba(0, 148, 255, 0.35) 0%, rgba(13, 51, 92, 0.2) 100%)',
         cursor: disabled ? 'not-allowed' : 'pointer',
+        transition: 'background 140ms ease',
       }}
     >
       <Box
@@ -25,7 +35,10 @@ const ShipPathPanelButton = ({ icon, label, disabled }) => {
           height: 72,
           background: disabled
             ? '#2A2D3E'
-            : 'linear-gradient(180deg, #0D335C 0%, #0870B8 100%)',
+            : hovered
+              ? 'linear-gradient(180deg, #0F3E70 0%, #0A82CF 100%)'
+              : 'linear-gradient(180deg, #0D335C 0%, #0870B8 100%)',
+          transition: 'background 140ms ease',
         }}
       >
         <Box

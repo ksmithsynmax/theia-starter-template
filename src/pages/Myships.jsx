@@ -88,6 +88,7 @@ function Myships() {
   const [skipGoToDateWarning, setSkipGoToDateWarning] = useState(false)
   const [pendingGoToDate, setPendingGoToDate] = useState(null)
   const [goToDateSubmitting, setGoToDateSubmitting] = useState(false)
+  const [goToDateConfirmHovered, setGoToDateConfirmHovered] = useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
@@ -2086,6 +2087,8 @@ function Myships() {
               <Button
                 disabled={goToDateSubmitting}
                 loading={goToDateSubmitting}
+                onMouseEnter={() => setGoToDateConfirmHovered(true)}
+                onMouseLeave={() => setGoToDateConfirmHovered(false)}
                 onClick={() => {
                   if (goToDateSubmitting || !pendingGoToDate) return
                   if (dontShowGoToDateAgain) {
@@ -2113,9 +2116,17 @@ function Myships() {
                   }, GO_TO_DATE_CONFIRM_DELAY_MS)
                 }}
                 style={{
-                  background: goToDateSubmitting ? '#5C6270' : '#0094FF',
+                  background: goToDateSubmitting
+                    ? '#5C6270'
+                    : goToDateConfirmHovered
+                      ? '#007DD6'
+                      : '#0094FF',
                   color: goToDateSubmitting ? '#D7DAE2' : '#fff',
-                  borderColor: goToDateSubmitting ? '#5C6270' : '#0094FF',
+                  borderColor: goToDateSubmitting
+                    ? '#5C6270'
+                    : goToDateConfirmHovered
+                      ? '#007DD6'
+                      : '#0094FF',
                   cursor: goToDateSubmitting ? 'not-allowed' : 'pointer',
                 }}
               >
