@@ -40,7 +40,7 @@ const detailTabs = [
   'Ship Information',
 ]
 const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
-const GO_TO_DATE_CONFIRM_DELAY_MS = 1400
+const GO_TO_DATE_CONFIRM_DELAY_MS = 420
 const GO_TO_DATE_MODAL_TRANSITION_MS = 220
 const TIMELINE_MIN_HEIGHT = 260
 const getDetectionDateKey = (dateStr) => {
@@ -79,6 +79,7 @@ function Myships() {
   const [isResizingTimeline, setIsResizingTimeline] = useState(false)
   const [isDragHandleHovered, setIsDragHandleHovered] = useState(false)
   const [topSectionHeight, setTopSectionHeight] = useState(null)
+  const [copiedField, setCopiedField] = useState(null)
   const [isTopSummaryCollapsed, setIsTopSummaryCollapsed] = useState(false)
   const [hoveredTopAction, setHoveredTopAction] = useState(null)
   const [detailToolsVisible, setDetailToolsVisible] = useState(true)
@@ -96,6 +97,7 @@ function Myships() {
   const topSectionRef = useRef(null)
   const topSummaryHeaderRef = useRef(null)
   const lastExpandedTopHeightRef = useRef(null)
+  const copyFeedbackTimerRef = useRef(null)
   const goToDateTimerRef = useRef(null)
   const goToDateCloseTimerRef = useRef(null)
 
@@ -231,6 +233,9 @@ function Myships() {
 
   useEffect(() => {
     return () => {
+      if (copyFeedbackTimerRef.current) {
+        window.clearTimeout(copyFeedbackTimerRef.current)
+      }
       if (goToDateTimerRef.current) {
         window.clearTimeout(goToDateTimerRef.current)
       }
@@ -238,6 +243,21 @@ function Myships() {
         window.clearTimeout(goToDateCloseTimerRef.current)
       }
     }
+  }, [])
+
+  const handleCopyToClipboard = useCallback((value, fieldKey) => {
+    if (!value) return
+    navigator.clipboard.writeText(String(value)).catch(() => {
+      // Ignore clipboard permission issues in prototype mode.
+    })
+    setCopiedField(fieldKey)
+    if (copyFeedbackTimerRef.current) {
+      window.clearTimeout(copyFeedbackTimerRef.current)
+    }
+    copyFeedbackTimerRef.current = window.setTimeout(() => {
+      setCopiedField((prev) => (prev === fieldKey ? null : prev))
+      copyFeedbackTimerRef.current = null
+    }, 1200)
   }, [])
 
   useEffect(() => {
@@ -1401,7 +1421,7 @@ function Myships() {
                     display: 'grid',
                     gridTemplateColumns:
                       'max-content max-content minmax(0, 1fr)',
-                    columnGap: '32px',
+                    columnGap: '20px',
                     marginBottom: '16px',
                     alignItems: 'flex-start',
                   }}
@@ -1431,7 +1451,7 @@ function Myships() {
                       </Text>
                       {canCopyImo && (
                         <Tooltip
-                          label="Copy IMO"
+                          label={copiedField === 'imo' ? 'Copied!' : 'Copy IMO'}
                           withArrow
                           color="#393C56"
                           styles={{
@@ -1439,22 +1459,30 @@ function Myships() {
                           }}
                         >
                           <Box
-                            onClick={() =>
-                              navigator.clipboard.writeText(String(activeShip.imo))
-                            }
+                            onClick={() => handleCopyToClipboard(activeShip.imo, 'imo')}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               width: 18,
                               height: 18,
-                              color: '#0094ff',
+                              color: copiedField === 'imo' ? '#fff' : '#0094ff',
                               cursor: 'pointer',
                               flexShrink: 0,
+                              transform:
+                                copiedField === 'imo' ? 'scale(1.12)' : 'scale(1)',
+                              transition:
+                                'transform 140ms ease, color 140ms ease',
+                              borderRadius: 999,
+                              background: 'transparent',
                             }}
                           >
                             <Copy02
-                              style={{ width: 14, height: 14, color: '#0094ff' }}
+                              style={{
+                                width: 14,
+                                height: 14,
+                                color: copiedField === 'imo' ? '#fff' : '#0094ff',
+                              }}
                             />
                           </Box>
                         </Tooltip>
@@ -1486,7 +1514,7 @@ function Myships() {
                       </Text>
                       {canCopyMmsi && (
                         <Tooltip
-                          label="Copy MMSI"
+                          label={copiedField === 'mmsi' ? 'Copied!' : 'Copy MMSI'}
                           withArrow
                           color="#393C56"
                           styles={{
@@ -1495,7 +1523,7 @@ function Myships() {
                         >
                           <Box
                             onClick={() =>
-                              navigator.clipboard.writeText(String(activeShip.mmsi))
+                              handleCopyToClipboard(activeShip.mmsi, 'mmsi')
                             }
                             style={{
                               display: 'flex',
@@ -1503,13 +1531,23 @@ function Myships() {
                               justifyContent: 'center',
                               width: 18,
                               height: 18,
-                              color: '#0094ff',
+                              color: copiedField === 'mmsi' ? '#fff' : '#0094ff',
                               cursor: 'pointer',
                               flexShrink: 0,
+                              transform:
+                                copiedField === 'mmsi' ? 'scale(1.12)' : 'scale(1)',
+                              transition:
+                                'transform 140ms ease, color 140ms ease',
+                              borderRadius: 999,
+                              background: 'transparent',
                             }}
                           >
                             <Copy02
-                              style={{ width: 14, height: 14, color: '#0094ff' }}
+                              style={{
+                                width: 14,
+                                height: 14,
+                                color: copiedField === 'mmsi' ? '#fff' : '#0094ff',
+                              }}
                             />
                           </Box>
                         </Tooltip>
@@ -1524,7 +1562,7 @@ function Myships() {
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 8,
+                        gap: 6,
                         minWidth: 0,
                         width: '100%',
                       }}
@@ -1540,7 +1578,7 @@ function Myships() {
                           gap: 0,
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
-                          fontSize: 12,
+                          fontSize: 11,
                         }}
                       >
                         {activeShip.shipId ? (
@@ -1571,7 +1609,7 @@ function Myships() {
                       </Box>
                       {canCopyShipId && (
                         <Tooltip
-                          label="Copy SynMax Ship Id"
+                          label={copiedField === 'shipId' ? 'Copied!' : 'Copy SynMax Ship Id'}
                           withArrow
                           color="#393C56"
                           styles={{
@@ -1580,7 +1618,7 @@ function Myships() {
                         >
                           <Box
                             onClick={() =>
-                              navigator.clipboard.writeText(activeShip.shipId)
+                              handleCopyToClipboard(activeShip.shipId, 'shipId')
                             }
                             style={{
                               display: 'flex',
@@ -1588,13 +1626,23 @@ function Myships() {
                               justifyContent: 'center',
                               width: 18,
                               height: 18,
-                              color: '#0094ff',
+                              color: copiedField === 'shipId' ? '#fff' : '#0094ff',
                               cursor: 'pointer',
                               flexShrink: 0,
+                              transform:
+                                copiedField === 'shipId' ? 'scale(1.12)' : 'scale(1)',
+                              transition:
+                                'transform 140ms ease, color 140ms ease',
+                              borderRadius: 999,
+                              background: 'transparent',
                             }}
                           >
                             <Copy02
-                              style={{ width: 14, height: 14, color: '#0094ff' }}
+                              style={{
+                                width: 14,
+                                height: 14,
+                                color: copiedField === 'shipId' ? '#fff' : '#0094ff',
+                              }}
                             />
                           </Box>
                         </Tooltip>
@@ -2054,12 +2102,13 @@ function Myships() {
                   const nextGoToDate = pendingGoToDate
                   setGoToDateSubmitting(true)
                   goToDateTimerRef.current = window.setTimeout(() => {
-                    closeGoToDateModal(() => {
-                      applyGoToDate(
-                        nextGoToDate.dateKey,
-                        nextGoToDate.detectionId
-                      )
-                    })
+                    // Update behind the modal first, then fade modal away,
+                    // so the new state appears smoothly without a visible flicker.
+                    applyGoToDate(
+                      nextGoToDate.dateKey,
+                      nextGoToDate.detectionId
+                    )
+                    closeGoToDateModal()
                     goToDateTimerRef.current = null
                   }, GO_TO_DATE_CONFIRM_DELAY_MS)
                 }}
