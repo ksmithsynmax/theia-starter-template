@@ -88,6 +88,7 @@ function Myships() {
   const [skipGoToDateWarning, setSkipGoToDateWarning] = useState(false)
   const [pendingGoToDate, setPendingGoToDate] = useState(null)
   const [goToDateSubmitting, setGoToDateSubmitting] = useState(false)
+  const [goToDateCancelHovered, setGoToDateCancelHovered] = useState(false)
   const [goToDateConfirmHovered, setGoToDateConfirmHovered] = useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
@@ -111,7 +112,8 @@ function Myships() {
 
   const getMinTopHeight = useCallback(() => {
     const FALLBACK_MIN = 96
-    if (!topSummaryHeaderRef.current || !topSectionRef.current) return FALLBACK_MIN
+    if (!topSummaryHeaderRef.current || !topSectionRef.current)
+      return FALLBACK_MIN
 
     const headerRect = topSummaryHeaderRef.current.getBoundingClientRect()
     const topSectionStyles = window.getComputedStyle(topSectionRef.current)
@@ -121,7 +123,9 @@ function Myships() {
     const paddingBottom = parseFloat(topSectionStyles.paddingBottom) || 0
     const marginBottom = parseFloat(headerStyles.marginBottom) || 0
 
-    return Math.ceil(headerRect.height + paddingTop + paddingBottom + marginBottom)
+    return Math.ceil(
+      headerRect.height + paddingTop + paddingBottom + marginBottom
+    )
   }, [])
 
   const getTopSectionBounds = useCallback(() => {
@@ -421,7 +425,10 @@ function Myships() {
         )
         const snapPoints = [minTopHeight, preferredHeight, maxTopHeight]
         const snappedHeight = snapPoints.reduce((closest, candidate) => {
-          if (Math.abs(candidate - topSectionHeight) < Math.abs(closest - topSectionHeight)) {
+          if (
+            Math.abs(candidate - topSectionHeight) <
+            Math.abs(closest - topSectionHeight)
+          ) {
             return candidate
           }
           return closest
@@ -1428,7 +1435,9 @@ function Myships() {
                   }}
                 >
                   <Box>
-                    <Text style={{ color: '#888F9E', fontSize: '10px' }}>IMO</Text>
+                    <Text style={{ color: '#888F9E', fontSize: '10px' }}>
+                      IMO
+                    </Text>
                     <Box
                       style={{
                         display: 'flex',
@@ -1456,11 +1465,17 @@ function Myships() {
                           withArrow
                           color="#393C56"
                           styles={{
-                            tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            },
                           }}
                         >
                           <Box
-                            onClick={() => handleCopyToClipboard(activeShip.imo, 'imo')}
+                            onClick={() =>
+                              handleCopyToClipboard(activeShip.imo, 'imo')
+                            }
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -1471,7 +1486,9 @@ function Myships() {
                               cursor: 'pointer',
                               flexShrink: 0,
                               transform:
-                                copiedField === 'imo' ? 'scale(1.12)' : 'scale(1)',
+                                copiedField === 'imo'
+                                  ? 'scale(1.12)'
+                                  : 'scale(1)',
                               transition:
                                 'transform 140ms ease, color 140ms ease',
                               borderRadius: 999,
@@ -1482,7 +1499,8 @@ function Myships() {
                               style={{
                                 width: 14,
                                 height: 14,
-                                color: copiedField === 'imo' ? '#fff' : '#0094ff',
+                                color:
+                                  copiedField === 'imo' ? '#fff' : '#0094ff',
                               }}
                             />
                           </Box>
@@ -1491,7 +1509,9 @@ function Myships() {
                     </Box>
                   </Box>
                   <Box>
-                    <Text style={{ color: '#888F9E', fontSize: '10px' }}>MMSI</Text>
+                    <Text style={{ color: '#888F9E', fontSize: '10px' }}>
+                      MMSI
+                    </Text>
                     <Box
                       style={{
                         display: 'flex',
@@ -1515,11 +1535,17 @@ function Myships() {
                       </Text>
                       {canCopyMmsi && (
                         <Tooltip
-                          label={copiedField === 'mmsi' ? 'Copied!' : 'Copy MMSI'}
+                          label={
+                            copiedField === 'mmsi' ? 'Copied!' : 'Copy MMSI'
+                          }
                           withArrow
                           color="#393C56"
                           styles={{
-                            tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            },
                           }}
                         >
                           <Box
@@ -1532,11 +1558,14 @@ function Myships() {
                               justifyContent: 'center',
                               width: 18,
                               height: 18,
-                              color: copiedField === 'mmsi' ? '#fff' : '#0094ff',
+                              color:
+                                copiedField === 'mmsi' ? '#fff' : '#0094ff',
                               cursor: 'pointer',
                               flexShrink: 0,
                               transform:
-                                copiedField === 'mmsi' ? 'scale(1.12)' : 'scale(1)',
+                                copiedField === 'mmsi'
+                                  ? 'scale(1.12)'
+                                  : 'scale(1)',
                               transition:
                                 'transform 140ms ease, color 140ms ease',
                               borderRadius: 999,
@@ -1547,7 +1576,8 @@ function Myships() {
                               style={{
                                 width: 14,
                                 height: 14,
-                                color: copiedField === 'mmsi' ? '#fff' : '#0094ff',
+                                color:
+                                  copiedField === 'mmsi' ? '#fff' : '#0094ff',
                               }}
                             />
                           </Box>
@@ -1610,11 +1640,19 @@ function Myships() {
                       </Box>
                       {canCopyShipId && (
                         <Tooltip
-                          label={copiedField === 'shipId' ? 'Copied!' : 'Copy SynMax Ship Id'}
+                          label={
+                            copiedField === 'shipId'
+                              ? 'Copied!'
+                              : 'Copy SynMax Ship Id'
+                          }
                           withArrow
                           color="#393C56"
                           styles={{
-                            tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            },
                           }}
                         >
                           <Box
@@ -1627,11 +1665,14 @@ function Myships() {
                               justifyContent: 'center',
                               width: 18,
                               height: 18,
-                              color: copiedField === 'shipId' ? '#fff' : '#0094ff',
+                              color:
+                                copiedField === 'shipId' ? '#fff' : '#0094ff',
                               cursor: 'pointer',
                               flexShrink: 0,
                               transform:
-                                copiedField === 'shipId' ? 'scale(1.12)' : 'scale(1)',
+                                copiedField === 'shipId'
+                                  ? 'scale(1.12)'
+                                  : 'scale(1)',
                               transition:
                                 'transform 140ms ease, color 140ms ease',
                               borderRadius: 999,
@@ -1642,7 +1683,8 @@ function Myships() {
                               style={{
                                 width: 14,
                                 height: 14,
-                                color: copiedField === 'shipId' ? '#fff' : '#0094ff',
+                                color:
+                                  copiedField === 'shipId' ? '#fff' : '#0094ff',
                               }}
                             />
                           </Box>
@@ -1787,7 +1829,8 @@ function Myships() {
                   >
                     <Box
                       style={{
-                        width: isResizingTimeline || isDragHandleHovered ? 54 : 42,
+                        width:
+                          isResizingTimeline || isDragHandleHovered ? 54 : 42,
                         height: 3,
                         borderRadius: 999,
                         background:
@@ -1982,7 +2025,7 @@ function Myships() {
         closeOnClickOutside={false}
         closeOnEscape={false}
         centered
-        size="md"
+        size="550px"
         radius={8}
         transitionProps={{
           transition: 'fade',
@@ -1997,18 +2040,18 @@ function Myships() {
             maxWidth: 680,
           },
           body: {
-            padding: 18,
+            padding: 28,
           },
         }}
       >
         {pendingGoToDate && (
-          <Box>
+          <Box style={{ padding: '4px 6px' }}>
             <Text
               style={{
                 color: '#fff',
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: 700,
-                marginBottom: 16,
+                marginBottom: 12,
               }}
             >
               Warning
@@ -2017,8 +2060,9 @@ function Myships() {
               style={{
                 color: '#8D93A8',
                 fontSize: 14,
-                lineHeight: 1.2,
-                marginBottom: 24,
+                lineHeight: 1.45,
+                marginBottom: 20,
+                maxWidth: 560,
               }}
             >
               This will update the map and ship positions to{' '}
@@ -2028,7 +2072,7 @@ function Myships() {
               You can return to today&apos;s view using the calendar in the
               header.
             </Text>
-            <Box style={{ marginTop: 12, marginBottom: 16 }}>
+            <Box style={{ marginTop: 8, marginBottom: 24 }}>
               <Checkbox
                 size="sm"
                 checked={dontShowGoToDateAgain}
@@ -2053,33 +2097,27 @@ function Myships() {
             <Box
               style={{
                 display: 'flex',
-                justifyContent: 'space-between',
+                justifyContent: 'flex-end',
                 alignItems: 'center',
+                gap: 14,
               }}
             >
               <Button
-                variant="subtle"
                 disabled={goToDateSubmitting}
+                onMouseEnter={() => setGoToDateCancelHovered(true)}
+                onMouseLeave={() => setGoToDateCancelHovered(false)}
                 onClick={() => {
                   if (goToDateSubmitting) return
                   closeGoToDateModal()
                 }}
                 style={{
+                  background: goToDateCancelHovered
+                    ? 'rgba(255, 255, 255, 0.14)'
+                    : 'transparent',
+                  border: '1px solid #fff',
                   color: '#fff',
-                  paddingLeft: 0,
-                  paddingRight: 0,
                   fontSize: 14,
-                }}
-                styles={{
-                  root: {
-                    background: 'transparent',
-                    color: '#fff',
-                    '&:hover': {
-                      background: 'transparent',
-                      color: '#BFC4CE',
-                    },
-                  },
-                  inner: { justifyContent: 'flex-start' },
+                  minWidth: 88,
                 }}
               >
                 Cancel
@@ -2128,6 +2166,7 @@ function Myships() {
                       ? '#007DD6'
                       : '#0094FF',
                   cursor: goToDateSubmitting ? 'not-allowed' : 'pointer',
+                  minWidth: 88,
                 }}
               >
                 Yes
