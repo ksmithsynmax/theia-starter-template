@@ -43,6 +43,28 @@ const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
 const GO_TO_DATE_CONFIRM_DELAY_MS = 420
 const GO_TO_DATE_MODAL_TRANSITION_MS = 220
 const TIMELINE_MIN_HEIGHT = 260
+const AIS_REFRESH_MINUTES = 15
+const LIGHT_DARK_REFRESH_MINUTES = 24 * 60
+
+const getFreshnessMeta = (dateValue, staleAfterMinutes) => {
+  if (!dateValue) return null
+  const parsed = new Date(dateValue)
+  if (Number.isNaN(parsed.getTime())) return null
+
+  const ageMinutes = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 60000))
+  const shortAge =
+    ageMinutes < 60
+      ? `${ageMinutes}m`
+      : ageMinutes < 24 * 60
+        ? `${Math.floor(ageMinutes / 60)}h`
+        : `${Math.floor(ageMinutes / (24 * 60))}d`
+
+  return {
+    shortAge,
+    ageMinutes,
+    isStale: ageMinutes > staleAfterMinutes,
+  }
+}
 const getDetectionDateKey = (dateStr) => {
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
@@ -543,8 +565,19 @@ function Myships() {
   )
 
   const latestDetection = activeShipDetections[0] || null
-  const latestAisDetection =
+  const latestKnownLocationDetection =
+    activeShipDetections.find(
+      (d) =>
+        typeof d?.lat === 'number' &&
+        Number.isFinite(d.lat) &&
+        typeof d?.lng === 'number' &&
+        Number.isFinite(d.lng)
+    ) || null
+  const latestAisUpdateDetection =
     activeShipDetections.find((d) => d.type === 'ais') || null
+  const latestLightDarkUpdateDetection =
+    activeShipDetections.find((d) => d.type === 'light' || d.type === 'dark') ||
+    null
   const latestNonStsDetection = activeShipDetections.find(
     (d) => d.type !== 'sts' && d.type !== 'sts-ais'
   )
@@ -587,19 +620,21 @@ function Myships() {
     unattributed: 'Unattributed',
   }
 
-  const handleSwitchToAis = () => {
-    const targetDetection = latestAisDetection || latestDetection
+  const handleShowLastKnownLocation = () => {
+    const targetDetection = latestKnownLocationDetection || latestDetection
     if (!targetDetection) return
 
     setFlashEnabled(true)
     setActiveDetectionId(targetDetection.id)
     setPreviewDetectionId(null)
+    updateTabState('previewCard', null)
 
     if (isStsTab && activeTab) {
       const currentShipId = activeTab.shipIds[activeStsShip]
       const existingSingleShipTab = shipTabs.find(
         (t) => t.id === currentShipId && t.type !== 'sts'
       )
+
       if (existingSingleShipTab) {
         setTabState((prev) => ({
           ...prev,
@@ -611,18 +646,14 @@ function Myships() {
           },
         }))
         setActiveShipTab(currentShipId)
-      } else if (targetDetection) {
-        openShipTab(targetDetection)
-      } else {
-        updateTabState('selectedCard', targetDetection.id)
-        updateTabState('previewCard', null)
-        setActiveShipTab(activeShipTab)
+        return
       }
-    } else {
-      updateTabState('selectedCard', targetDetection.id)
-      updateTabState('previewCard', null)
-      setActiveShipTab(activeShipTab)
+
+      openShipTab(targetDetection)
+      return
     }
+
+    updateTabState('selectedCard', targetDetection.id)
   }
 
   const eventColorMap = {
@@ -722,44 +753,20 @@ function Myships() {
         })()
       : undefined
 
-  const eventIconMap = {
-    ais: <AisIcon style={{ height: 12 }} />,
-    light: <LightShipIcon style={{ height: 12 }} />,
-    dark: <DarkShipIcon style={{ height: 12 }} />,
-    spoofing: <SpoofingIcon style={{ height: 12 }} />,
-    sts: <STSIcon style={{ height: 12 }} />,
-    'sts-ais': <STSAisIcon style={{ height: 12 }} />,
-    unattributed: <UnattributedIcon style={{ height: 12 }} />,
-  }
-
-  const stsHeaderType = isStsTab
-    ? activeStsShip === 0
-      ? latestNonStsDetection?.type
-      : activeTab.stsType === 'sts-ais'
-        ? latestNonStsDetection?.type || 'ais'
-        : null
-    : null
-  const headerType = isStsUnattributed
-    ? 'unattributed'
-    : selectedDetection?.type === 'ais'
-      ? 'ais'
-      : stsHeaderType || latestDetection?.type
-
-  const derivedLatestEvent = headerType ? (
-    <Box
-      style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#fff' }}
-    >
-      {eventIconMap[headerType]}
-      <Text size="xs" style={{ color: '#fff' }}>
-        {eventLabel[headerType] || headerType}
-      </Text>
-    </Box>
-  ) : null
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
-  const isAisSelected =
-    latestAisDetection != null &&
-    selectedDetection?.id === latestAisDetection.id
+  const shouldShowLastKnownLocationButton =
+    latestKnownLocationDetection != null &&
+    selectedDetection?.id !== latestKnownLocationDetection.id
+  const showLightDarkFreshness =
+    selectedDetection?.type === 'light' || selectedDetection?.type === 'dark'
+  const freshnessMeta = showLightDarkFreshness
+    ? getFreshnessMeta(
+        latestLightDarkUpdateDetection?.date,
+        LIGHT_DARK_REFRESH_MINUTES
+      )
+    : getFreshnessMeta(latestAisUpdateDetection?.date, AIS_REFRESH_MINUTES)
+  const freshnessPrefix = showLightDarkFreshness ? 'L/D' : 'AIS'
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -1271,15 +1278,31 @@ function Myships() {
               <Box
                 style={{
                   display: 'flex',
-                  gap: 8,
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 2,
                 }}
               >
-                <Title order={4} style={{ color: 'white' }}>
-                  {activeShip.name}
-                </Title>
-                {activeShip.flag && (
-                  <Text style={{ fontSize: 18 }}>{activeShip.flag}</Text>
+                <Box style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Title order={4} style={{ color: 'white' }}>
+                    {activeShip.name}
+                  </Title>
+                  {activeShip.flag && (
+                    <Text style={{ fontSize: 18 }}>{activeShip.flag}</Text>
+                  )}
+                </Box>
+                {freshnessMeta && (
+                  <Text
+                    style={{
+                      color: '#888F9E',
+                      fontSize: 10,
+                      lineHeight: 1.2,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Last {showLightDarkFreshness ? 'Light/Dark' : 'AIS'} update:{' '}
+                    {freshnessMeta.shortAge} ago
+                  </Text>
                 )}
               </Box>
               <Box style={{ flex: 1 }}></Box>
@@ -1386,44 +1409,6 @@ function Myships() {
             </Box>
             {!isTopSummaryCollapsed && (
               <>
-                <Box
-                  style={{
-                    display: 'flex',
-                    marginBottom: '12px',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <Box>
-                    <Text
-                      style={{
-                        color: '#888F9E',
-                        fontSize: '10px',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      Event
-                    </Text>
-                    <Box
-                      style={{ display: 'flex', alignItems: 'center', gap: 10 }}
-                    >
-                      {derivedLatestEvent}
-                      {latestAisDetection && !isAisSelected && (
-                        <Text
-                          onClick={handleSwitchToAis}
-                          style={{
-                            color: '#0094FF',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          Switch to Latest AIS
-                        </Text>
-                      )}
-                    </Box>
-                  </Box>
-                </Box>
                 <Box
                   style={{
                     display: 'grid',
@@ -1700,6 +1685,10 @@ function Myships() {
                     eventLabel={eventLabel[selectedDetection?.type] || ''}
                     eventIconOverride={selectedStsIcon}
                     flashEnabled={flashEnabled}
+                    showLastKnownLocationButton={
+                      shouldShowLastKnownLocationButton
+                    }
+                    onShowLastKnownLocation={handleShowLastKnownLocation}
                     onToolsVisibleChange={setDetailToolsVisible}
                   />
                 )}
