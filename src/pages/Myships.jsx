@@ -18,6 +18,7 @@ import {
   XClose,
   ChevronDown,
   List,
+  Lightbulb04,
 } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
 import AisIcon from '../custom-icons/AisIcon'
@@ -43,28 +44,6 @@ const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
 const GO_TO_DATE_CONFIRM_DELAY_MS = 420
 const GO_TO_DATE_MODAL_TRANSITION_MS = 220
 const TIMELINE_MIN_HEIGHT = 260
-const AIS_REFRESH_MINUTES = 15
-const LIGHT_DARK_REFRESH_MINUTES = 24 * 60
-
-const getFreshnessMeta = (dateValue, staleAfterMinutes) => {
-  if (!dateValue) return null
-  const parsed = new Date(dateValue)
-  if (Number.isNaN(parsed.getTime())) return null
-
-  const ageMinutes = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 60000))
-  const shortAge =
-    ageMinutes < 60
-      ? `${ageMinutes}m`
-      : ageMinutes < 24 * 60
-        ? `${Math.floor(ageMinutes / 60)}h`
-        : `${Math.floor(ageMinutes / (24 * 60))}d`
-
-  return {
-    shortAge,
-    ageMinutes,
-    isStale: ageMinutes > staleAfterMinutes,
-  }
-}
 const getDetectionDateKey = (dateStr) => {
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
@@ -102,6 +81,7 @@ function Myships() {
   const [isDragHandleHovered, setIsDragHandleHovered] = useState(false)
   const [topSectionHeight, setTopSectionHeight] = useState(null)
   const [copiedField, setCopiedField] = useState(null)
+  const [hoveredCopyField, setHoveredCopyField] = useState(null)
   const [isTopSummaryCollapsed, setIsTopSummaryCollapsed] = useState(false)
   const [hoveredTopAction, setHoveredTopAction] = useState(null)
   const [detailToolsVisible, setDetailToolsVisible] = useState(true)
@@ -196,7 +176,7 @@ function Myships() {
           [activeShipTab]: {
             ...prev[activeShipTab],
             selectedCard: resolvedDetectionId,
-            previewCard: null,
+            previewCards: [],
             activeDetailTab: prev[activeShipTab]?.activeDetailTab ?? 0,
           },
         }))
@@ -306,7 +286,7 @@ function Myships() {
         [activeShipTab]: {
           ...prev[activeShipTab],
           selectedCard: latest?.id ?? null,
-          previewCard: null,
+          previewCards: [],
         },
       }))
     }
@@ -314,11 +294,15 @@ function Myships() {
 
   const currentTabState = tabState[activeShipTab] || {
     selectedCard: null,
-    previewCard: null,
+    previewCards: [],
     activeDetailTab: 0,
   }
   const selectedCard = currentTabState.selectedCard
-  const previewCard = currentTabState.previewCard
+  const previewCards = Array.isArray(currentTabState.previewCards)
+    ? currentTabState.previewCards
+    : currentTabState.previewCard != null
+      ? [currentTabState.previewCard]
+      : []
   const activeDetailTab = currentTabState.activeDetailTab
 
   const updateTabState = (key, value) => {
@@ -327,7 +311,7 @@ function Myships() {
       [activeShipTab]: {
         ...prev[activeShipTab],
         selectedCard: prev[activeShipTab]?.selectedCard ?? null,
-        previewCard: prev[activeShipTab]?.previewCard ?? null,
+        previewCards: prev[activeShipTab]?.previewCards ?? [],
         activeDetailTab: prev[activeShipTab]?.activeDetailTab ?? 0,
         [key]: value,
       },
@@ -361,7 +345,7 @@ function Myships() {
           : stsPreferredDetectionId || shipDetections[0]?.id
       if (targetId) {
         updateTabState('selectedCard', targetId)
-        updateTabState('previewCard', null)
+        updateTabState('previewCards', [])
         setActiveDetectionId(targetId)
         setPreviewDetectionId(null)
         if (selectedDetectionId) setSelectedDetectionId(null)
@@ -379,7 +363,7 @@ function Myships() {
         return
       }
       updateTabState('selectedCard', selectedDetectionId)
-      updateTabState('previewCard', null)
+      updateTabState('previewCards', [])
       setActiveDetectionId(selectedDetectionId)
       setPreviewDetectionId(null)
       setSelectedDetectionId(null)
@@ -565,7 +549,9 @@ function Myships() {
   )
 
   const latestDetection = activeShipDetections[0] || null
-  const latestKnownLocationDetection =
+  const latestAisDetection =
+    activeShipDetections.find((d) => d.type === 'ais') || null
+  const latestCoordinateDetection =
     activeShipDetections.find(
       (d) =>
         typeof d?.lat === 'number' &&
@@ -573,11 +559,8 @@ function Myships() {
         typeof d?.lng === 'number' &&
         Number.isFinite(d.lng)
     ) || null
-  const latestAisUpdateDetection =
-    activeShipDetections.find((d) => d.type === 'ais') || null
-  const latestLightDarkUpdateDetection =
-    activeShipDetections.find((d) => d.type === 'light' || d.type === 'dark') ||
-    null
+  const latestKnownLocationDetection =
+    latestAisDetection || latestCoordinateDetection
   const latestNonStsDetection = activeShipDetections.find(
     (d) => d.type !== 'sts' && d.type !== 'sts-ais'
   )
@@ -620,14 +603,13 @@ function Myships() {
     unattributed: 'Unattributed',
   }
 
-  const handleShowLastKnownLocation = () => {
-    const targetDetection = latestKnownLocationDetection || latestDetection
+  const navigateToDetection = (targetDetection) => {
     if (!targetDetection) return
 
     setFlashEnabled(true)
     setActiveDetectionId(targetDetection.id)
     setPreviewDetectionId(null)
-    updateTabState('previewCard', null)
+    updateTabState('previewCards', [])
 
     if (isStsTab && activeTab) {
       const currentShipId = activeTab.shipIds[activeStsShip]
@@ -641,7 +623,7 @@ function Myships() {
           [currentShipId]: {
             ...prev[currentShipId],
             selectedCard: targetDetection.id,
-            previewCard: null,
+            previewCards: [],
             activeDetailTab: prev[currentShipId]?.activeDetailTab ?? 0,
           },
         }))
@@ -654,6 +636,11 @@ function Myships() {
     }
 
     updateTabState('selectedCard', targetDetection.id)
+  }
+
+  const handleShowLastKnownLocation = () => {
+    const targetDetection = latestKnownLocationDetection || latestDetection
+    navigateToDetection(targetDetection)
   }
 
   const eventColorMap = {
@@ -755,18 +742,20 @@ function Myships() {
 
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
+  const hasUnseenNewData =
+    latestDetection != null &&
+    selectedDetection != null &&
+    latestDetection.id !== selectedDetection.id
   const shouldShowLastKnownLocationButton =
     latestKnownLocationDetection != null &&
-    selectedDetection?.id !== latestKnownLocationDetection.id
-  const showLightDarkFreshness =
-    selectedDetection?.type === 'light' || selectedDetection?.type === 'dark'
-  const freshnessMeta = showLightDarkFreshness
-    ? getFreshnessMeta(
-        latestLightDarkUpdateDetection?.date,
-        LIGHT_DARK_REFRESH_MINUTES
-      )
-    : getFreshnessMeta(latestAisUpdateDetection?.date, AIS_REFRESH_MINUTES)
-  const freshnessPrefix = showLightDarkFreshness ? 'L/D' : 'AIS'
+    selectedDetection?.id !== latestKnownLocationDetection.id &&
+    !hasUnseenNewData
+  const latestDetectionEventLabel =
+    eventLabel[latestDetection?.type] || latestDetection?.type || 'event'
+  const handleNewDataIndicatorClick = () => {
+    if (!hasUnseenNewData || !latestDetection) return
+    navigateToDetection(latestDetection)
+  }
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -1283,7 +1272,67 @@ function Myships() {
                   gap: 2,
                 }}
               >
-                <Box style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <Box
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <Tooltip
+                    withArrow
+                    openDelay={180}
+                    color="#393C56"
+                    label={
+                      hasUnseenNewData
+                        ? (
+                            <Box style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                New data available
+                              </Text>
+                              <Text style={{ color: '#fff', fontSize: 12 }}>
+                                - Event: {latestDetectionEventLabel}
+                              </Text>
+                              <Text style={{ color: '#fff', fontSize: 12 }}>
+                                - Time: {latestDetection?.date}
+                              </Text>
+                              <Text style={{ color: '#fff', fontSize: 12 }}>
+                                - Click to load latest event
+                              </Text>
+                            </Box>
+                          )
+                        : 'No new data'
+                    }
+                    styles={{
+                      tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
+                    }}
+                  >
+                    <Box
+                      onClick={handleNewDataIndicatorClick}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 999,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: hasUnseenNewData
+                          ? 'rgba(0, 148, 255, 0.16)'
+                          : 'rgba(92, 98, 112, 0.2)',
+                        cursor: hasUnseenNewData ? 'pointer' : 'default',
+                        transition: 'all 160ms ease',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Lightbulb04
+                        style={{
+                          width: 14,
+                          height: 14,
+                          color: hasUnseenNewData ? '#0094FF' : '#5C6270',
+                        }}
+                      />
+                    </Box>
+                  </Tooltip>
                   <Title order={4} style={{ color: 'white' }}>
                     {activeShip.name}
                   </Title>
@@ -1291,17 +1340,20 @@ function Myships() {
                     <Text style={{ fontSize: 18 }}>{activeShip.flag}</Text>
                   )}
                 </Box>
-                {freshnessMeta && (
+                {shouldShowLastKnownLocationButton && (
                   <Text
+                    onClick={handleShowLastKnownLocation}
                     style={{
-                      color: '#888F9E',
-                      fontSize: 10,
+                      color: '#0094FF',
+                      fontSize: 11,
+                      fontWeight: 600,
                       lineHeight: 1.2,
+                      cursor: 'pointer',
                       whiteSpace: 'nowrap',
+                      marginLeft: 30,
                     }}
                   >
-                    Last {showLightDarkFreshness ? 'Light/Dark' : 'AIS'} update:{' '}
-                    {freshnessMeta.shortAge} ago
+                    Show last known location
                   </Text>
                 )}
               </Box>
@@ -1423,44 +1475,49 @@ function Myships() {
                     <Text style={{ color: '#888F9E', fontSize: '10px' }}>
                       IMO
                     </Text>
-                    <Box
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
+                    <Tooltip
+                      label={copiedField === 'imo' ? 'Copied!' : 'Copy IMO'}
+                      withArrow
+                      color="#393C56"
+                      disabled={!canCopyImo}
+                      styles={{
+                        tooltip: {
+                          color: '#fff',
+                          fontSize: 12,
+                          fontWeight: 600,
+                        },
                       }}
                     >
-                      <Text
-                        size="xs"
-                        style={{
-                          color: 'white',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          minWidth: 0,
+                      <Box
+                        onMouseEnter={() => setHoveredCopyField('imo')}
+                        onMouseLeave={() => setHoveredCopyField(null)}
+                        onClick={() => {
+                          if (canCopyImo)
+                            handleCopyToClipboard(activeShip.imo, 'imo')
                         }}
-                        title={activeShip.imo || 'No info'}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          minWidth: 0,
+                          whiteSpace: 'nowrap',
+                          cursor: canCopyImo ? 'pointer' : 'default',
+                        }}
                       >
-                        {activeShip.imo || 'No info'}
-                      </Text>
-                      {canCopyImo && (
-                        <Tooltip
-                          label={copiedField === 'imo' ? 'Copied!' : 'Copy IMO'}
-                          withArrow
-                          color="#393C56"
-                          styles={{
-                            tooltip: {
-                              color: '#fff',
-                              fontSize: 12,
-                              fontWeight: 600,
-                            },
+                        <Text
+                          size="xs"
+                          style={{
+                            color: 'white',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            minWidth: 0,
                           }}
+                          title={activeShip.imo || 'No info'}
                         >
+                          {activeShip.imo || 'No info'}
+                        </Text>
+                        {canCopyImo && (
                           <Box
-                            onClick={() =>
-                              handleCopyToClipboard(activeShip.imo, 'imo')
-                            }
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -1468,16 +1525,27 @@ function Myships() {
                               width: 18,
                               height: 18,
                               color: copiedField === 'imo' ? '#fff' : '#0094ff',
-                              cursor: 'pointer',
+                              cursor:
+                                hoveredCopyField === 'imo' || copiedField === 'imo'
+                                  ? 'pointer'
+                                  : 'default',
                               flexShrink: 0,
                               transform:
                                 copiedField === 'imo'
                                   ? 'scale(1.12)'
                                   : 'scale(1)',
                               transition:
-                                'transform 140ms ease, color 140ms ease',
+                                'transform 140ms ease, color 140ms ease, opacity 140ms ease',
                               borderRadius: 999,
                               background: 'transparent',
+                              opacity:
+                                hoveredCopyField === 'imo' || copiedField === 'imo'
+                                  ? 1
+                                  : 0,
+                              pointerEvents:
+                                hoveredCopyField === 'imo' || copiedField === 'imo'
+                                  ? 'auto'
+                                  : 'none',
                             }}
                           >
                             <Copy02
@@ -1489,54 +1557,57 @@ function Myships() {
                               }}
                             />
                           </Box>
-                        </Tooltip>
-                      )}
-                    </Box>
+                        )}
+                      </Box>
+                    </Tooltip>
                   </Box>
                   <Box>
                     <Text style={{ color: '#888F9E', fontSize: '10px' }}>
                       MMSI
                     </Text>
-                    <Box
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
+                    <Tooltip
+                      label={copiedField === 'mmsi' ? 'Copied!' : 'Copy MMSI'}
+                      withArrow
+                      color="#393C56"
+                      disabled={!canCopyMmsi}
+                      styles={{
+                        tooltip: {
+                          color: '#fff',
+                          fontSize: 12,
+                          fontWeight: 600,
+                        },
                       }}
                     >
-                      <Text
-                        size="xs"
-                        style={{
-                          color: 'white',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          minWidth: 0,
+                      <Box
+                        onMouseEnter={() => setHoveredCopyField('mmsi')}
+                        onMouseLeave={() => setHoveredCopyField(null)}
+                        onClick={() => {
+                          if (canCopyMmsi)
+                            handleCopyToClipboard(activeShip.mmsi, 'mmsi')
                         }}
-                        title={activeShip.mmsi || 'No info'}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          minWidth: 0,
+                          whiteSpace: 'nowrap',
+                          cursor: canCopyMmsi ? 'pointer' : 'default',
+                        }}
                       >
-                        {activeShip.mmsi || 'No info'}
-                      </Text>
-                      {canCopyMmsi && (
-                        <Tooltip
-                          label={
-                            copiedField === 'mmsi' ? 'Copied!' : 'Copy MMSI'
-                          }
-                          withArrow
-                          color="#393C56"
-                          styles={{
-                            tooltip: {
-                              color: '#fff',
-                              fontSize: 12,
-                              fontWeight: 600,
-                            },
+                        <Text
+                          size="xs"
+                          style={{
+                            color: 'white',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            minWidth: 0,
                           }}
+                          title={activeShip.mmsi || 'No info'}
                         >
+                          {activeShip.mmsi || 'No info'}
+                        </Text>
+                        {canCopyMmsi && (
                           <Box
-                            onClick={() =>
-                              handleCopyToClipboard(activeShip.mmsi, 'mmsi')
-                            }
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -1545,16 +1616,30 @@ function Myships() {
                               height: 18,
                               color:
                                 copiedField === 'mmsi' ? '#fff' : '#0094ff',
-                              cursor: 'pointer',
+                              cursor:
+                                hoveredCopyField === 'mmsi' ||
+                                copiedField === 'mmsi'
+                                  ? 'pointer'
+                                  : 'default',
                               flexShrink: 0,
                               transform:
                                 copiedField === 'mmsi'
                                   ? 'scale(1.12)'
                                   : 'scale(1)',
                               transition:
-                                'transform 140ms ease, color 140ms ease',
+                                'transform 140ms ease, color 140ms ease, opacity 140ms ease',
                               borderRadius: 999,
                               background: 'transparent',
+                              opacity:
+                                hoveredCopyField === 'mmsi' ||
+                                copiedField === 'mmsi'
+                                  ? 1
+                                  : 0,
+                              pointerEvents:
+                                hoveredCopyField === 'mmsi' ||
+                                copiedField === 'mmsi'
+                                  ? 'auto'
+                                  : 'none',
                             }}
                           >
                             <Copy02
@@ -1566,84 +1651,89 @@ function Myships() {
                               }}
                             />
                           </Box>
-                        </Tooltip>
-                      )}
-                    </Box>
+                        )}
+                      </Box>
+                    </Tooltip>
                   </Box>
                   <Box style={{ minWidth: 0, width: '100%' }}>
                     <Text style={{ color: '#888F9E', fontSize: '10px' }}>
                       SynMax Ship ID
                     </Text>
-                    <Box
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        minWidth: 0,
-                        width: '100%',
+                    <Tooltip
+                      label={
+                        copiedField === 'shipId'
+                          ? 'Copied!'
+                          : 'Copy SynMax Ship Id'
+                      }
+                      withArrow
+                      color="#393C56"
+                      disabled={!canCopyShipId}
+                      styles={{
+                        tooltip: {
+                          color: '#fff',
+                          fontSize: 12,
+                          fontWeight: 600,
+                        },
                       }}
                     >
                       <Box
-                        title={activeShip.shipId || 'No info'}
+                        onMouseEnter={() => setHoveredCopyField('shipId')}
+                        onMouseLeave={() => setHoveredCopyField(null)}
+                        onClick={() => {
+                          if (canCopyShipId)
+                            handleCopyToClipboard(activeShip.shipId, 'shipId')
+                        }}
                         style={{
-                          color: 'white',
-                          minWidth: 0,
-                          flex: 1,
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 0,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          fontSize: 11,
+                          gap: 6,
+                          minWidth: 0,
+                          width: '100%',
+                          cursor: canCopyShipId ? 'pointer' : 'default',
                         }}
                       >
-                        {activeShip.shipId ? (
-                          <>
-                            <Box component="span" style={{ flexShrink: 0 }}>
-                              ...
-                            </Box>
-                            <Box
-                              component="span"
-                              style={{
-                                display: 'inline-block',
-                                flex: 1,
-                                minWidth: 0,
-                                overflow: 'hidden',
-                                whiteSpace: 'nowrap',
-                                textOverflow: 'clip',
-                                direction: 'rtl',
-                                unicodeBidi: 'plaintext',
-                                textAlign: 'left',
-                              }}
-                            >
-                              {String(activeShip.shipId).slice(1)}
-                            </Box>
-                          </>
-                        ) : (
-                          'No info'
-                        )}
-                      </Box>
-                      {canCopyShipId && (
-                        <Tooltip
-                          label={
-                            copiedField === 'shipId'
-                              ? 'Copied!'
-                              : 'Copy SynMax Ship Id'
-                          }
-                          withArrow
-                          color="#393C56"
-                          styles={{
-                            tooltip: {
-                              color: '#fff',
-                              fontSize: 12,
-                              fontWeight: 600,
-                            },
+                        <Box
+                          title={activeShip.shipId || 'No info'}
+                          style={{
+                            color: 'white',
+                            minWidth: 0,
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            fontSize: 11,
                           }}
                         >
+                          {activeShip.shipId ? (
+                            <>
+                              <Box component="span" style={{ flexShrink: 0 }}>
+                                ...
+                              </Box>
+                              <Box
+                                component="span"
+                                style={{
+                                  display: 'inline-block',
+                                  flex: 1,
+                                  minWidth: 0,
+                                  overflow: 'hidden',
+                                  whiteSpace: 'nowrap',
+                                  textOverflow: 'clip',
+                                  direction: 'rtl',
+                                  unicodeBidi: 'plaintext',
+                                  textAlign: 'left',
+                                }}
+                              >
+                                {String(activeShip.shipId).slice(1)}
+                              </Box>
+                            </>
+                          ) : (
+                            'No info'
+                          )}
+                        </Box>
+                        {canCopyShipId && (
                           <Box
-                            onClick={() =>
-                              handleCopyToClipboard(activeShip.shipId, 'shipId')
-                            }
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -1652,16 +1742,30 @@ function Myships() {
                               height: 18,
                               color:
                                 copiedField === 'shipId' ? '#fff' : '#0094ff',
-                              cursor: 'pointer',
+                              cursor:
+                                hoveredCopyField === 'shipId' ||
+                                copiedField === 'shipId'
+                                  ? 'pointer'
+                                  : 'default',
                               flexShrink: 0,
                               transform:
                                 copiedField === 'shipId'
                                   ? 'scale(1.12)'
                                   : 'scale(1)',
                               transition:
-                                'transform 140ms ease, color 140ms ease',
+                                'transform 140ms ease, color 140ms ease, opacity 140ms ease',
                               borderRadius: 999,
                               background: 'transparent',
+                              opacity:
+                                hoveredCopyField === 'shipId' ||
+                                copiedField === 'shipId'
+                                  ? 1
+                                  : 0,
+                              pointerEvents:
+                                hoveredCopyField === 'shipId' ||
+                                copiedField === 'shipId'
+                                  ? 'auto'
+                                  : 'none',
                             }}
                           >
                             <Copy02
@@ -1673,9 +1777,9 @@ function Myships() {
                               }}
                             />
                           </Box>
-                        </Tooltip>
-                      )}
-                    </Box>
+                        )}
+                      </Box>
+                    </Tooltip>
                   </Box>
                 </Box>
                 {!isUnattributed && (
@@ -1685,10 +1789,6 @@ function Myships() {
                     eventLabel={eventLabel[selectedDetection?.type] || ''}
                     eventIconOverride={selectedStsIcon}
                     flashEnabled={flashEnabled}
-                    showLastKnownLocationButton={
-                      shouldShowLastKnownLocationButton
-                    }
-                    onShowLastKnownLocation={handleShowLastKnownLocation}
                     onToolsVisibleChange={setDetailToolsVisible}
                   />
                 )}
@@ -1892,11 +1992,12 @@ function Myships() {
                                 : undefined
                             }
                             selected={selectedCard === det.id}
-                            isPreviewed={previewCard === det.id}
+                            isPreviewed={previewCards.includes(det.id)}
                             onTogglePreview={() => {
-                              const nextPreviewId =
-                                previewCard === det.id ? null : det.id
-                              updateTabState('previewCard', nextPreviewId)
+                              const nextPreviewCards = previewCards.includes(det.id)
+                                ? previewCards.filter((id) => id !== det.id)
+                                : [...previewCards, det.id]
+                              updateTabState('previewCards', nextPreviewCards)
                               // Keep "Show Details" local to the card; do not move map focus.
                               setPreviewDetectionId(null)
                             }}
@@ -1924,7 +2025,7 @@ function Myships() {
                               const isDeselecting = selectedCard === det.id
                               setFlashEnabled(true)
                               setPreviewDetectionId(null)
-                              updateTabState('previewCard', null)
+                              updateTabState('previewCards', [])
 
                               // On STS tab, selecting a non-STS event navigates to ship tab
                               if (
@@ -2169,3 +2270,4 @@ function Myships() {
 }
 
 export default Myships
+

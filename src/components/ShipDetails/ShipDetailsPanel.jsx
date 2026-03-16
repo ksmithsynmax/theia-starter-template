@@ -58,8 +58,6 @@ const ShipDetailsPanel = ({
   eventIconOverride,
   flashEnabled,
   unattributed,
-  showLastKnownLocationButton,
-  onShowLastKnownLocation,
   onToolsVisibleChange,
 }) => {
   const eventType = selectedEvent?.type
@@ -116,28 +114,9 @@ const ShipDetailsPanel = ({
       <Box style={{ position: 'relative', zIndex: 0 }}>
         <Box style={{ display: 'flex', alignItems: 'center', padding: '16px' }}>
           <Box style={{ flex: 1 }}>
-            <Box style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <Text style={{ color: '#898f9d', fontSize: 11 }}>
-                Selected Event Tools
-              </Text>
-              {showLastKnownLocationButton && (
-                <>
-                  <Text style={{ color: '#5C6270', fontSize: 11 }}>|</Text>
-                  <Text
-                    onClick={onShowLastKnownLocation}
-                    style={{
-                      color: '#0094FF',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    Show last known location
-                  </Text>
-                </>
-              )}
-            </Box>
+            <Text style={{ color: '#898f9d', fontSize: 11, marginBottom: 4 }}>
+              Selected Event Tools
+            </Text>
             <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Text style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                 {dateDisplay}
