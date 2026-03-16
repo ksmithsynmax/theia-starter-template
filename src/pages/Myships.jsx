@@ -34,6 +34,10 @@ import ShipDetailsPanel from '../components/ShipDetails/ShipDetailsPanel'
 import EventTimelineCard from '../components/ShipDetails/EventTimelineCard'
 import { useShipContext } from '../context/ShipContext'
 import { ships, detections } from '../data/mockData'
+import satImageA from '../assets/HAfSz3HbAAA34GM.jpeg'
+import satImageB from '../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
+import satImageC from '../assets/b7305b3c008782765e2f14920270f2e7834f0f17.jpg'
+import satImageD from '../assets/e92d7378215156c8a7c8c4c73d773963c71bd6b1-1920x1080.avif'
 
 const detailTabs = [
   'Event Timeline',
@@ -44,6 +48,7 @@ const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
 const GO_TO_DATE_CONFIRM_DELAY_MS = 420
 const GO_TO_DATE_MODAL_TRANSITION_MS = 220
 const TIMELINE_MIN_HEIGHT = 260
+const NEW_DATA_NOTIFICATION_DELAY_MS = 10_000
 const getDetectionDateKey = (dateStr) => {
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
@@ -53,6 +58,117 @@ const getDetectionDateKey = (dateStr) => {
 
 // Keep drag-resize code for possible future re-enable.
 const ENABLE_TIMELINE_DRAG = true
+const SATELLITE_TIMELINE_IMAGES = [satImageA, satImageB, satImageC, satImageD]
+const SHIP_OWNERSHIP = {
+  invictus: {
+    commercialOwner: 'No Info',
+    effectiveOwner: 'No Info',
+    financialOwner: 'No Info',
+    technicalOwner: 'No Info',
+    pniClub: 'Gard',
+    member: 'No Info',
+  },
+  tiffani: {
+    commercialOwner: 'No Info',
+    effectiveOwner: 'No Info',
+    financialOwner: 'No Info',
+    technicalOwner: 'No Info',
+    pniClub: 'NorthStandard',
+    member: 'KHALID FARAJ SHIPPING',
+  },
+  celestine: {
+    commercialOwner: 'No Info',
+    effectiveOwner: 'No Info',
+    financialOwner: 'No Info',
+    technicalOwner: 'No Info',
+    pniClub: 'Skuld',
+    member: 'No Info',
+  },
+  'meridian-star': {
+    commercialOwner: 'No Info',
+    effectiveOwner: 'No Info',
+    financialOwner: 'No Info',
+    technicalOwner: 'No Info',
+    pniClub: 'West of England',
+    member: 'No Info',
+  },
+  'wisdom-star': {
+    commercialOwner: 'No Info',
+    effectiveOwner: 'No Info',
+    financialOwner: 'No Info',
+    technicalOwner: 'No Info',
+    pniClub: 'NorthStandard',
+    member: 'KHALID FARAJ SHIPPING',
+  },
+  unknown: {
+    commercialOwner: 'No Info',
+    effectiveOwner: 'No Info',
+    financialOwner: 'No Info',
+    technicalOwner: 'No Info',
+    pniClub: 'No Info',
+    member: 'No Info',
+  },
+}
+
+const TIMELINE_CONTEXT_EVENTS = {
+  invictus: [
+    {
+      id: 'invictus-port-1',
+      variant: 'port',
+      dateLabel: 'Mar 11, 2026 15:10',
+      sortDate: '2026-03-11T15:10:00Z',
+      port: 'IMMINGHAM',
+      status: 'Ongoing',
+      duration: '0h 0m',
+    },
+    {
+      id: 'invictus-flag-1',
+      variant: 'flag',
+      dateLabel: 'Mar 11, 2026 12:20',
+      sortDate: '2026-03-11T12:20:00Z',
+      newFlag: 'Turkey 🇹🇷',
+      previousFlag: 'China 🇨🇳',
+    },
+  ],
+  tiffani: [
+    {
+      id: 'tiffani-port-1',
+      variant: 'port',
+      dateLabel: 'Mar 12, 2026 18:00',
+      sortDate: '2026-03-12T18:00:00Z',
+      port: 'FUJAIRAH',
+      status: 'Completed',
+      duration: '16h 20m',
+    },
+    {
+      id: 'tiffani-flag-1',
+      variant: 'flag',
+      dateLabel: 'Mar 12, 2026 15:10',
+      sortDate: '2026-03-12T15:10:00Z',
+      newFlag: 'Liberia 🇱🇷',
+      previousFlag: 'Panama 🇵🇦',
+    },
+  ],
+  'wisdom-star': [
+    {
+      id: 'wisdom-port-1',
+      variant: 'port',
+      dateLabel: 'Mar 11, 2026 10:10',
+      sortDate: '2026-03-11T10:10:00Z',
+      port: 'JEBEL ALI',
+      status: 'Ongoing',
+      duration: '8h 10m',
+    },
+    {
+      id: 'wisdom-flag-1',
+      variant: 'flag',
+      dateLabel: 'Mar 11, 2026 08:50',
+      sortDate: '2026-03-11T08:50:00Z',
+      newFlag: 'Marshall Islands 🇲🇭',
+      previousFlag: 'Palau 🇵🇼',
+    },
+  ],
+}
 
 function Myships() {
   const {
@@ -82,6 +198,8 @@ function Myships() {
   const [topSectionHeight, setTopSectionHeight] = useState(null)
   const [copiedField, setCopiedField] = useState(null)
   const [hoveredCopyField, setHoveredCopyField] = useState(null)
+  const [hoveredSatelliteCardId, setHoveredSatelliteCardId] = useState(null)
+  const [satSortByTab, setSatSortByTab] = useState({})
   const [isTopSummaryCollapsed, setIsTopSummaryCollapsed] = useState(false)
   const [hoveredTopAction, setHoveredTopAction] = useState(null)
   const [detailToolsVisible, setDetailToolsVisible] = useState(true)
@@ -92,6 +210,7 @@ function Myships() {
   const [goToDateSubmitting, setGoToDateSubmitting] = useState(false)
   const [goToDateCancelHovered, setGoToDateCancelHovered] = useState(false)
   const [goToDateConfirmHovered, setGoToDateConfirmHovered] = useState(false)
+  const [hasNewDataNotification, setHasNewDataNotification] = useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
@@ -104,6 +223,8 @@ function Myships() {
   const copyFeedbackTimerRef = useRef(null)
   const goToDateTimerRef = useRef(null)
   const goToDateCloseTimerRef = useRef(null)
+  const newDataTimerRef = useRef(null)
+  const allDetections = detections
 
   const updateOverflow = useCallback(() => {
     const el = tabScrollRef.current
@@ -149,11 +270,11 @@ function Myships() {
 
   const applyGoToDate = useCallback(
     (dateKey, detectionId) => {
-      const sourceDetection = detections.find((d) => d.id === detectionId)
+      const sourceDetection = allDetections.find((d) => d.id === detectionId)
       const sourceShipId = sourceDetection?.shipId
       const sourceType = sourceDetection?.type
       const shipDetectionsForDate = sourceShipId
-        ? detections
+        ? allDetections
             .filter(
               (d) =>
                 d.shipId === sourceShipId &&
@@ -187,7 +308,13 @@ function Myships() {
         setActiveDetectionId(resolvedDetectionId)
       }, 0)
     },
-    [activeShipTab, setMapDate, setActiveDetectionId, setPreviewDetectionId]
+    [
+      activeShipTab,
+      allDetections,
+      setMapDate,
+      setActiveDetectionId,
+      setPreviewDetectionId,
+    ]
   )
 
   const requestGoToDate = useCallback(
@@ -215,6 +342,21 @@ function Myships() {
       goToDateCloseTimerRef.current = null
     }, GO_TO_DATE_MODAL_TRANSITION_MS)
   }, [])
+
+  const scheduleNewDataNotification = useCallback(() => {
+    if (newDataTimerRef.current) {
+      window.clearTimeout(newDataTimerRef.current)
+    }
+    newDataTimerRef.current = window.setTimeout(() => {
+      setHasNewDataNotification(true)
+      newDataTimerRef.current = null
+    }, NEW_DATA_NOTIFICATION_DELAY_MS)
+  }, [])
+
+  const acknowledgeNewDataNotification = useCallback(() => {
+    setHasNewDataNotification(false)
+    scheduleNewDataNotification()
+  }, [scheduleNewDataNotification])
 
   useEffect(() => {
     const el = tabScrollRef.current
@@ -249,8 +391,17 @@ function Myships() {
       if (goToDateCloseTimerRef.current) {
         window.clearTimeout(goToDateCloseTimerRef.current)
       }
+      if (newDataTimerRef.current) {
+        window.clearTimeout(newDataTimerRef.current)
+      }
     }
   }, [])
+
+  useEffect(() => {
+    setHasNewDataNotification(false)
+    if (!activeShipTab) return
+    scheduleNewDataNotification()
+  }, [activeShipTab, scheduleNewDataNotification])
 
   const handleCopyToClipboard = useCallback((value, fieldKey) => {
     if (!value) return
@@ -275,7 +426,7 @@ function Myships() {
     if (mapDate === todayStr && activeShipTab) {
       const tab = shipTabs.find((t) => t.id === activeShipTab)
       const shipId = tab?.type === 'sts' ? tab.shipIds[0] : activeShipTab
-      const latest = detections
+      const latest = allDetections
         .filter((d) => d.shipId === shipId)
         .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
       setFlashEnabled(true)
@@ -290,7 +441,13 @@ function Myships() {
         },
       }))
     }
-  }, [mapDate, activeShipTab, setActiveDetectionId, setPreviewDetectionId])
+  }, [
+    mapDate,
+    activeShipTab,
+    allDetections,
+    setActiveDetectionId,
+    setPreviewDetectionId,
+  ])
 
   const currentTabState = tabState[activeShipTab] || {
     selectedCard: null,
@@ -304,6 +461,7 @@ function Myships() {
       ? [currentTabState.previewCard]
       : []
   const activeDetailTab = currentTabState.activeDetailTab
+  const satTimelineSortOrder = satSortByTab[activeShipTab] ?? 'desc'
 
   const updateTabState = (key, value) => {
     setTabState((prev) => ({
@@ -329,7 +487,7 @@ function Myships() {
       // Auto-select: use the clicked detection from map if set, otherwise pick the latest
       const shipTab = shipTabs.find((t) => t.id === currentTab)
       const shipId = shipTab?.type === 'sts' ? shipTab.shipIds[0] : currentTab
-      const shipDetections = detections
+      const shipDetections = allDetections
         .filter((d) => d.shipId === shipId)
         .sort((a, b) => new Date(b.date) - new Date(a.date))
       const shouldHonorSelectedDetection = shipTab?.type !== 'sts'
@@ -352,7 +510,7 @@ function Myships() {
       }
     }, 1500)
     return () => clearTimeout(timer)
-  }, [activeShipTab])
+  }, [activeShipTab, allDetections])
 
   useEffect(() => {
     if (selectedDetectionId != null) {
@@ -540,13 +698,34 @@ function Myships() {
     ? activeTab.shipIds[activeStsShip === 0 ? 1 : 0]
     : null
   const activeShipDetections = activeShipId
-    ? detections
+    ? allDetections
         .filter((d) => d.shipId === activeShipId)
         .sort((a, b) => new Date(b.date) - new Date(a.date))
     : []
   const timelineDetections = activeShipDetections.filter(
     (d) => d.type !== 'ais'
   )
+  const timelineContextEvents = activeShipId
+    ? TIMELINE_CONTEXT_EVENTS[activeShipId] || []
+    : []
+  const timelineItems = [
+    ...timelineDetections.map((detection) => ({
+      kind: 'detection',
+      id: detection.id,
+      sortTs: Number.isNaN(new Date(detection.date).getTime())
+        ? 0
+        : new Date(detection.date).getTime(),
+      detection,
+    })),
+    ...timelineContextEvents.map((event) => ({
+      kind: 'context',
+      id: event.id,
+      sortTs: Number.isNaN(new Date(event.sortDate).getTime())
+        ? 0
+        : new Date(event.sortDate).getTime(),
+      event,
+    })),
+  ].sort((a, b) => b.sortTs - a.sortTs)
 
   const latestDetection = activeShipDetections[0] || null
   const latestAisDetection =
@@ -598,8 +777,8 @@ function Myships() {
     light: 'Light',
     dark: 'Dark',
     spoofing: 'Spoofing',
-    sts: 'STS',
-    'sts-ais': 'STS',
+    sts: 'Light',
+    'sts-ais': 'AIS',
     unattributed: 'Unattributed',
   }
 
@@ -641,6 +820,7 @@ function Myships() {
   const handleShowLastKnownLocation = () => {
     const targetDetection = latestKnownLocationDetection || latestDetection
     navigateToDetection(targetDetection)
+    acknowledgeNewDataNotification()
   }
 
   const eventColorMap = {
@@ -653,13 +833,16 @@ function Myships() {
     'sts-ais': '#00EB6C',
   }
 
-  const getLatestNonStsByShip = useCallback((shipId) => {
-    return detections
-      .filter(
-        (d) => d.shipId === shipId && d.type !== 'sts' && d.type !== 'sts-ais'
-      )
-      .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-  }, [])
+  const getLatestNonStsByShip = useCallback(
+    (shipId) => {
+      return allDetections
+        .filter(
+          (d) => d.shipId === shipId && d.type !== 'sts' && d.type !== 'sts-ais'
+        )
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+    },
+    [allDetections]
+  )
 
   const getStsTabBarColors = useCallback(
     (tab) => {
@@ -742,10 +925,7 @@ function Myships() {
 
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
-  const hasUnseenNewData =
-    latestDetection != null &&
-    selectedDetection != null &&
-    latestDetection.id !== selectedDetection.id
+  const hasUnseenNewData = hasNewDataNotification && latestDetection != null
   const shouldShowLastKnownLocationButton =
     latestKnownLocationDetection != null &&
     selectedDetection?.id !== latestKnownLocationDetection.id &&
@@ -755,7 +935,128 @@ function Myships() {
   const handleNewDataIndicatorClick = () => {
     if (!hasUnseenNewData || !latestDetection) return
     navigateToDetection(latestDetection)
+    acknowledgeNewDataNotification()
   }
+  const satelliteTimelineRows = activeShipDetections
+    .filter((d) => ['light', 'dark', 'spoofing', 'ais'].includes(d.type))
+    .sort((a, b) => {
+      const aTs = new Date(a.date).getTime()
+      const bTs = new Date(b.date).getTime()
+      const safeA = Number.isNaN(aTs) ? 0 : aTs
+      const safeB = Number.isNaN(bTs) ? 0 : bTs
+      if (safeA !== safeB) {
+        return satTimelineSortOrder === 'asc' ? safeA - safeB : safeB - safeA
+      }
+      const aId = Number(a.id) || 0
+      const bId = Number(b.id) || 0
+      return satTimelineSortOrder === 'asc' ? aId - bId : bId - aId
+    })
+    .slice(0, 8)
+    .map((d, idx) => {
+      const latValue =
+        typeof d.lat === 'number'
+          ? d.lat.toFixed(4)
+          : activeShip?.aisInfo?.latitude || 'No info'
+      const lonValue =
+        typeof d.lng === 'number'
+          ? d.lng.toFixed(4)
+          : activeShip?.aisInfo?.longitude || 'No info'
+      const parsedDate = new Date(d.date)
+      const capturedTime = Number.isNaN(parsedDate.getTime())
+        ? d.date
+        : parsedDate.toISOString()
+      return {
+        id: `${activeShip?.id || 'ship'}-sat-${d.id}`,
+        image:
+          SATELLITE_TIMELINE_IMAGES[idx % SATELLITE_TIMELINE_IMAGES.length],
+        capturedTime,
+        latitude: latValue,
+        longitude: lonValue,
+        oid: 16100000 + d.id * 37,
+      }
+    })
+  const ownershipInfo = SHIP_OWNERSHIP[activeShip?.id] || SHIP_OWNERSHIP.unknown
+  const attributionRows = [
+    {
+      metric: 'Time',
+      prediction: 'n/a',
+      reference: 'n/a',
+      difference: 'n/a',
+      score: 'Mismatch',
+      scoreColor: '#1B1D2D',
+      scoreBg: '#FF533C',
+    },
+    {
+      metric: 'Heading',
+      prediction: activeShip?.synMaxInfo?.heading || 'n/a',
+      reference: activeShip?.aisInfo?.heading || 'n/a',
+      difference:
+        activeShip?.synMaxInfo?.heading && activeShip?.aisInfo?.heading
+          ? String(
+              Math.abs(
+                Number(activeShip.synMaxInfo.heading) -
+                  Number(activeShip.aisInfo.heading)
+              )
+            )
+          : 'n/a',
+      score: 'Good',
+      scoreColor: '#1B1D2D',
+      scoreBg: '#85DB77',
+    },
+    {
+      metric: 'Distance',
+      prediction: 'n/a',
+      reference: 'n/a',
+      difference: 'n/a',
+      score: 'Average',
+      scoreColor: '#1B1D2D',
+      scoreBg: '#FFCF5C',
+    },
+    {
+      metric: 'Length',
+      prediction: activeShip?.synMaxInfo?.shipLength || 'n/a',
+      reference: activeShip?.aisInfo?.length || 'n/a',
+      difference:
+        activeShip?.synMaxInfo?.shipLength && activeShip?.aisInfo?.length
+          ? String(
+              Math.abs(
+                Number(activeShip.synMaxInfo.shipLength) -
+                  Number(activeShip.aisInfo.length)
+              )
+            )
+          : 'n/a',
+      score: 'Average',
+      scoreColor: '#1B1D2D',
+      scoreBg: '#FFCF5C',
+    },
+    {
+      metric: 'Ship Type',
+      prediction: activeShip?.synMaxInfo?.shipType || 'n/a',
+      reference: activeShip?.aisInfo?.shipType || 'n/a',
+      difference: 'n/a',
+      score:
+        activeShip?.synMaxInfo?.shipType === activeShip?.aisInfo?.shipType
+          ? 'Good'
+          : 'Mismatch',
+      scoreColor:
+        activeShip?.synMaxInfo?.shipType === activeShip?.aisInfo?.shipType
+          ? '#1B1D2D'
+          : '#1B1D2D',
+      scoreBg:
+        activeShip?.synMaxInfo?.shipType === activeShip?.aisInfo?.shipType
+          ? '#85DB77'
+          : '#FF533C',
+    },
+    {
+      metric: 'Ship Sub-type',
+      prediction: activeShip?.synMaxInfo?.shipSubtype || 'n/a',
+      reference: activeShip?.aisInfo?.shipType || 'n/a',
+      difference: 'n/a',
+      score: 'Average',
+      scoreColor: '#1B1D2D',
+      scoreBg: '#FFCF5C',
+    },
+  ]
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -1146,13 +1447,13 @@ function Myships() {
               const s1 = ships[sid1]
               const s2 = ships[sid2]
               if (!s1 || !s2) return null
-              const latest1 = detections
+              const latest1 = allDetections
                 .filter((d) => d.shipId === sid1)
                 .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-              const latest2 = detections
+              const latest2 = allDetections
                 .filter((d) => d.shipId === sid2)
                 .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-              const latestNonSts1 = detections
+              const latestNonSts1 = allDetections
                 .filter(
                   (d) =>
                     d.shipId === sid1 &&
@@ -1160,7 +1461,7 @@ function Myships() {
                     d.type !== 'sts-ais'
                 )
                 .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-              const latestNonSts2 = detections
+              const latestNonSts2 = allDetections
                 .filter(
                   (d) =>
                     d.shipId === sid2 &&
@@ -1284,24 +1585,36 @@ function Myships() {
                     openDelay={180}
                     color="#393C56"
                     label={
-                      hasUnseenNewData
-                        ? (
-                            <Box style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>
-                                New data available
-                              </Text>
-                              <Text style={{ color: '#fff', fontSize: 12 }}>
-                                - Event: {latestDetectionEventLabel}
-                              </Text>
-                              <Text style={{ color: '#fff', fontSize: 12 }}>
-                                - Time: {latestDetection?.date}
-                              </Text>
-                              <Text style={{ color: '#fff', fontSize: 12 }}>
-                                - Click to load latest event
-                              </Text>
-                            </Box>
-                          )
-                        : 'No new data'
+                      hasUnseenNewData ? (
+                        <Box
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 700,
+                            }}
+                          >
+                            New data available
+                          </Text>
+                          <Text style={{ color: '#fff', fontSize: 12 }}>
+                            - Event: {latestDetectionEventLabel}
+                          </Text>
+                          <Text style={{ color: '#fff', fontSize: 12 }}>
+                            - Time: {latestDetection?.date}
+                          </Text>
+                          <Text style={{ color: '#fff', fontSize: 12 }}>
+                            - Click to load latest event
+                          </Text>
+                        </Box>
+                      ) : (
+                        'No new data'
+                      )
                     }
                     styles={{
                       tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
@@ -1471,52 +1784,55 @@ function Myships() {
                     alignItems: 'flex-start',
                   }}
                 >
-                  <Box>
+                  <Box
+                    onMouseEnter={() => setHoveredCopyField('imo')}
+                    onMouseLeave={() => setHoveredCopyField(null)}
+                  >
                     <Text style={{ color: '#888F9E', fontSize: '10px' }}>
                       IMO
                     </Text>
-                    <Tooltip
-                      label={copiedField === 'imo' ? 'Copied!' : 'Copy IMO'}
-                      withArrow
-                      color="#393C56"
-                      disabled={!canCopyImo}
-                      styles={{
-                        tooltip: {
-                          color: '#fff',
-                          fontSize: 12,
-                          fontWeight: 600,
-                        },
+                    <Box
+                      onClick={() => {
+                        if (canCopyImo)
+                          handleCopyToClipboard(activeShip.imo, 'imo')
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        minWidth: 0,
+                        whiteSpace: 'nowrap',
+                        cursor: canCopyImo ? 'pointer' : 'default',
                       }}
                     >
-                      <Box
-                        onMouseEnter={() => setHoveredCopyField('imo')}
-                        onMouseLeave={() => setHoveredCopyField(null)}
-                        onClick={() => {
-                          if (canCopyImo)
-                            handleCopyToClipboard(activeShip.imo, 'imo')
-                        }}
+                      <Text
+                        size="xs"
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          minWidth: 0,
+                          color: 'white',
                           whiteSpace: 'nowrap',
-                          cursor: canCopyImo ? 'pointer' : 'default',
+                          overflow: 'hidden',
+                          minWidth: 0,
                         }}
+                        title={activeShip.imo || 'No info'}
                       >
-                        <Text
-                          size="xs"
-                          style={{
-                            color: 'white',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            minWidth: 0,
+                        {activeShip.imo || 'No info'}
+                      </Text>
+                      {canCopyImo && (
+                        <Tooltip
+                          label={copiedField === 'imo' ? 'Copied!' : 'Copy IMO'}
+                          withArrow
+                          color="#393C56"
+                          opened={
+                            hoveredCopyField === 'imo' || copiedField === 'imo'
+                          }
+                          styles={{
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            },
                           }}
-                          title={activeShip.imo || 'No info'}
                         >
-                          {activeShip.imo || 'No info'}
-                        </Text>
-                        {canCopyImo && (
                           <Box
                             style={{
                               display: 'flex',
@@ -1526,7 +1842,8 @@ function Myships() {
                               height: 18,
                               color: copiedField === 'imo' ? '#fff' : '#0094ff',
                               cursor:
-                                hoveredCopyField === 'imo' || copiedField === 'imo'
+                                hoveredCopyField === 'imo' ||
+                                copiedField === 'imo'
                                   ? 'pointer'
                                   : 'default',
                               flexShrink: 0,
@@ -1539,11 +1856,13 @@ function Myships() {
                               borderRadius: 999,
                               background: 'transparent',
                               opacity:
-                                hoveredCopyField === 'imo' || copiedField === 'imo'
+                                hoveredCopyField === 'imo' ||
+                                copiedField === 'imo'
                                   ? 1
                                   : 0,
                               pointerEvents:
-                                hoveredCopyField === 'imo' || copiedField === 'imo'
+                                hoveredCopyField === 'imo' ||
+                                copiedField === 'imo'
                                   ? 'auto'
                                   : 'none',
                             }}
@@ -1557,56 +1876,62 @@ function Myships() {
                               }}
                             />
                           </Box>
-                        )}
-                      </Box>
-                    </Tooltip>
+                        </Tooltip>
+                      )}
+                    </Box>
                   </Box>
-                  <Box>
+                  <Box
+                    onMouseEnter={() => setHoveredCopyField('mmsi')}
+                    onMouseLeave={() => setHoveredCopyField(null)}
+                  >
                     <Text style={{ color: '#888F9E', fontSize: '10px' }}>
                       MMSI
                     </Text>
-                    <Tooltip
-                      label={copiedField === 'mmsi' ? 'Copied!' : 'Copy MMSI'}
-                      withArrow
-                      color="#393C56"
-                      disabled={!canCopyMmsi}
-                      styles={{
-                        tooltip: {
-                          color: '#fff',
-                          fontSize: 12,
-                          fontWeight: 600,
-                        },
+                    <Box
+                      onClick={() => {
+                        if (canCopyMmsi)
+                          handleCopyToClipboard(activeShip.mmsi, 'mmsi')
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        minWidth: 0,
+                        whiteSpace: 'nowrap',
+                        cursor: canCopyMmsi ? 'pointer' : 'default',
                       }}
                     >
-                      <Box
-                        onMouseEnter={() => setHoveredCopyField('mmsi')}
-                        onMouseLeave={() => setHoveredCopyField(null)}
-                        onClick={() => {
-                          if (canCopyMmsi)
-                            handleCopyToClipboard(activeShip.mmsi, 'mmsi')
-                        }}
+                      <Text
+                        size="xs"
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          minWidth: 0,
+                          color: 'white',
                           whiteSpace: 'nowrap',
-                          cursor: canCopyMmsi ? 'pointer' : 'default',
+                          overflow: 'hidden',
+                          minWidth: 0,
                         }}
+                        title={activeShip.mmsi || 'No info'}
                       >
-                        <Text
-                          size="xs"
-                          style={{
-                            color: 'white',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            minWidth: 0,
+                        {activeShip.mmsi || 'No info'}
+                      </Text>
+                      {canCopyMmsi && (
+                        <Tooltip
+                          label={
+                            copiedField === 'mmsi' ? 'Copied!' : 'Copy MMSI'
+                          }
+                          withArrow
+                          color="#393C56"
+                          opened={
+                            hoveredCopyField === 'mmsi' ||
+                            copiedField === 'mmsi'
+                          }
+                          styles={{
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            },
                           }}
-                          title={activeShip.mmsi || 'No info'}
                         >
-                          {activeShip.mmsi || 'No info'}
-                        </Text>
-                        {canCopyMmsi && (
                           <Box
                             style={{
                               display: 'flex',
@@ -1651,88 +1976,93 @@ function Myships() {
                               }}
                             />
                           </Box>
-                        )}
-                      </Box>
-                    </Tooltip>
+                        </Tooltip>
+                      )}
+                    </Box>
                   </Box>
-                  <Box style={{ minWidth: 0, width: '100%' }}>
+                  <Box
+                    style={{ minWidth: 0, width: '100%' }}
+                    onMouseEnter={() => setHoveredCopyField('shipId')}
+                    onMouseLeave={() => setHoveredCopyField(null)}
+                  >
                     <Text style={{ color: '#888F9E', fontSize: '10px' }}>
                       SynMax Ship ID
                     </Text>
-                    <Tooltip
-                      label={
-                        copiedField === 'shipId'
-                          ? 'Copied!'
-                          : 'Copy SynMax Ship Id'
-                      }
-                      withArrow
-                      color="#393C56"
-                      disabled={!canCopyShipId}
-                      styles={{
-                        tooltip: {
-                          color: '#fff',
-                          fontSize: 12,
-                          fontWeight: 600,
-                        },
+                    <Box
+                      onClick={() => {
+                        if (canCopyShipId)
+                          handleCopyToClipboard(activeShip.shipId, 'shipId')
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        minWidth: 0,
+                        width: '100%',
+                        cursor: canCopyShipId ? 'pointer' : 'default',
                       }}
                     >
                       <Box
-                        onMouseEnter={() => setHoveredCopyField('shipId')}
-                        onMouseLeave={() => setHoveredCopyField(null)}
-                        onClick={() => {
-                          if (canCopyShipId)
-                            handleCopyToClipboard(activeShip.shipId, 'shipId')
-                        }}
+                        title={activeShip.shipId || 'No info'}
                         style={{
+                          color: 'white',
+                          minWidth: 0,
+                          flex: 1,
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 6,
-                          minWidth: 0,
-                          width: '100%',
-                          cursor: canCopyShipId ? 'pointer' : 'default',
+                          gap: 0,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          fontSize: 11,
                         }}
                       >
-                        <Box
-                          title={activeShip.shipId || 'No info'}
-                          style={{
-                            color: 'white',
-                            minWidth: 0,
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            fontSize: 11,
+                        {activeShip.shipId ? (
+                          <>
+                            <Box component="span" style={{ flexShrink: 0 }}>
+                              ...
+                            </Box>
+                            <Box
+                              component="span"
+                              style={{
+                                display: 'inline-block',
+                                flex: 1,
+                                minWidth: 0,
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap',
+                                textOverflow: 'clip',
+                                direction: 'rtl',
+                                unicodeBidi: 'plaintext',
+                                textAlign: 'left',
+                              }}
+                            >
+                              {String(activeShip.shipId).slice(1, -1)}
+                            </Box>
+                          </>
+                        ) : (
+                          'No info'
+                        )}
+                      </Box>
+                      {canCopyShipId && (
+                        <Tooltip
+                          label={
+                            copiedField === 'shipId'
+                              ? 'Copied!'
+                              : 'Copy SynMax Ship Id'
+                          }
+                          withArrow
+                          color="#393C56"
+                          opened={
+                            hoveredCopyField === 'shipId' ||
+                            copiedField === 'shipId'
+                          }
+                          styles={{
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            },
                           }}
                         >
-                          {activeShip.shipId ? (
-                            <>
-                              <Box component="span" style={{ flexShrink: 0 }}>
-                                ...
-                              </Box>
-                              <Box
-                                component="span"
-                                style={{
-                                  display: 'inline-block',
-                                  flex: 1,
-                                  minWidth: 0,
-                                  overflow: 'hidden',
-                                  whiteSpace: 'nowrap',
-                                  textOverflow: 'clip',
-                                  direction: 'rtl',
-                                  unicodeBidi: 'plaintext',
-                                  textAlign: 'left',
-                                }}
-                              >
-                                {String(activeShip.shipId).slice(1)}
-                              </Box>
-                            </>
-                          ) : (
-                            'No info'
-                          )}
-                        </Box>
-                        {canCopyShipId && (
                           <Box
                             style={{
                               display: 'flex',
@@ -1777,9 +2107,9 @@ function Myships() {
                               }}
                             />
                           </Box>
-                        )}
-                      </Box>
-                    </Tooltip>
+                        </Tooltip>
+                      )}
+                    </Box>
                   </Box>
                 </Box>
                 {!isUnattributed && (
@@ -1945,7 +2275,25 @@ function Myships() {
                       gap: 8,
                     }}
                   >
-                    {timelineDetections.map((det) => {
+                    {timelineItems.map((item) => {
+                      if (item.kind === 'context') {
+                        const contextEvent = item.event
+                        return (
+                          <Box key={contextEvent.id}>
+                            <EventTimelineCard
+                              date={contextEvent.dateLabel}
+                              variant={contextEvent.variant}
+                              port={contextEvent.port}
+                              status={contextEvent.status}
+                              duration={contextEvent.duration}
+                              newFlag={contextEvent.newFlag}
+                              previousFlag={contextEvent.previousFlag}
+                            />
+                          </Box>
+                        )
+                      }
+
+                      const det = item.detection
                       const stsLightIcon = renderStsBars(
                         getStsDetectionBarColors(det),
                         {
@@ -1994,7 +2342,9 @@ function Myships() {
                             selected={selectedCard === det.id}
                             isPreviewed={previewCards.includes(det.id)}
                             onTogglePreview={() => {
-                              const nextPreviewCards = previewCards.includes(det.id)
+                              const nextPreviewCards = previewCards.includes(
+                                det.id
+                              )
                                 ? previewCards.filter((id) => id !== det.id)
                                 : [...previewCards, det.id]
                               updateTabState('previewCards', nextPreviewCards)
@@ -2088,16 +2438,323 @@ function Myships() {
                 )}
                 {activeDetailTab === 1 && (
                   <Box style={{ padding: 20 }}>
-                    <Title order={4} style={{ color: '#fff' }}>
-                      Sat. Imagery Timeline
-                    </Title>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                      }}
+                    >
+                      <Box
+                        onClick={() =>
+                          setSatSortByTab((prev) => ({
+                            ...prev,
+                            [activeShipTab]:
+                              (prev[activeShipTab] ?? 'desc') === 'desc'
+                                ? 'asc'
+                                : 'desc',
+                          }))
+                        }
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 12,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {satTimelineSortOrder === 'desc'
+                            ? 'Sort by: Newest'
+                            : 'Sort by: Oldest'}
+                        </Text>
+                        <ChevronDown
+                          style={{
+                            width: 16,
+                            height: 16,
+                            color: '#FFFFFF',
+                            transform:
+                              satTimelineSortOrder === 'asc'
+                                ? 'rotate(180deg)'
+                                : 'rotate(0deg)',
+                            transition: 'transform 140ms ease',
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                    {satelliteTimelineRows.length === 0 ? (
+                      <Text style={{ color: '#898F9D', fontSize: 12 }}>
+                        No satellite imagery available.
+                      </Text>
+                    ) : (
+                      <Box
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                          gap: 12,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {satelliteTimelineRows.map((item) => (
+                          <Box
+                            key={item.id}
+                            onMouseEnter={() =>
+                              setHoveredSatelliteCardId(item.id)
+                            }
+                            onMouseLeave={() => setHoveredSatelliteCardId(null)}
+                            style={{
+                              minWidth: 0,
+                              borderRadius: 6,
+                              background:
+                                hoveredSatelliteCardId === item.id
+                                  ? '#24263C'
+                                  : 'transparent',
+                              padding: 8,
+                              transition: 'background 140ms ease',
+                            }}
+                          >
+                            <Box
+                              style={{
+                                borderRadius: 6,
+                                overflow: 'hidden',
+                                background: '#1B1D2E',
+                                height: 226,
+                              }}
+                            >
+                              <img
+                                src={item.image}
+                                alt="Satellite timeline capture"
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                  display: 'block',
+                                }}
+                              />
+                            </Box>
+                            <Box style={{ marginTop: 10 }}>
+                              <KeyValuePair
+                                keyName="Image Captured Time"
+                                value={item.capturedTime}
+                              />
+                            </Box>
+                            <Box
+                              style={{
+                                marginTop: 8,
+                                display: 'grid',
+                                gridTemplateColumns:
+                                  'repeat(3, minmax(0, 1fr))',
+                                gap: 16,
+                              }}
+                            >
+                              <KeyValuePair
+                                keyName="Latitude"
+                                value={item.latitude}
+                              />
+                              <KeyValuePair
+                                keyName="Longitude"
+                                value={item.longitude}
+                              />
+                              <KeyValuePair keyName="OID" value={item.oid} />
+                            </Box>
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
                   </Box>
                 )}
                 {activeDetailTab === 2 && (
                   <Box style={{ padding: 20 }}>
-                    <Title order={4} style={{ color: '#fff' }}>
-                      Ship Information
-                    </Title>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#B8BECE',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.4,
+                        }}
+                      >
+                        Ownership
+                      </Text>
+                      <Box
+                        style={{
+                          border: '1px solid #3D456B',
+                          borderRadius: 4,
+                          background: '#24263C',
+                          padding: 20,
+                          marginBottom: 16,
+                        }}
+                      >
+                        <Box
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                            gap: '12px 20px',
+                          }}
+                        >
+                          <KeyValuePair
+                            keyName="Commercial Owner"
+                            value={ownershipInfo.commercialOwner}
+                          />
+                          <KeyValuePair
+                            keyName="Effective Owner"
+                            value={ownershipInfo.effectiveOwner}
+                          />
+                          <KeyValuePair
+                            keyName="Financial Owner"
+                            value={ownershipInfo.financialOwner}
+                          />
+                          <KeyValuePair
+                            keyName="Technical Owner"
+                            value={ownershipInfo.technicalOwner}
+                          />
+                          <KeyValuePair
+                            keyName="P&I Club"
+                            value={ownershipInfo.pniClub}
+                          />
+                          <KeyValuePair
+                            keyName="Member"
+                            value={ownershipInfo.member}
+                          />
+                        </Box>
+                      </Box>
+
+                      <Text
+                        style={{
+                          color: '#B8BECE',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.4,
+                        }}
+                      >
+                        Attribution
+                      </Text>
+                      <Box
+                        style={{
+                          borderRadius: 4,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <Box
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns:
+                              '1.25fr 1.1fr 1.1fr 1fr 0.95fr',
+                            gap: 0,
+                            background: '#24263C',
+                            borderRadius: 4,
+                          }}
+                        >
+                          {[
+                            'Metric',
+                            'Prediction',
+                            'Reference',
+                            'Difference',
+                            'Score',
+                          ].map((col) => (
+                            <Text
+                              key={col}
+                              style={{
+                                color: '#B8BECE',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                padding: '4px 8px',
+                              }}
+                            >
+                              {col}
+                            </Text>
+                          ))}
+                        </Box>
+                        {attributionRows.map((row, idx) => (
+                          <Box
+                            key={`${row.metric}-${idx}`}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns:
+                                '1.25fr 1.1fr 1.1fr 1fr 0.95fr',
+                              gap: 0,
+                              borderBottom:
+                                idx === attributionRows.length - 1
+                                  ? 'none'
+                                  : '1px solid #393C56',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                padding: '8px',
+                              }}
+                            >
+                              {row.metric}
+                            </Text>
+                            <Text
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                padding: '4px 12px',
+                              }}
+                            >
+                              {row.prediction}
+                            </Text>
+                            <Text
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                padding: ' 4px 14px',
+                              }}
+                            >
+                              {row.reference}
+                            </Text>
+                            <Text
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                padding: '4px 16px',
+                              }}
+                            >
+                              {row.difference}
+                            </Text>
+                            <Box
+                              style={{
+                                padding: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Box
+                                style={{
+                                  borderRadius: 999,
+                                  background: row.scoreBg,
+                                  color: row.scoreColor,
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  padding: '4px 8px',
+                                  lineHeight: 1.2,
+                                  textAlign: 'center',
+                                  minWidth: 70,
+                                }}
+                              >
+                                {row.score}
+                              </Box>
+                            </Box>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
                   </Box>
                 )}
               </Box>
@@ -2270,4 +2927,3 @@ function Myships() {
 }
 
 export default Myships
-

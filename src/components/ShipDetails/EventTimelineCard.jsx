@@ -116,7 +116,7 @@ const EventTimelineCard = ({
           padding: 12,
         }}
       >
-        <Text style={{ color: '#fff', fontSize: 14, marginBottom: 8 }}>
+        <Text style={{ color: '#898f9d', fontSize: 12, marginBottom: 8 }}>
           {date}
         </Text>
         <Box style={{ display: 'flex', gap: 40 }}>
@@ -370,7 +370,7 @@ const EventTimelineCard = ({
           padding: 12,
         }}
       >
-        <Text style={{ color: '#fff', fontSize: 14, marginBottom: 8 }}>
+        <Text style={{ color: '#898f9d', fontSize: 12, marginBottom: 8 }}>
           {date}
         </Text>
         <Box style={{ display: 'flex', gap: 40 }}>
