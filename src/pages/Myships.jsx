@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Box,
   Text,
@@ -18,7 +18,7 @@ import {
   XClose,
   ChevronDown,
   List,
-  Lightbulb04,
+  MarkerPin01,
 } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
 import AisIcon from '../custom-icons/AisIcon'
@@ -48,7 +48,23 @@ const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
 const GO_TO_DATE_CONFIRM_DELAY_MS = 420
 const GO_TO_DATE_MODAL_TRANSITION_MS = 220
 const TIMELINE_MIN_HEIGHT = 260
-const NEW_DATA_NOTIFICATION_DELAY_MS = 10_000
+const NEW_LAST_KNOWN_DOT_DELAY_MS = 20_000
+const NEW_LAST_KNOWN_DOT_FLASH_MS = 700
+const formatPrototypeDetectionDate = (date) => {
+  const d = date instanceof Date ? date : new Date(date)
+  return `${d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(
+    2,
+    '0'
+  )}`
+}
+const parseFiniteNumber = (value) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
 const getDetectionDateKey = (dateStr) => {
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
@@ -200,6 +216,12 @@ function Myships() {
   const [hoveredCopyField, setHoveredCopyField] = useState(null)
   const [hoveredSatelliteCardId, setHoveredSatelliteCardId] = useState(null)
   const [satSortByTab, setSatSortByTab] = useState({})
+  const [newLastKnownDotByShip, setNewLastKnownDotByShip] = useState({})
+  const [pendingLastKnownDetectionByShip, setPendingLastKnownDetectionByShip] =
+    useState({})
+  const [appliedLastKnownDetectionByShip, setAppliedLastKnownDetectionByShip] =
+    useState({})
+  const [isNewLastKnownDotFlashOn, setIsNewLastKnownDotFlashOn] = useState(true)
   const [isTopSummaryCollapsed, setIsTopSummaryCollapsed] = useState(false)
   const [hoveredTopAction, setHoveredTopAction] = useState(null)
   const [detailToolsVisible, setDetailToolsVisible] = useState(true)
@@ -210,7 +232,6 @@ function Myships() {
   const [goToDateSubmitting, setGoToDateSubmitting] = useState(false)
   const [goToDateCancelHovered, setGoToDateCancelHovered] = useState(false)
   const [goToDateConfirmHovered, setGoToDateConfirmHovered] = useState(false)
-  const [hasNewDataNotification, setHasNewDataNotification] = useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
@@ -223,8 +244,17 @@ function Myships() {
   const copyFeedbackTimerRef = useRef(null)
   const goToDateTimerRef = useRef(null)
   const goToDateCloseTimerRef = useRef(null)
-  const newDataTimerRef = useRef(null)
-  const allDetections = detections
+  const newLastKnownDotTimersRef = useRef({})
+  const nextSimulatedDetectionIdRef = useRef(
+    detections.reduce((maxId, d) => {
+      const parsedId = Number(d.id)
+      return Number.isFinite(parsedId) ? Math.max(maxId, parsedId) : maxId
+    }, 0) + 1000
+  )
+  const allDetections = useMemo(
+    () => [...Object.values(appliedLastKnownDetectionByShip), ...detections],
+    [appliedLastKnownDetectionByShip]
+  )
 
   const updateOverflow = useCallback(() => {
     const el = tabScrollRef.current
@@ -343,21 +373,6 @@ function Myships() {
     }, GO_TO_DATE_MODAL_TRANSITION_MS)
   }, [])
 
-  const scheduleNewDataNotification = useCallback(() => {
-    if (newDataTimerRef.current) {
-      window.clearTimeout(newDataTimerRef.current)
-    }
-    newDataTimerRef.current = window.setTimeout(() => {
-      setHasNewDataNotification(true)
-      newDataTimerRef.current = null
-    }, NEW_DATA_NOTIFICATION_DELAY_MS)
-  }, [])
-
-  const acknowledgeNewDataNotification = useCallback(() => {
-    setHasNewDataNotification(false)
-    scheduleNewDataNotification()
-  }, [scheduleNewDataNotification])
-
   useEffect(() => {
     const el = tabScrollRef.current
     if (!el) return
@@ -391,17 +406,19 @@ function Myships() {
       if (goToDateCloseTimerRef.current) {
         window.clearTimeout(goToDateCloseTimerRef.current)
       }
-      if (newDataTimerRef.current) {
-        window.clearTimeout(newDataTimerRef.current)
-      }
+      Object.values(newLastKnownDotTimersRef.current).forEach((timerId) => {
+        window.clearTimeout(timerId)
+      })
+      newLastKnownDotTimersRef.current = {}
     }
   }, [])
 
   useEffect(() => {
-    setHasNewDataNotification(false)
-    if (!activeShipTab) return
-    scheduleNewDataNotification()
-  }, [activeShipTab, scheduleNewDataNotification])
+    const flashTimer = window.setInterval(() => {
+      setIsNewLastKnownDotFlashOn((prev) => !prev)
+    }, NEW_LAST_KNOWN_DOT_FLASH_MS)
+    return () => window.clearInterval(flashTimer)
+  }, [])
 
   const handleCopyToClipboard = useCallback((value, fieldKey) => {
     if (!value) return
@@ -739,10 +756,65 @@ function Myships() {
         Number.isFinite(d.lng)
     ) || null
   const latestKnownLocationDetection =
-    latestAisDetection || latestCoordinateDetection
+    latestCoordinateDetection || latestAisDetection || latestDetection
+  const hasPendingNewLastKnownData = Boolean(
+    activeShipId && newLastKnownDotByShip[activeShipId]
+  )
+  const pendingLatestKnownDetection = activeShipId
+    ? pendingLastKnownDetectionByShip[activeShipId] || null
+    : null
+  const hoverLastKnownDetection =
+    hasPendingNewLastKnownData && pendingLatestKnownDetection
+      ? pendingLatestKnownDetection
+      : latestKnownLocationDetection
   const latestNonStsDetection = activeShipDetections.find(
     (d) => d.type !== 'sts' && d.type !== 'sts-ais'
   )
+
+  useEffect(() => {
+    if (!activeShipId) return
+    if (newLastKnownDotByShip[activeShipId]) return
+    if (pendingLastKnownDetectionByShip[activeShipId]) return
+    if (newLastKnownDotTimersRef.current[activeShipId]) return
+
+    newLastKnownDotTimersRef.current[activeShipId] = window.setTimeout(() => {
+      const baseDetection =
+        latestAisDetection || latestCoordinateDetection || latestDetection
+      const fallbackLat = parseFiniteNumber(activeShip?.aisInfo?.latitude)
+      const fallbackLng = parseFiniteNumber(activeShip?.aisInfo?.longitude)
+      const nextSimulatedDetection = {
+        id: nextSimulatedDetectionIdRef.current++,
+        shipId: activeShipId,
+        type: 'ais',
+        lat:
+          typeof baseDetection?.lat === 'number'
+            ? baseDetection.lat
+            : fallbackLat ?? 0,
+        lng:
+          typeof baseDetection?.lng === 'number'
+            ? baseDetection.lng
+            : fallbackLng ?? 0,
+        date: formatPrototypeDetectionDate(new Date()),
+      }
+      setPendingLastKnownDetectionByShip((prev) => ({
+        ...prev,
+        [activeShipId]: nextSimulatedDetection,
+      }))
+      setNewLastKnownDotByShip((prev) => ({
+        ...prev,
+        [activeShipId]: true,
+      }))
+      delete newLastKnownDotTimersRef.current[activeShipId]
+    }, NEW_LAST_KNOWN_DOT_DELAY_MS)
+  }, [
+    activeShipId,
+    activeShip,
+    latestAisDetection,
+    latestCoordinateDetection,
+    latestDetection,
+    newLastKnownDotByShip,
+    pendingLastKnownDetectionByShip,
+  ])
 
   useEffect(() => {
     if (!activeShipTab || !activeShipDetections.length) return
@@ -818,9 +890,44 @@ function Myships() {
   }
 
   const handleShowLastKnownLocation = () => {
-    const targetDetection = latestKnownLocationDetection || latestDetection
-    navigateToDetection(targetDetection)
-    acknowledgeNewDataNotification()
+    const targetDetection =
+      (hasPendingNewLastKnownData && pendingLatestKnownDetection) ||
+      latestKnownLocationDetection ||
+      latestDetection
+    if (!targetDetection) return
+
+    if (hasPendingNewLastKnownData && activeShipId && pendingLatestKnownDetection) {
+      setAppliedLastKnownDetectionByShip((prev) => ({
+        ...prev,
+        [activeShipId]: pendingLatestKnownDetection,
+      }))
+      setPendingLastKnownDetectionByShip((prev) => ({
+        ...prev,
+        [activeShipId]: null,
+      }))
+    }
+
+    // Keep this action responsive even when the target is already selected.
+    setFlashEnabled(true)
+    setPreviewDetectionId(null)
+    updateTabState('previewCards', [])
+    updateTabState('selectedCard', targetDetection.id)
+    setActiveDetectionId(null)
+    window.setTimeout(() => {
+      setActiveDetectionId(targetDetection.id)
+    }, 0)
+
+    // Preserve STS tab behavior when jumping from a grouped tab.
+    if (isStsTab && activeTab && !targetDetection.stsPartner) {
+      openShipTab(targetDetection)
+    }
+
+    if (activeShipId) {
+      setNewLastKnownDotByShip((prev) => ({
+        ...prev,
+        [activeShipId]: false,
+      }))
+    }
   }
 
   const eventColorMap = {
@@ -925,18 +1032,7 @@ function Myships() {
 
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
-  const hasUnseenNewData = hasNewDataNotification && latestDetection != null
-  const shouldShowLastKnownLocationButton =
-    latestKnownLocationDetection != null &&
-    selectedDetection?.id !== latestKnownLocationDetection.id &&
-    !hasUnseenNewData
-  const latestDetectionEventLabel =
-    eventLabel[latestDetection?.type] || latestDetection?.type || 'event'
-  const handleNewDataIndicatorClick = () => {
-    if (!hasUnseenNewData || !latestDetection) return
-    navigateToDetection(latestDetection)
-    acknowledgeNewDataNotification()
-  }
+  const shouldShowLastKnownLocationButton = latestKnownLocationDetection != null
   const satelliteTimelineRows = activeShipDetections
     .filter((d) => ['light', 'dark', 'spoofing', 'ais'].includes(d.type))
     .sort((a, b) => {
@@ -1580,72 +1676,6 @@ function Myships() {
                     gap: 8,
                   }}
                 >
-                  <Tooltip
-                    withArrow
-                    openDelay={180}
-                    color="#393C56"
-                    label={
-                      hasUnseenNewData ? (
-                        <Box
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 2,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              fontWeight: 700,
-                            }}
-                          >
-                            New data available
-                          </Text>
-                          <Text style={{ color: '#fff', fontSize: 12 }}>
-                            - Event: {latestDetectionEventLabel}
-                          </Text>
-                          <Text style={{ color: '#fff', fontSize: 12 }}>
-                            - Time: {latestDetection?.date}
-                          </Text>
-                          <Text style={{ color: '#fff', fontSize: 12 }}>
-                            - Click to load latest event
-                          </Text>
-                        </Box>
-                      ) : (
-                        'No new data'
-                      )
-                    }
-                    styles={{
-                      tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
-                    }}
-                  >
-                    <Box
-                      onClick={handleNewDataIndicatorClick}
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 999,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: hasUnseenNewData
-                          ? 'rgba(0, 148, 255, 0.16)'
-                          : 'rgba(92, 98, 112, 0.2)',
-                        cursor: hasUnseenNewData ? 'pointer' : 'default',
-                        transition: 'all 160ms ease',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Lightbulb04
-                        style={{
-                          width: 14,
-                          height: 14,
-                          color: hasUnseenNewData ? '#0094FF' : '#5C6270',
-                        }}
-                      />
-                    </Box>
-                  </Tooltip>
                   <Title order={4} style={{ color: 'white' }}>
                     {activeShip.name}
                   </Title>
@@ -1654,20 +1684,118 @@ function Myships() {
                   )}
                 </Box>
                 {shouldShowLastKnownLocationButton && (
-                  <Text
-                    onClick={handleShowLastKnownLocation}
-                    style={{
-                      color: '#0094FF',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      lineHeight: 1.2,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      marginLeft: 30,
+                  <Tooltip
+                    withArrow
+                    arrowSize={10}
+                    openDelay={150}
+                    position="right"
+                    offset={10}
+                    color="#000"
+                    label={
+                      <Box
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
+                        }}
+                      >
+                        <KeyValuePair
+                          keyName="Last Known Location Event"
+                          value={
+                            hasPendingNewLastKnownData ? (
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                }}
+                              >
+                                <Text style={{ color: '#fff', fontSize: 12 }}>
+                                  {eventLabel[hoverLastKnownDetection?.type] ||
+                                    hoverLastKnownDetection?.type ||
+                                    'Unknown'}
+                                </Text>
+                                <Text
+                                  style={{
+                                    color: '#00EB6C',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  (New)
+                                </Text>
+                              </Box>
+                            ) : (
+                              eventLabel[hoverLastKnownDetection?.type] ||
+                              hoverLastKnownDetection?.type ||
+                              'Unknown'
+                            )
+                          }
+                        />
+                        <KeyValuePair
+                          keyName="Reported Time"
+                          value={hoverLastKnownDetection?.date || 'No info'}
+                        />
+                      </Box>
+                    }
+                    styles={{
+                      tooltip: {
+                        color: '#fff',
+                        borderRadius: 8,
+                        padding: '10px 12px',
+                        maxWidth: 240,
+                      },
                     }}
                   >
-                    Show last known location
-                  </Text>
+                    <Box
+                      onClick={handleShowLastKnownLocation}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        cursor: 'pointer',
+                        marginTop: 2,
+                      }}
+                    >
+                      <MarkerPin01
+                        style={{
+                          width: 14,
+                          height: 14,
+                          color: '#0094FF',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Text
+                        style={{
+                          color: '#0094FF',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          lineHeight: 1.2,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Show last known location
+                      </Text>
+                      {hasPendingNewLastKnownData && (
+                        <Box
+                          style={{
+                            width: 7,
+                            height: 7,
+                            marginLeft: 4,
+                            borderRadius: 999,
+                            background: isNewLastKnownDotFlashOn
+                              ? '#00EB6C'
+                              : 'rgba(0, 235, 108, 0.28)',
+                            boxShadow: isNewLastKnownDotFlashOn
+                              ? '0 0 0 2px rgba(0, 235, 108, 0.2)'
+                              : 'none',
+                            flexShrink: 0,
+                            transition: 'all 160ms ease',
+                          }}
+                        />
+                      )}
+                    </Box>
+                  </Tooltip>
                 )}
               </Box>
               <Box style={{ flex: 1 }}></Box>
@@ -2442,6 +2570,7 @@ function Myships() {
                       style={{
                         display: 'flex',
                         justifyContent: 'flex-end',
+                        marginBottom: 2,
                       }}
                     >
                       <Box
@@ -2496,6 +2625,7 @@ function Myships() {
                         style={{
                           display: 'grid',
                           gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                          marginTop: 8,
                           gap: 12,
                           cursor: 'pointer',
                         }}
