@@ -14,6 +14,7 @@ export function ShipProvider({ children }) {
   const [mapDate, setMapDate] = useState(todayStr)
   const [activeDetectionId, setActiveDetectionId] = useState(null)
   const [previewDetectionId, setPreviewDetectionId] = useState(null)
+  const [panelFocusDetectionId, setPanelFocusDetectionId] = useState(null)
   const [runtimeDetections, setRuntimeDetections] = useState(seedDetections)
 
   const openShipTab = useCallback((detection) => {
@@ -90,6 +91,8 @@ export function ShipProvider({ children }) {
         setActiveDetectionId,
         previewDetectionId,
         setPreviewDetectionId,
+        panelFocusDetectionId,
+        setPanelFocusDetectionId,
         runtimeDetections,
         setRuntimeDetections,
       }}

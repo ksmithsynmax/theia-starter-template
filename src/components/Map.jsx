@@ -66,6 +66,7 @@ const Map = ({ onDetectionClick }) => {
   const {
     activeDetectionId,
     previewDetectionId,
+    panelFocusDetectionId,
     mapDate,
     shipTabs,
     runtimeDetections,
@@ -160,28 +161,42 @@ const Map = ({ onDetectionClick }) => {
   useEffect(() => {
     if (!map.current) return
 
+    const panelFocusId =
+      panelFocusDetectionId == null ? null : String(panelFocusDetectionId)
+    const activeId = activeDetectionId == null ? null : String(activeDetectionId)
+    const previewId = previewDetectionId == null ? null : String(previewDetectionId)
+    const primaryFocusId = panelFocusId || activeId
+
     // Clear all selection/preview highlights
     Object.values(markersRef.current).forEach((m) => {
       m.getElement().classList.remove('active')
       m.getElement().classList.remove('previewed')
     })
 
-    if (activeDetectionId) {
-      const selectedMarker = markersRef.current[activeDetectionId]
+    if (primaryFocusId) {
+      const selectedMarker = markersRef.current[primaryFocusId]
       selectedMarker?.getElement().classList.add('active')
     }
 
-    if (previewDetectionId && previewDetectionId !== activeDetectionId) {
-      const previewMarker = markersRef.current[previewDetectionId]
+    if (previewId && !primaryFocusId) {
+      const previewMarker = markersRef.current[previewId]
       previewMarker?.getElement().classList.add('previewed')
     }
 
-    const focusDetectionId = previewDetectionId || activeDetectionId
+    // Panel-selected event is authoritative, then active, then preview.
+    const focusDetectionId = primaryFocusId || previewId
     if (!focusDetectionId) return
-    const focusDet = runtimeDetections.find((d) => d.id === focusDetectionId)
+    const focusDet = runtimeDetections.find(
+      (d) => String(d.id) === String(focusDetectionId)
+    )
     if (!focusDet) return
     map.current.flyTo({ center: [focusDet.lng, focusDet.lat], zoom: 6, duration: 1500 })
-  }, [activeDetectionId, previewDetectionId, runtimeDetections])
+  }, [
+    panelFocusDetectionId,
+    activeDetectionId,
+    previewDetectionId,
+    runtimeDetections,
+  ])
 
   // Show halo on markers whose ship has an open tab
   useEffect(() => {
@@ -213,17 +228,30 @@ const Map = ({ onDetectionClick }) => {
   useEffect(() => {
     if (!map.current) return
 
+    const panelFocusId =
+      panelFocusDetectionId == null ? null : String(panelFocusDetectionId)
+    const activeId = activeDetectionId == null ? null : String(activeDetectionId)
+    const previewId = previewDetectionId == null ? null : String(previewDetectionId)
+    const primaryFocusId = panelFocusId || activeId
+
     runtimeDetections.forEach((det) => {
       const marker = markersRef.current[det.id]
       if (!marker) return
       const el = marker.getElement()
-      const isSelected = det.id === activeDetectionId
-      const isPreviewed = det.id === previewDetectionId
+      const isSelected =
+        primaryFocusId != null && String(det.id) === String(primaryFocusId)
+      const isPreviewed = previewId != null && String(det.id) === previewId
       const isCurrentDate = getDateKey(det.date) === mapDate
       el.dataset.historical = isCurrentDate ? 'false' : 'true'
       el.style.display = isCurrentDate || isSelected || isPreviewed ? '' : 'none'
     })
-  }, [mapDate, activeDetectionId, previewDetectionId, runtimeDetections])
+  }, [
+    mapDate,
+    panelFocusDetectionId,
+    activeDetectionId,
+    previewDetectionId,
+    runtimeDetections,
+  ])
 
   return (
     <div

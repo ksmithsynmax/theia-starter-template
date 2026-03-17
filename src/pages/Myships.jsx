@@ -199,8 +199,10 @@ function Myships() {
     setSelectedDetectionId,
     mapDate,
     setMapDate,
+    activeDetectionId,
     setActiveDetectionId,
     setPreviewDetectionId,
+    setPanelFocusDetectionId,
     runtimeDetections,
     setRuntimeDetections,
   } = useShipContext()
@@ -492,42 +494,42 @@ function Myships() {
 
   useEffect(() => {
     if (!activeShipTab) return
+    if (selectedCard != null) return
     if (loadedTabsRef.current.has(activeShipTab)) return
-    setLoading(true)
     const currentTab = activeShipTab
-    const timer = setTimeout(() => {
-      loadedTabsRef.current.add(currentTab)
-      setLoading(false)
-      // Auto-select: use the clicked detection from map if set, otherwise pick the latest
-      const shipTab = shipTabs.find((t) => t.id === currentTab)
-      const shipId = shipTab?.type === 'sts' ? shipTab.shipIds[0] : currentTab
-      const shipDetections = allDetections
-        .filter((d) => d.shipId === shipId)
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-      const shouldHonorSelectedDetection = shipTab?.type !== 'sts'
-      const stsPreferredDetectionId =
-        shipTab?.type === 'sts'
-          ? shipDetections.find((d) => d.stsPartner === shipTab.shipIds[1])?.id
-          : null
-      const targetId =
-        shouldHonorSelectedDetection &&
-        selectedDetectionId &&
-        shipDetections.some((d) => d.id === selectedDetectionId)
-          ? selectedDetectionId
-          : stsPreferredDetectionId || shipDetections[0]?.id
-      if (targetId) {
-        updateTabState('selectedCard', targetId)
-        updateTabState('previewCards', [])
-        setActiveDetectionId(targetId)
-        setPreviewDetectionId(null)
-        if (selectedDetectionId) setSelectedDetectionId(null)
-      }
-    }, 1500)
-    return () => clearTimeout(timer)
-  }, [activeShipTab, allDetections])
+    loadedTabsRef.current.add(currentTab)
+    // Auto-select: use the clicked detection from map if set, otherwise pick the latest.
+    const shipTab = shipTabs.find((t) => t.id === currentTab)
+    const shipId = shipTab?.type === 'sts' ? shipTab.shipIds[0] : currentTab
+    const shipDetections = allDetections
+      .filter((d) => d.shipId === shipId)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+    const shouldHonorSelectedDetection = shipTab?.type !== 'sts'
+    const stsPreferredDetectionId =
+      shipTab?.type === 'sts'
+        ? shipDetections.find((d) => d.stsPartner === shipTab.shipIds[1])?.id
+        : null
+    const targetId =
+      shouldHonorSelectedDetection &&
+      selectedDetectionId &&
+      shipDetections.some((d) => d.id === selectedDetectionId)
+        ? selectedDetectionId
+        : stsPreferredDetectionId || shipDetections[0]?.id
+    if (targetId) {
+      updateTabState('selectedCard', targetId)
+      updateTabState('previewCards', [])
+      setActiveDetectionId(targetId)
+      setPreviewDetectionId(null)
+      if (selectedDetectionId) setSelectedDetectionId(null)
+    }
+  }, [activeShipTab, allDetections, selectedCard])
 
   useEffect(() => {
     if (selectedDetectionId != null) {
+      if (selectedCard != null) {
+        setSelectedDetectionId(null)
+        return
+      }
       const activeTabForSelection = shipTabs.find((t) => t.id === activeShipTab)
       const isCurrentTabSts = activeTabForSelection?.type === 'sts'
       if (isCurrentTabSts) {
@@ -542,6 +544,7 @@ function Myships() {
     }
   }, [
     selectedDetectionId,
+    selectedCard,
     setActiveDetectionId,
     setSelectedDetectionId,
     setPreviewDetectionId,
@@ -784,13 +787,11 @@ function Myships() {
         shipId: activeShipId,
         type: 'ais',
         lat:
-          typeof baseDetection?.lat === 'number'
-            ? baseDetection.lat
-            : fallbackLat ?? 0,
+          fallbackLat ??
+          (typeof baseDetection?.lat === 'number' ? baseDetection.lat : 0),
         lng:
-          typeof baseDetection?.lng === 'number'
-            ? baseDetection.lng
-            : fallbackLng ?? 0,
+          fallbackLng ??
+          (typeof baseDetection?.lng === 'number' ? baseDetection.lng : 0),
         date: formatPrototypeDetectionDate(new Date()),
       }
       setPendingLastKnownDetectionByShip((prev) => ({
@@ -819,9 +820,9 @@ function Myships() {
       ? activeShipDetections.find((d) => d.stsPartner === stsPartnerShipId)?.id
       : activeShipDetections[0]?.id
     if (!preferredId) return
-    const validSelection =
-      selectedCard && activeShipDetections.some((d) => d.id === selectedCard)
-    if (!validSelection) {
+    // Only auto-select when nothing is selected yet.
+    // Avoid overriding explicit user-driven selection/focus state.
+    if (selectedCard == null) {
       updateTabState('selectedCard', preferredId)
     }
   }, [
@@ -840,6 +841,10 @@ function Myships() {
   const selectedDetection = selectedCard
     ? activeShipDetections.find((d) => d.id === selectedCard) || latestDetection
     : latestDetection
+
+  useEffect(() => {
+    setPanelFocusDetectionId(selectedDetection?.id ?? null)
+  }, [selectedDetection?.id, setPanelFocusDetectionId])
 
   const eventLabel = {
     ais: 'AIS',
@@ -889,49 +894,38 @@ function Myships() {
   const handleShowLastKnownLocation = () => {
     if (!activeShipId) return
 
-    let targetDetection =
-      (hasPendingNewLastKnownData && pendingLatestKnownDetection) || null
-
-    if (!targetDetection) {
-      const baseDetection =
-        latestCoordinateDetection || latestAisDetection || latestDetection
-      const fallbackLat = parseFiniteNumber(activeShip?.aisInfo?.latitude)
-      const fallbackLng = parseFiniteNumber(activeShip?.aisInfo?.longitude)
-      targetDetection = {
-        id: nextSimulatedDetectionIdRef.current++,
-        shipId: activeShipId,
-        type: 'ais',
-        lat:
-          typeof baseDetection?.lat === 'number'
-            ? baseDetection.lat
-            : fallbackLat ?? 0,
-        lng:
-          typeof baseDetection?.lng === 'number'
-            ? baseDetection.lng
-            : fallbackLng ?? 0,
-        date: formatPrototypeDetectionDate(new Date()),
-      }
-      setRuntimeDetections((prev) => [...prev, targetDetection])
+    const baseDetection =
+      latestAisDetection || latestCoordinateDetection || latestDetection
+    const fallbackLat = parseFiniteNumber(activeShip?.aisInfo?.latitude)
+    const fallbackLng = parseFiniteNumber(activeShip?.aisInfo?.longitude)
+    const baseLat =
+      fallbackLat ?? (typeof baseDetection?.lat === 'number' ? baseDetection.lat : 0)
+    const baseLng =
+      fallbackLng ?? (typeof baseDetection?.lng === 'number' ? baseDetection.lng : 0)
+    const offsetSeed = Number(nextSimulatedDetectionIdRef.current % 7) + 1
+    const oceanOffsetLng = 0.8 + offsetSeed * 0.03
+    const oceanOffsetLat = -0.15 + offsetSeed * 0.01
+    const targetDetection = {
+      id: nextSimulatedDetectionIdRef.current++,
+      shipId: activeShipId,
+      type: 'ais',
+      // Always create a fresh, current AIS event for this action.
+      // Push the prototype point offshore so it doesn't appear on land.
+      lat: baseLat + oceanOffsetLat,
+      lng: baseLng + oceanOffsetLng,
+      date: formatPrototypeDetectionDate(new Date()),
     }
+    setRuntimeDetections((prev) => [...prev, targetDetection])
+    setPendingLastKnownDetectionByShip((prev) => ({
+      ...prev,
+      [activeShipId]: null,
+    }))
 
-    if (!targetDetection) return
-
-    if (hasPendingNewLastKnownData && activeShipId && pendingLatestKnownDetection) {
-      setRuntimeDetections((prev) => [...prev, pendingLatestKnownDetection])
-      setPendingLastKnownDetectionByShip((prev) => ({
-        ...prev,
-        [activeShipId]: null,
-      }))
-    }
-
-    // Keep this action responsive even when the target is already selected.
     setFlashEnabled(true)
     setPreviewDetectionId(null)
+    setSelectedDetectionId(null)
     updateTabState('previewCards', [])
-    setActiveDetectionId(null)
-    window.setTimeout(() => {
-      setActiveDetectionId(targetDetection.id)
-    }, 0)
+    setActiveDetectionId(targetDetection.id)
 
     // Preserve STS tab behavior when jumping from a grouped tab.
     if (isStsTab && activeTab && !targetDetection.stsPartner) {
@@ -2479,32 +2473,21 @@ function Myships() {
                                 : undefined
                             }
                             onSelect={() => {
-                              const isDeselecting = selectedCard === det.id
                               setFlashEnabled(true)
                               setPreviewDetectionId(null)
+                              setSelectedDetectionId(null)
                               updateTabState('previewCards', [])
 
-                              // On STS tab, selecting a non-STS event navigates to ship tab
-                              if (
-                                isStsTab &&
-                                !isDeselecting &&
-                                !det.stsPartner
-                              ) {
+                              // On STS tab, selecting a non-STS event navigates to ship tab.
+                              if (isStsTab && !det.stsPartner) {
                                 openShipTab(det)
                                 setActiveDetectionId(det.id)
                                 return
                               }
 
-                              const latestId = activeShipDetections[0]?.id
-                              updateTabState(
-                                'selectedCard',
-                                isDeselecting ? (latestId ?? det.id) : det.id
-                              )
-                              if (!isDeselecting) {
-                                setActiveDetectionId(det.id)
-                              } else {
-                                setActiveDetectionId(null)
-                              }
+                              // Always focus exactly what the user clicked.
+                              updateTabState('selectedCard', det.id)
+                              setActiveDetectionId(det.id)
                             }}
                             onViewStsShips={
                               det.stsPartner
