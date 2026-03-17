@@ -56,10 +56,9 @@ const formatPrototypeDetectionDate = (date) => {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  })} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(
-    2,
-    '0'
-  )}`
+  })} ${String(d.getHours()).padStart(2, '0')}:${String(
+    d.getMinutes()
+  ).padStart(2, '0')}`
 }
 const parseFiniteNumber = (value) => {
   const n = Number(value)
@@ -238,6 +237,8 @@ function Myships() {
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
   const tabScrollRef = useRef(null)
+  const tabButtonRefs = useRef({})
+  const tabScrollAnimationRef = useRef(null)
   const prevMapDateRef = useRef(mapDate)
   const panelContainerRef = useRef(null)
   const topSectionRef = useRef(null)
@@ -261,6 +262,58 @@ function Myships() {
     setOverflowLeft(el.scrollLeft > 0)
     setOverflowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
   }, [])
+
+  const animateTabScrollTo = useCallback(
+    (targetLeft) => {
+      const container = tabScrollRef.current
+      if (!container) return
+
+      const maxLeft = Math.max(0, container.scrollWidth - container.clientWidth)
+      const clampedTarget = Math.min(Math.max(0, targetLeft), maxLeft)
+      const startLeft = container.scrollLeft
+      const distance = clampedTarget - startLeft
+
+      if (Math.abs(distance) < 1) return
+
+      if (tabScrollAnimationRef.current) {
+        window.cancelAnimationFrame(tabScrollAnimationRef.current)
+        tabScrollAnimationRef.current = null
+      }
+
+      const prefersReducedMotion = window.matchMedia?.(
+        '(prefers-reduced-motion: reduce)'
+      )?.matches
+      if (prefersReducedMotion) {
+        container.scrollLeft = clampedTarget
+        updateOverflow()
+        return
+      }
+
+      const durationMs = 280
+      let startTime = null
+      const easeInOutCubic = (t) =>
+        t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
+
+      const step = (timestamp) => {
+        if (startTime === null) {
+          startTime = timestamp
+        }
+        const elapsed = timestamp - startTime
+        const progress = Math.min(1, elapsed / durationMs)
+        container.scrollLeft = startLeft + distance * easeInOutCubic(progress)
+        updateOverflow()
+
+        if (progress < 1) {
+          tabScrollAnimationRef.current = window.requestAnimationFrame(step)
+        } else {
+          tabScrollAnimationRef.current = null
+        }
+      }
+
+      tabScrollAnimationRef.current = window.requestAnimationFrame(step)
+    },
+    [updateOverflow]
+  )
 
   const getMinTopHeight = useCallback(() => {
     const FALLBACK_MIN = 96
@@ -386,6 +439,28 @@ function Myships() {
   }, [updateOverflow, shipTabs])
 
   useEffect(() => {
+    if (!activeShipTab) return
+    const container = tabScrollRef.current
+    const activeTabEl = tabButtonRefs.current[activeShipTab]
+    if (!container || !activeTabEl) return
+
+    const padding = 24
+    const currentLeft = container.scrollLeft
+    const currentRight = currentLeft + container.clientWidth
+    const tabLeft = activeTabEl.offsetLeft - padding
+    const tabRight = activeTabEl.offsetLeft + activeTabEl.offsetWidth + padding
+
+    if (tabLeft < currentLeft) {
+      animateTabScrollTo(tabLeft)
+      return
+    }
+
+    if (tabRight > currentRight) {
+      animateTabScrollTo(tabRight - container.clientWidth)
+    }
+  }, [activeShipTab, shipTabs, animateTabScrollTo])
+
+  useEffect(() => {
     try {
       const pref = window.localStorage.getItem(GO_TO_DATE_WARNING_PREF_KEY)
       if (pref === 'true') setSkipGoToDateWarning(true)
@@ -404,6 +479,10 @@ function Myships() {
       }
       if (goToDateCloseTimerRef.current) {
         window.clearTimeout(goToDateCloseTimerRef.current)
+      }
+      if (tabScrollAnimationRef.current) {
+        window.cancelAnimationFrame(tabScrollAnimationRef.current)
+        tabScrollAnimationRef.current = null
       }
       Object.values(newLastKnownDotTimersRef.current).forEach((timerId) => {
         window.clearTimeout(timerId)
@@ -900,9 +979,11 @@ function Myships() {
     const fallbackLat = parseFiniteNumber(activeShip?.aisInfo?.latitude)
     const fallbackLng = parseFiniteNumber(activeShip?.aisInfo?.longitude)
     const baseLat =
-      fallbackLat ?? (typeof baseDetection?.lat === 'number' ? baseDetection.lat : 0)
+      fallbackLat ??
+      (typeof baseDetection?.lat === 'number' ? baseDetection.lat : 0)
     const baseLng =
-      fallbackLng ?? (typeof baseDetection?.lng === 'number' ? baseDetection.lng : 0)
+      fallbackLng ??
+      (typeof baseDetection?.lng === 'number' ? baseDetection.lng : 0)
     const offsetSeed = Number(nextSimulatedDetectionIdRef.current % 7) + 1
     const oceanOffsetLng = 0.8 + offsetSeed * 0.03
     const oceanOffsetLat = -0.15 + offsetSeed * 0.01
@@ -974,18 +1055,13 @@ function Myships() {
     [allDetections]
   )
 
-  const getStsTabBarColors = useCallback(
-    (tab) => {
-      if (!tab || tab.type !== 'sts') return null
-      const color1 = eventColorMap.light
-      const color2 =
-        tab.stsType === 'sts'
-          ? eventColorMap.unattributed
-          : eventColorMap.ais
-      return [color1, color2]
-    },
-    []
-  )
+  const getStsTabBarColors = useCallback((tab) => {
+    if (!tab || tab.type !== 'sts') return null
+    const color1 = eventColorMap.light
+    const color2 =
+      tab.stsType === 'sts' ? eventColorMap.unattributed : eventColorMap.ais
+    return [color1, color2]
+  }, [])
 
   const renderStsBars = useCallback((colors, size) => {
     if (!colors) return null
@@ -1017,18 +1093,15 @@ function Myships() {
     )
   }, [])
 
-  const getStsDetectionBarColors = useCallback(
-    (det) => {
-      if (!det || (det.type !== 'sts' && det.type !== 'sts-ais')) return null
-      const leftType = 'light'
-      const rightType = det.type === 'sts' ? 'unattributed' : 'ais'
-      return [
-        eventColorMap[leftType] || eventColorMap.light,
-        eventColorMap[rightType] || eventColorMap.unattributed,
-      ]
-    },
-    []
-  )
+  const getStsDetectionBarColors = useCallback((det) => {
+    if (!det || (det.type !== 'sts' && det.type !== 'sts-ais')) return null
+    const leftType = 'light'
+    const rightType = det.type === 'sts' ? 'unattributed' : 'ais'
+    return [
+      eventColorMap[leftType] || eventColorMap.light,
+      eventColorMap[rightType] || eventColorMap.unattributed,
+    ]
+  }, [])
 
   const renderStsTabIcon = useCallback(
     (tab, size = { width: 8, height: 20, gap: 2 }) => {
@@ -1247,6 +1320,13 @@ function Myships() {
               return (
                 <Box
                   key={tab.id}
+                  ref={(node) => {
+                    if (node) {
+                      tabButtonRefs.current[tab.id] = node
+                    } else {
+                      delete tabButtonRefs.current[tab.id]
+                    }
+                  }}
                   onClick={() => {
                     setFlashEnabled(false)
                     setActiveStsShip(0)
@@ -1555,8 +1635,10 @@ function Myships() {
               const s1 = ships[sid1]
               const s2 = ships[sid2]
               if (!s1 || !s2) return null
-              const [color1, color2] =
-                getStsTabBarColors(activeTab) || ['#393C56', '#393C56']
+              const [color1, color2] = getStsTabBarColors(activeTab) || [
+                '#393C56',
+                '#393C56',
+              ]
               const pill = (s, idx) => {
                 const isActive = activeStsShip === idx
                 return (
@@ -2595,7 +2677,7 @@ function Myships() {
                           display: 'grid',
                           gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
                           marginTop: 8,
-                          gap: 12,
+                          gap: 8,
                           cursor: 'pointer',
                         }}
                       >
@@ -2619,7 +2701,7 @@ function Myships() {
                           >
                             <Box
                               style={{
-                                borderRadius: 6,
+                                borderRadius: 4,
                                 overflow: 'hidden',
                                 background: '#1B1D2E',
                                 height: 226,
