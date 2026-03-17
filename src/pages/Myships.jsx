@@ -786,6 +786,7 @@ function Myships() {
         id: nextSimulatedDetectionIdRef.current++,
         shipId: activeShipId,
         type: 'ais',
+        isSyntheticLastKnown: true,
         lat:
           fallbackLat ??
           (typeof baseDetection?.lat === 'number' ? baseDetection.lat : 0),
@@ -909,13 +910,19 @@ function Myships() {
       id: nextSimulatedDetectionIdRef.current++,
       shipId: activeShipId,
       type: 'ais',
+      isSyntheticLastKnown: true,
       // Always create a fresh, current AIS event for this action.
       // Push the prototype point offshore so it doesn't appear on land.
       lat: baseLat + oceanOffsetLat,
       lng: baseLng + oceanOffsetLng,
       date: formatPrototypeDetectionDate(new Date()),
     }
-    setRuntimeDetections((prev) => [...prev, targetDetection])
+    setRuntimeDetections((prev) => [
+      ...prev.filter(
+        (d) => !(d.shipId === activeShipId && d.isSyntheticLastKnown)
+      ),
+      targetDetection,
+    ])
     setPendingLastKnownDetectionByShip((prev) => ({
       ...prev,
       [activeShipId]: null,

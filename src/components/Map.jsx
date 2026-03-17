@@ -110,6 +110,13 @@ const Map = ({ onDetectionClick }) => {
   useEffect(() => {
     if (!map.current || !mapReady) return
 
+    const validIds = new Set(runtimeDetections.map((d) => String(d.id)))
+    Object.keys(markersRef.current).forEach((id) => {
+      if (validIds.has(String(id))) return
+      markersRef.current[id]?.remove()
+      delete markersRef.current[id]
+    })
+
     runtimeDetections.forEach((detection) => {
       let marker = markersRef.current[detection.id]
       if (!marker) {
