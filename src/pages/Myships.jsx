@@ -849,8 +849,8 @@ function Myships() {
     light: 'Light',
     dark: 'Dark',
     spoofing: 'Spoofing',
-    sts: 'Light',
-    'sts-ais': 'AIS',
+    sts: 'Ship-to-Ship',
+    'sts-ais': 'Ship-to-Ship',
     unattributed: 'Unattributed',
   }
 
@@ -911,7 +911,6 @@ function Myships() {
     setFlashEnabled(true)
     setPreviewDetectionId(null)
     updateTabState('previewCards', [])
-    updateTabState('selectedCard', targetDetection.id)
     setActiveDetectionId(null)
     window.setTimeout(() => {
       setActiveDetectionId(targetDetection.id)
@@ -954,18 +953,14 @@ function Myships() {
   const getStsTabBarColors = useCallback(
     (tab) => {
       if (!tab || tab.type !== 'sts') return null
-      const [ship1Id, ship2Id] = tab.shipIds
-      const latestNonSts1 = getLatestNonStsByShip(ship1Id)
-      const latestNonSts2 = getLatestNonStsByShip(ship2Id)
-      const color1 =
-        eventColorMap[latestNonSts1?.type] || eventColorMap.light || '#393C56'
+      const color1 = eventColorMap.light
       const color2 =
         tab.stsType === 'sts'
           ? eventColorMap.unattributed
-          : eventColorMap[latestNonSts2?.type] || eventColorMap.ais || '#393C56'
+          : eventColorMap.ais
       return [color1, color2]
     },
-    [getLatestNonStsByShip]
+    []
   )
 
   const renderStsBars = useCallback((colors, size) => {
@@ -1001,17 +996,14 @@ function Myships() {
   const getStsDetectionBarColors = useCallback(
     (det) => {
       if (!det || (det.type !== 'sts' && det.type !== 'sts-ais')) return null
-      const leftType = getLatestNonStsByShip(det.shipId)?.type || 'light'
-      const rightType =
-        det.type === 'sts'
-          ? 'unattributed'
-          : getLatestNonStsByShip(det.stsPartner)?.type || 'ais'
+      const leftType = 'light'
+      const rightType = det.type === 'sts' ? 'unattributed' : 'ais'
       return [
         eventColorMap[leftType] || eventColorMap.light,
         eventColorMap[rightType] || eventColorMap.unattributed,
       ]
     },
-    [getLatestNonStsByShip]
+    []
   )
 
   const renderStsTabIcon = useCallback(
@@ -1022,12 +1014,8 @@ function Myships() {
     [getStsTabBarColors, renderStsBars]
   )
   const selectedStsIcon =
-    isStsTab &&
-    (selectedDetection?.type === 'sts' || selectedDetection?.type === 'sts-ais')
-      ? (() => {
-          const colors = getStsDetectionBarColors(selectedDetection)
-          return renderStsBars(colors, { width: 6, height: 14, gap: 2 })
-        })()
+    isStsTab && activeTab
+      ? renderStsTabIcon(activeTab, { width: 6, height: 14, gap: 2 })
       : undefined
 
   const isLatest =

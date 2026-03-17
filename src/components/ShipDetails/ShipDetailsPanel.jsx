@@ -62,9 +62,7 @@ const ShipDetailsPanel = ({
 }) => {
   const eventType = selectedEvent?.type
   const flashColor = unattributed ? eventColorMap.unattributed : (eventColorMap[eventType] || null)
-  const dateDisplay = selectedEvent
-    ? `${selectedEvent.date}${isLatest ? ' (Latest)' : ''}`
-    : 'No event selected'
+  const dateDisplay = selectedEvent ? selectedEvent.date : 'No event selected'
 
   const [flashing, setFlashing] = useState(false)
   const [toolsVisible, setToolsVisible] = useState(true)
