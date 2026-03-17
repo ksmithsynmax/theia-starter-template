@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react'
-import { ships } from '../data/mockData'
+import { ships, detections as seedDetections } from '../data/mockData'
 
 const ShipContext = createContext()
 
@@ -14,6 +14,7 @@ export function ShipProvider({ children }) {
   const [mapDate, setMapDate] = useState(todayStr)
   const [activeDetectionId, setActiveDetectionId] = useState(null)
   const [previewDetectionId, setPreviewDetectionId] = useState(null)
+  const [runtimeDetections, setRuntimeDetections] = useState(seedDetections)
 
   const openShipTab = useCallback((detection) => {
     const ship = ships[detection.shipId]
@@ -89,6 +90,8 @@ export function ShipProvider({ children }) {
         setActiveDetectionId,
         previewDetectionId,
         setPreviewDetectionId,
+        runtimeDetections,
+        setRuntimeDetections,
       }}
     >
       {children}

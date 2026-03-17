@@ -33,7 +33,7 @@ import EnlargeVerticalIcon from '../custom-icons/EnlargeVerticalIcon'
 import ShipDetailsPanel from '../components/ShipDetails/ShipDetailsPanel'
 import EventTimelineCard from '../components/ShipDetails/EventTimelineCard'
 import { useShipContext } from '../context/ShipContext'
-import { ships, detections } from '../data/mockData'
+import { ships } from '../data/mockData'
 import satImageA from '../assets/HAfSz3HbAAA34GM.jpeg'
 import satImageB from '../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
 import satImageC from '../assets/b7305b3c008782765e2f14920270f2e7834f0f17.jpg'
@@ -201,6 +201,8 @@ function Myships() {
     setMapDate,
     setActiveDetectionId,
     setPreviewDetectionId,
+    runtimeDetections,
+    setRuntimeDetections,
   } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
@@ -218,8 +220,6 @@ function Myships() {
   const [satSortByTab, setSatSortByTab] = useState({})
   const [newLastKnownDotByShip, setNewLastKnownDotByShip] = useState({})
   const [pendingLastKnownDetectionByShip, setPendingLastKnownDetectionByShip] =
-    useState({})
-  const [appliedLastKnownDetectionByShip, setAppliedLastKnownDetectionByShip] =
     useState({})
   const [isNewLastKnownDotFlashOn, setIsNewLastKnownDotFlashOn] = useState(true)
   const [isTopSummaryCollapsed, setIsTopSummaryCollapsed] = useState(false)
@@ -246,15 +246,12 @@ function Myships() {
   const goToDateCloseTimerRef = useRef(null)
   const newLastKnownDotTimersRef = useRef({})
   const nextSimulatedDetectionIdRef = useRef(
-    detections.reduce((maxId, d) => {
+    runtimeDetections.reduce((maxId, d) => {
       const parsedId = Number(d.id)
       return Number.isFinite(parsedId) ? Math.max(maxId, parsedId) : maxId
     }, 0) + 1000
   )
-  const allDetections = useMemo(
-    () => [...Object.values(appliedLastKnownDetectionByShip), ...detections],
-    [appliedLastKnownDetectionByShip]
-  )
+  const allDetections = useMemo(() => runtimeDetections, [runtimeDetections])
 
   const updateOverflow = useCallback(() => {
     const el = tabScrollRef.current
@@ -890,17 +887,37 @@ function Myships() {
   }
 
   const handleShowLastKnownLocation = () => {
-    const targetDetection =
-      (hasPendingNewLastKnownData && pendingLatestKnownDetection) ||
-      latestKnownLocationDetection ||
-      latestDetection
+    if (!activeShipId) return
+
+    let targetDetection =
+      (hasPendingNewLastKnownData && pendingLatestKnownDetection) || null
+
+    if (!targetDetection) {
+      const baseDetection =
+        latestCoordinateDetection || latestAisDetection || latestDetection
+      const fallbackLat = parseFiniteNumber(activeShip?.aisInfo?.latitude)
+      const fallbackLng = parseFiniteNumber(activeShip?.aisInfo?.longitude)
+      targetDetection = {
+        id: nextSimulatedDetectionIdRef.current++,
+        shipId: activeShipId,
+        type: 'ais',
+        lat:
+          typeof baseDetection?.lat === 'number'
+            ? baseDetection.lat
+            : fallbackLat ?? 0,
+        lng:
+          typeof baseDetection?.lng === 'number'
+            ? baseDetection.lng
+            : fallbackLng ?? 0,
+        date: formatPrototypeDetectionDate(new Date()),
+      }
+      setRuntimeDetections((prev) => [...prev, targetDetection])
+    }
+
     if (!targetDetection) return
 
     if (hasPendingNewLastKnownData && activeShipId && pendingLatestKnownDetection) {
-      setAppliedLastKnownDetectionByShip((prev) => ({
-        ...prev,
-        [activeShipId]: pendingLatestKnownDetection,
-      }))
+      setRuntimeDetections((prev) => [...prev, pendingLatestKnownDetection])
       setPendingLastKnownDetectionByShip((prev) => ({
         ...prev,
         [activeShipId]: null,
@@ -919,9 +936,15 @@ function Myships() {
     // Preserve STS tab behavior when jumping from a grouped tab.
     if (isStsTab && activeTab && !targetDetection.stsPartner) {
       openShipTab(targetDetection)
+    } else {
+      updateTabState('selectedCard', targetDetection.id)
     }
 
     if (activeShipId) {
+      if (newLastKnownDotTimersRef.current[activeShipId]) {
+        window.clearTimeout(newLastKnownDotTimersRef.current[activeShipId])
+        delete newLastKnownDotTimersRef.current[activeShipId]
+      }
       setNewLastKnownDotByShip((prev) => ({
         ...prev,
         [activeShipId]: false,
@@ -1531,40 +1554,8 @@ function Myships() {
               const s1 = ships[sid1]
               const s2 = ships[sid2]
               if (!s1 || !s2) return null
-              const latest1 = allDetections
-                .filter((d) => d.shipId === sid1)
-                .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-              const latest2 = allDetections
-                .filter((d) => d.shipId === sid2)
-                .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-              const latestNonSts1 = allDetections
-                .filter(
-                  (d) =>
-                    d.shipId === sid1 &&
-                    d.type !== 'sts' &&
-                    d.type !== 'sts-ais'
-                )
-                .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-              const latestNonSts2 = allDetections
-                .filter(
-                  (d) =>
-                    d.shipId === sid2 &&
-                    d.type !== 'sts' &&
-                    d.type !== 'sts-ais'
-                )
-                .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-              const color1 =
-                activeTab.stsType === 'sts'
-                  ? eventColorMap[latestNonSts1?.type] ||
-                    eventColorMap[latest1?.type] ||
-                    eventColorMap.light
-                  : eventColorMap[latest1?.type] || '#393C56'
-              const color2 =
-                activeTab.stsType === 'sts'
-                  ? eventColorMap.unattributed
-                  : eventColorMap[latestNonSts2?.type] ||
-                    eventColorMap[latest2?.type] ||
-                    '#393C56'
+              const [color1, color2] =
+                getStsTabBarColors(activeTab) || ['#393C56', '#393C56']
               const pill = (s, idx) => {
                 const isActive = activeStsShip === idx
                 return (

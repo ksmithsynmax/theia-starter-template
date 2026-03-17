@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { detections } from '../data/mockData'
 import { useShipContext } from '../context/ShipContext'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
@@ -40,19 +39,10 @@ const eventColorMap = {
 const buildStsSvg = (leftColor, rightColor) =>
   `<svg width="16" height="16" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.75" y="0.75" width="9.5" height="19" fill="${leftColor}"/><rect x="10.25" y="0.75" width="9.5" height="19" fill="${rightColor}"/><rect x="0.75" y="0.75" width="19" height="19" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/><path d="M10.25 0.75L10.25 19.75" stroke="#111326" stroke-width="1.5" stroke-linecap="round"/></svg>`
 
-const getLatestNonStsTypeForShip = (shipId) => {
-  return detections
-    .filter((d) => d.shipId === shipId && d.type !== 'sts' && d.type !== 'sts-ais')
-    .sort((a, b) => new Date(b.date) - new Date(a.date))[0]?.type
-}
-
 const getMarkerSvg = (detection) => {
   if (detection.type === 'sts' || detection.type === 'sts-ais') {
-    const leftType = getLatestNonStsTypeForShip(detection.shipId) || 'light'
-    const rightType =
-      detection.type === 'sts'
-        ? 'unattributed'
-        : getLatestNonStsTypeForShip(detection.stsPartner) || 'ais'
+    const leftType = 'light'
+    const rightType = detection.type === 'sts' ? 'unattributed' : 'ais'
     return buildStsSvg(
       eventColorMap[leftType] || eventColorMap.light,
       eventColorMap[rightType] || eventColorMap.unattributed
@@ -73,14 +63,21 @@ const getMarkerDateLabel = (dateStr) => {
 }
 
 const Map = ({ onDetectionClick }) => {
-  const { activeDetectionId, previewDetectionId, mapDate, shipTabs } = useShipContext()
+  const {
+    activeDetectionId,
+    previewDetectionId,
+    mapDate,
+    shipTabs,
+    runtimeDetections,
+  } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
   const markersRef = useRef({})
   const onDetectionClickRef = useRef(onDetectionClick)
+  const [mapReady, setMapReady] = useState(false)
   onDetectionClickRef.current = onDetectionClick
 
-  // Initialize map and create all markers
+  // Initialize map once.
   useEffect(() => {
     if (map.current) return
 
@@ -93,35 +90,7 @@ const Map = ({ onDetectionClick }) => {
       attributionControl: false,
       logoPosition: 'bottom-right',
     })
-
-    detections.forEach((detection) => {
-      const svg = getMarkerSvg(detection)
-      if (!svg) return
-      const el = document.createElement('div')
-      el.innerHTML = svg
-      el.className = 'map-marker'
-      el.style.cursor = 'pointer'
-      el.dataset.detectionId = detection.id
-      el.dataset.shipId = detection.shipId
-      el.dataset.detectionType = detection.type
-      el.dataset.markerDate = getMarkerDateLabel(detection.date)
-      // Hide markers that don't match the current date
-      if (getDateKey(detection.date) !== mapDate) {
-        el.style.display = 'none'
-      }
-      el.addEventListener('click', () => {
-        Object.values(markersRef.current).forEach((m) => {
-          m.getElement().classList.remove('active')
-          m.getElement().classList.remove('previewed')
-        })
-        el.classList.add('active')
-        onDetectionClickRef.current?.(detection)
-      })
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([detection.lng, detection.lat])
-        .addTo(map.current)
-      markersRef.current[detection.id] = marker
-    })
+    setMapReady(true)
 
     const observer = new ResizeObserver(() => {
       map.current?.resize()
@@ -129,22 +98,63 @@ const Map = ({ onDetectionClick }) => {
     observer.observe(mapContainer.current)
 
     return () => {
+      setMapReady(false)
       observer.disconnect()
       map.current.remove()
       map.current = null
     }
   }, [])
 
-  // Refresh marker SVGs so STS colors stay in sync
+  // Create markers for all detections (including newly added prototype detections).
   useEffect(() => {
-    detections.forEach((det) => {
+    if (!map.current || !mapReady) return
+
+    runtimeDetections.forEach((detection) => {
+      let marker = markersRef.current[detection.id]
+      if (!marker) {
+        const svg = getMarkerSvg(detection)
+        if (!svg) return
+        const el = document.createElement('div')
+        el.className = 'map-marker'
+        el.style.cursor = 'pointer'
+        el.addEventListener('click', () => {
+          Object.values(markersRef.current).forEach((m) => {
+            m.getElement().classList.remove('active')
+            m.getElement().classList.remove('previewed')
+          })
+          el.classList.add('active')
+          onDetectionClickRef.current?.(detection)
+        })
+        marker = new mapboxgl.Marker({ element: el })
+          .setLngLat([detection.lng, detection.lat])
+          .addTo(map.current)
+        markersRef.current[detection.id] = marker
+      }
+
+      marker.setLngLat([detection.lng, detection.lat])
+      const el = marker.getElement()
+      const svg = getMarkerSvg(detection)
+      if (svg) el.innerHTML = svg
+      el.dataset.detectionId = detection.id
+      el.dataset.shipId = detection.shipId
+      el.dataset.detectionType = detection.type
+      el.dataset.markerDate = getMarkerDateLabel(detection.date)
+      if (getDateKey(detection.date) !== mapDate) {
+        el.style.display = 'none'
+      }
+    })
+  }, [runtimeDetections, mapDate, mapReady])
+
+  // Refresh marker SVGs so STS colors stay in sync.
+  useEffect(() => {
+    runtimeDetections.forEach((det) => {
       const marker = markersRef.current[det.id]
       if (!marker) return
       const el = marker.getElement()
       const svg = getMarkerSvg(det)
       if (svg) el.innerHTML = svg
     })
-  }, [mapDate, shipTabs, activeDetectionId])
+  }, [mapDate, shipTabs, activeDetectionId, runtimeDetections])
 
   // When a detection is selected or previewed from timeline, highlight it and fly to it
   useEffect(() => {
@@ -168,10 +178,10 @@ const Map = ({ onDetectionClick }) => {
 
     const focusDetectionId = previewDetectionId || activeDetectionId
     if (!focusDetectionId) return
-    const focusDet = detections.find((d) => d.id === focusDetectionId)
+    const focusDet = runtimeDetections.find((d) => d.id === focusDetectionId)
     if (!focusDet) return
     map.current.flyTo({ center: [focusDet.lng, focusDet.lat], zoom: 6, duration: 1500 })
-  }, [activeDetectionId, previewDetectionId])
+  }, [activeDetectionId, previewDetectionId, runtimeDetections])
 
   // Show halo on markers whose ship has an open tab
   useEffect(() => {
@@ -184,7 +194,7 @@ const Map = ({ onDetectionClick }) => {
         openShipIds.add(tab.id)
       }
     })
-    detections.forEach((det) => {
+    runtimeDetections.forEach((det) => {
       const marker = markersRef.current[det.id]
       if (!marker) return
       const el = marker.getElement()
@@ -197,13 +207,13 @@ const Map = ({ onDetectionClick }) => {
         el.classList.remove('opened')
       }
     })
-  }, [shipTabs, activeDetectionId, previewDetectionId])
+  }, [shipTabs, activeDetectionId, previewDetectionId, runtimeDetections])
 
   // Filter markers by date, but keep selected/preview detection visible
   useEffect(() => {
     if (!map.current) return
 
-    detections.forEach((det) => {
+    runtimeDetections.forEach((det) => {
       const marker = markersRef.current[det.id]
       if (!marker) return
       const el = marker.getElement()
@@ -213,7 +223,7 @@ const Map = ({ onDetectionClick }) => {
       el.dataset.historical = isCurrentDate ? 'false' : 'true'
       el.style.display = isCurrentDate || isSelected || isPreviewed ? '' : 'none'
     })
-  }, [mapDate, activeDetectionId, previewDetectionId])
+  }, [mapDate, activeDetectionId, previewDetectionId, runtimeDetections])
 
   return (
     <div
