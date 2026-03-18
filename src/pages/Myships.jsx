@@ -52,6 +52,19 @@ const GO_TO_DATE_MODAL_TRANSITION_MS = 220
 const TIMELINE_MIN_HEIGHT = 260
 const NEW_LAST_KNOWN_DOT_DELAY_MS = 20_000
 const NEW_LAST_KNOWN_DOT_FLASH_MS = 700
+const TIMELINE_TIME_FILTER_OPTIONS = [
+  { value: 'all', label: 'Max Time' },
+  { value: '6m', label: '6 Months' },
+  { value: '3m', label: '3 Months' },
+  { value: '1m', label: '1 Month' },
+]
+const TIMELINE_EVENT_TYPE_FILTER_OPTIONS = [
+  { value: 'all', label: 'All Event Types' },
+  { value: 'ship-to-ship', label: 'Ship-To-Ship' },
+  { value: 'port-of-calls', label: 'Port of Calls' },
+  { value: 'spoofing', label: 'Spoofing' },
+  { value: 'ais-dark', label: 'AIS Dark' },
+]
 const formatPrototypeDetectionDate = (date) => {
   const d = date instanceof Date ? date : new Date(date)
   return `${d.toLocaleDateString('en-US', {
@@ -71,6 +84,15 @@ const getDetectionDateKey = (dateStr) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
     d.getDate()
   ).padStart(2, '0')}`
+}
+const getStableArrayIndex = (seed, length) => {
+  if (!length) return 0
+  const seedStr = String(seed ?? '')
+  let hash = 0
+  for (let i = 0; i < seedStr.length; i += 1) {
+    hash = (hash * 31 + seedStr.charCodeAt(i)) >>> 0
+  }
+  return hash % length
 }
 
 // Keep drag-resize code for possible future re-enable.
@@ -231,12 +253,21 @@ function Myships() {
   const [hoveredTopAction, setHoveredTopAction] = useState(null)
   const [detailToolsVisible, setDetailToolsVisible] = useState(true)
   const [showGoToDateModal, setShowGoToDateModal] = useState(false)
+  const [showCloseAllConfirmModal, setShowCloseAllConfirmModal] =
+    useState(false)
   const [dontShowGoToDateAgain, setDontShowGoToDateAgain] = useState(false)
   const [skipGoToDateWarning, setSkipGoToDateWarning] = useState(false)
   const [pendingGoToDate, setPendingGoToDate] = useState(null)
   const [goToDateSubmitting, setGoToDateSubmitting] = useState(false)
+  const [closeAllCancelHovered, setCloseAllCancelHovered] = useState(false)
+  const [closeAllConfirmHovered, setCloseAllConfirmHovered] = useState(false)
   const [goToDateCancelHovered, setGoToDateCancelHovered] = useState(false)
   const [goToDateConfirmHovered, setGoToDateConfirmHovered] = useState(false)
+  const [timelineTimeMenuOpened, setTimelineTimeMenuOpened] = useState(false)
+  const [timelineEventTypeMenuOpened, setTimelineEventTypeMenuOpened] =
+    useState(false)
+  const [satTimelineTimeMenuOpened, setSatTimelineTimeMenuOpened] =
+    useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
@@ -578,6 +609,9 @@ function Myships() {
     selectedCard: null,
     previewCards: [],
     activeDetailTab: 0,
+    timelineTimeFilter: 'all',
+    timelineEventTypeFilter: 'all',
+    satTimelineTimeFilter: 'all',
   }
   const selectedCard = currentTabState.selectedCard
   const previewCards = Array.isArray(currentTabState.previewCards)
@@ -586,6 +620,10 @@ function Myships() {
       ? [currentTabState.previewCard]
       : []
   const activeDetailTab = currentTabState.activeDetailTab
+  const timelineTimeFilter = currentTabState.timelineTimeFilter || 'all'
+  const timelineEventTypeFilter =
+    currentTabState.timelineEventTypeFilter || 'all'
+  const satTimelineTimeFilter = currentTabState.satTimelineTimeFilter || 'all'
   const satTimelineSortOrder = satSortByTab[activeShipTab] ?? 'desc'
 
   const updateTabState = (key, value) => {
@@ -596,6 +634,10 @@ function Myships() {
         selectedCard: prev[activeShipTab]?.selectedCard ?? null,
         previewCards: prev[activeShipTab]?.previewCards ?? [],
         activeDetailTab: prev[activeShipTab]?.activeDetailTab ?? 0,
+        timelineTimeFilter: prev[activeShipTab]?.timelineTimeFilter ?? 'all',
+        timelineEventTypeFilter:
+          prev[activeShipTab]?.timelineEventTypeFilter ?? 'all',
+        satTimelineTimeFilter: prev[activeShipTab]?.satTimelineTimeFilter ?? 'all',
         [key]: value,
       },
     }))
@@ -874,6 +916,60 @@ function Myships() {
       event,
     })),
   ].sort((a, b) => b.sortTs - a.sortTs)
+  const timelineTimeFilterLabel =
+    TIMELINE_TIME_FILTER_OPTIONS.find(
+      (option) => option.value === timelineTimeFilter
+    )?.label || 'Max Time'
+  const timelineEventTypeFilterLabel =
+    TIMELINE_EVENT_TYPE_FILTER_OPTIONS.find(
+      (option) => option.value === timelineEventTypeFilter
+    )?.label || 'All Event Types'
+  const timeFilteredTimelineItems = useMemo(() => {
+    if (timelineTimeFilter === 'all') return timelineItems
+
+    const monthWindowByFilter = {
+      '6m': 6,
+      '3m': 3,
+      '1m': 1,
+    }
+    const monthWindow = monthWindowByFilter[timelineTimeFilter]
+    if (!monthWindow) return timelineItems
+
+    // Anchor to most-recent timeline event so filters stay meaningful for mock/historical data.
+    const latestTimelineTs = timelineItems.find(
+      (item) => Number.isFinite(item.sortTs) && item.sortTs > 0
+    )?.sortTs
+    if (!latestTimelineTs) return timelineItems
+
+    const cutoffDate = new Date(latestTimelineTs)
+    cutoffDate.setMonth(cutoffDate.getMonth() - monthWindow)
+    const cutoffTs = cutoffDate.getTime()
+
+    return timelineItems.filter(
+      (item) => Number.isFinite(item.sortTs) && item.sortTs >= cutoffTs
+    )
+  }, [timelineItems, timelineTimeFilter])
+  const filteredTimelineItems = useMemo(() => {
+    if (timelineEventTypeFilter === 'all') return timeFilteredTimelineItems
+
+    return timeFilteredTimelineItems.filter((item) => {
+      if (timelineEventTypeFilter === 'port-of-calls') {
+        return item.kind === 'context' && item.event?.variant === 'port'
+      }
+      if (item.kind !== 'detection') return false
+
+      if (timelineEventTypeFilter === 'ship-to-ship') {
+        return item.detection?.type === 'sts' || item.detection?.type === 'sts-ais'
+      }
+      if (timelineEventTypeFilter === 'spoofing') {
+        return item.detection?.type === 'spoofing'
+      }
+      if (timelineEventTypeFilter === 'ais-dark') {
+        return item.detection?.type === 'dark'
+      }
+      return true
+    })
+  }, [timeFilteredTimelineItems, timelineEventTypeFilter])
 
   const latestDetection = activeShipDetections[0] || null
   const latestAisDetection =
@@ -1194,8 +1290,41 @@ function Myships() {
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
   const shouldShowLastKnownLocationButton = latestKnownLocationDetection != null
-  const satelliteTimelineRows = activeShipDetections
-    .filter((d) => ['light', 'dark', 'spoofing', 'ais'].includes(d.type))
+  const satTimelineTimeFilterLabel =
+    TIMELINE_TIME_FILTER_OPTIONS.find(
+      (option) => option.value === satTimelineTimeFilter
+    )?.label || 'Max Time'
+  const satTimeFilteredDetections = useMemo(() => {
+    const satDetections = activeShipDetections.filter((d) =>
+      ['light', 'dark', 'spoofing', 'ais'].includes(d.type)
+    )
+    if (satTimelineTimeFilter === 'all') return satDetections
+
+    const monthWindowByFilter = {
+      '6m': 6,
+      '3m': 3,
+      '1m': 1,
+    }
+    const monthWindow = monthWindowByFilter[satTimelineTimeFilter]
+    if (!monthWindow) return satDetections
+
+    const latestTs = satDetections.reduce((maxTs, detection) => {
+      const ts = new Date(detection.date).getTime()
+      if (Number.isNaN(ts)) return maxTs
+      return Math.max(maxTs, ts)
+    }, 0)
+    if (!latestTs) return satDetections
+
+    const cutoffDate = new Date(latestTs)
+    cutoffDate.setMonth(cutoffDate.getMonth() - monthWindow)
+    const cutoffTs = cutoffDate.getTime()
+
+    return satDetections.filter((detection) => {
+      const ts = new Date(detection.date).getTime()
+      return !Number.isNaN(ts) && ts >= cutoffTs
+    })
+  }, [activeShipDetections, satTimelineTimeFilter])
+  const satelliteTimelineRows = [...satTimeFilteredDetections]
     .sort((a, b) => {
       const aTs = new Date(a.date).getTime()
       const bTs = new Date(b.date).getTime()
@@ -1208,8 +1337,7 @@ function Myships() {
       const bId = Number(b.id) || 0
       return satTimelineSortOrder === 'asc' ? aId - bId : bId - aId
     })
-    .slice(0, 8)
-    .map((d, idx) => {
+    .map((d) => {
       const latValue =
         typeof d.lat === 'number'
           ? d.lat.toFixed(4)
@@ -1222,10 +1350,15 @@ function Myships() {
       const capturedTime = Number.isNaN(parsedDate.getTime())
         ? d.date
         : parsedDate.toISOString()
+      const imageIndex = getStableArrayIndex(
+        `${activeShip?.id || 'ship'}-${d.id}-${d.date}-${d.type}`,
+        SATELLITE_TIMELINE_IMAGES.length
+      )
       return {
         id: `${activeShip?.id || 'ship'}-sat-${d.id}`,
-        image:
-          SATELLITE_TIMELINE_IMAGES[idx % SATELLITE_TIMELINE_IMAGES.length],
+        detectionId: d.id,
+        detectionDateKey: getDetectionDateKey(d.date),
+        image: SATELLITE_TIMELINE_IMAGES[imageIndex],
         capturedTime,
         latitude: latValue,
         longitude: lonValue,
@@ -1552,7 +1685,7 @@ function Myships() {
                 <Text
                   onClick={() => {
                     setMenuOpened(false)
-                    closeAllTabs()
+                    setShowCloseAllConfirmModal(true)
                   }}
                   style={{
                     color: '#F75349',
@@ -2654,7 +2787,173 @@ function Myships() {
                       gap: 8,
                     }}
                   >
-                    {timelineItems.map((item) => {
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-start',
+                        gap: 20,
+                        marginBottom: 2,
+                      }}
+                    >
+                      <Menu
+                        withinPortal
+                        position="top-start"
+                        middlewares={{ flip: false, shift: true }}
+                        offset={6}
+                        opened={timelineTimeMenuOpened}
+                        onChange={setTimelineTimeMenuOpened}
+                      >
+                        <Menu.Target>
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {timelineTimeFilterLabel}
+                            </Text>
+                            <ChevronDown
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: '#FFFFFF',
+                                transform: timelineTimeMenuOpened
+                                  ? 'rotate(180deg)'
+                                  : 'rotate(0deg)',
+                                transition: 'transform 140ms ease',
+                              }}
+                            />
+                          </Box>
+                        </Menu.Target>
+                        <Menu.Dropdown
+                          styles={{
+                            dropdown: {
+                              background: '#1B1D2E',
+                              border: '1px solid #393C56',
+                              minWidth: 170,
+                              padding: 0,
+                            },
+                          }}
+                        >
+                          {TIMELINE_TIME_FILTER_OPTIONS.map((option) => (
+                            <Menu.Item
+                              key={option.value}
+                              onClick={() => {
+                                updateTabState('timelineTimeFilter', option.value)
+                                setTimelineTimeMenuOpened(false)
+                              }}
+                              styles={{
+                                item: {
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  fontWeight:
+                                    timelineTimeFilter === option.value ? 700 : 500,
+                                  padding: '12px 16px',
+                                  background:
+                                    timelineTimeFilter === option.value
+                                      ? '#393C56'
+                                      : 'transparent',
+                                  borderRadius: 0,
+                                },
+                                itemLabel: { color: '#fff' },
+                              }}
+                            >
+                              {option.label}
+                            </Menu.Item>
+                          ))}
+                        </Menu.Dropdown>
+                      </Menu>
+                      <Menu
+                        withinPortal
+                        position="top-start"
+                        middlewares={{ flip: false, shift: true }}
+                        offset={6}
+                        opened={timelineEventTypeMenuOpened}
+                        onChange={setTimelineEventTypeMenuOpened}
+                      >
+                        <Menu.Target>
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {timelineEventTypeFilterLabel}
+                            </Text>
+                            <ChevronDown
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: '#FFFFFF',
+                                transform: timelineEventTypeMenuOpened
+                                  ? 'rotate(180deg)'
+                                  : 'rotate(0deg)',
+                                transition: 'transform 140ms ease',
+                              }}
+                            />
+                          </Box>
+                        </Menu.Target>
+                        <Menu.Dropdown
+                          styles={{
+                            dropdown: {
+                              background: '#1B1D2E',
+                              border: '1px solid #393C56',
+                              minWidth: 170,
+                              padding: 0,
+                            },
+                          }}
+                        >
+                          {TIMELINE_EVENT_TYPE_FILTER_OPTIONS.map((option) => (
+                            <Menu.Item
+                              key={option.value}
+                              onClick={() => {
+                                updateTabState('timelineEventTypeFilter', option.value)
+                                setTimelineEventTypeMenuOpened(false)
+                              }}
+                              styles={{
+                                item: {
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  fontWeight:
+                                    timelineEventTypeFilter === option.value ? 700 : 500,
+                                  padding: '12px 16px',
+                                  background:
+                                    timelineEventTypeFilter === option.value
+                                      ? '#393C56'
+                                      : 'transparent',
+                                  borderRadius: 0,
+                                },
+                                itemLabel: { color: '#fff' },
+                              }}
+                            >
+                              {option.label}
+                            </Menu.Item>
+                          ))}
+                        </Menu.Dropdown>
+                      </Menu>
+                    </Box>
+                    {filteredTimelineItems.map((item) => {
                       if (item.kind === 'context') {
                         const contextEvent = item.event
                         return (
@@ -2809,10 +3108,90 @@ function Myships() {
                     <Box
                       style={{
                         display: 'flex',
-                        justifyContent: 'flex-end',
+                        alignItems: 'center',
+                        justifyContent: 'flex-start',
+                        gap: 20,
                         marginBottom: 2,
                       }}
                     >
+                      <Menu
+                        withinPortal
+                        position="top-start"
+                        middlewares={{ flip: false, shift: true }}
+                        offset={6}
+                        opened={satTimelineTimeMenuOpened}
+                        onChange={setSatTimelineTimeMenuOpened}
+                      >
+                        <Menu.Target>
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {satTimelineTimeFilterLabel}
+                            </Text>
+                            <ChevronDown
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: '#FFFFFF',
+                                transform: satTimelineTimeMenuOpened
+                                  ? 'rotate(180deg)'
+                                  : 'rotate(0deg)',
+                                transition: 'transform 140ms ease',
+                              }}
+                            />
+                          </Box>
+                        </Menu.Target>
+                        <Menu.Dropdown
+                          styles={{
+                            dropdown: {
+                              background: '#1B1D2E',
+                              border: '1px solid #393C56',
+                              minWidth: 170,
+                              padding: 0,
+                            },
+                          }}
+                        >
+                          {TIMELINE_TIME_FILTER_OPTIONS.map((option) => (
+                            <Menu.Item
+                              key={option.value}
+                              onClick={() => {
+                                updateTabState('satTimelineTimeFilter', option.value)
+                                setSatTimelineTimeMenuOpened(false)
+                              }}
+                              styles={{
+                                item: {
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  fontWeight:
+                                    satTimelineTimeFilter === option.value ? 700 : 500,
+                                  padding: '12px 16px',
+                                  background:
+                                    satTimelineTimeFilter === option.value
+                                      ? '#393C56'
+                                      : 'transparent',
+                                  borderRadius: 0,
+                                },
+                                itemLabel: { color: '#fff' },
+                              }}
+                            >
+                              {option.label}
+                            </Menu.Item>
+                          ))}
+                        </Menu.Dropdown>
+                      </Menu>
                       <Box
                         onClick={() =>
                           setSatSortByTab((prev) => ({
@@ -2873,6 +3252,9 @@ function Myships() {
                         {satelliteTimelineRows.map((item) => (
                           <Box
                             key={item.id}
+                            onClick={() =>
+                              applyGoToDate(item.detectionDateKey, item.detectionId)
+                            }
                             onMouseEnter={() =>
                               setHoveredSatelliteCardId(item.id)
                             }
@@ -3150,6 +3532,90 @@ function Myships() {
         </Box>
       )}
       <Modal
+        opened={showCloseAllConfirmModal}
+        onClose={() => setShowCloseAllConfirmModal(false)}
+        withCloseButton={false}
+        centered
+        size="460px"
+        radius={8}
+        overlayProps={{ backgroundOpacity: 0.65, blur: 1 }}
+        styles={{
+          content: {
+            background: '#24263C',
+            border: '1px solid #393C56',
+          },
+          body: {
+            padding: 24,
+          },
+        }}
+      >
+        <Box style={{ padding: '2px 4px' }}>
+          <Text
+            style={{
+              color: '#fff',
+              fontSize: 22,
+              fontWeight: 700,
+              marginBottom: 10,
+            }}
+          >
+            Close all tabs?
+          </Text>
+          <Text
+            style={{
+              color: '#8D93A8',
+              fontSize: 14,
+              lineHeight: 1.45,
+              marginBottom: 22,
+            }}
+          >
+            This will close every open ship tab and all ship-specific tools
+            opened from those tabs (for example, Extended path and Estimated
+            Location panels).
+          </Text>
+          <Box
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <Button
+              onMouseEnter={() => setCloseAllCancelHovered(true)}
+              onMouseLeave={() => setCloseAllCancelHovered(false)}
+              onClick={() => setShowCloseAllConfirmModal(false)}
+              style={{
+                background: closeAllCancelHovered
+                  ? 'rgba(255, 255, 255, 0.14)'
+                  : 'transparent',
+                border: '1px solid #fff',
+                color: '#fff',
+                fontSize: 14,
+                minWidth: 88,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onMouseEnter={() => setCloseAllConfirmHovered(true)}
+              onMouseLeave={() => setCloseAllConfirmHovered(false)}
+              onClick={() => {
+                closeAllTabs()
+                setShowCloseAllConfirmModal(false)
+              }}
+              style={{
+                background: closeAllConfirmHovered ? '#C53E36' : '#F75349',
+                color: '#fff',
+                borderColor: closeAllConfirmHovered ? '#C53E36' : '#F75349',
+                minWidth: 96,
+              }}
+            >
+              Close All
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+      <Modal
         opened={showGoToDateModal && Boolean(pendingGoToDate)}
         onClose={() => {
           if (goToDateSubmitting) return
@@ -3318,3 +3784,4 @@ function Myships() {
 }
 
 export default Myships
+
