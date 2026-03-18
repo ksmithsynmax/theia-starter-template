@@ -215,6 +215,16 @@
   display: none;
 }
 
+/* Inner detail tabs: scroll enabled, scrollbar hidden */
+.tab-row-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tab-row-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* ===== Hide scrollbar but keep scroll ===== */
 .no-scrollbar {
   scrollbar-width: none;

@@ -32,6 +32,7 @@ import ShipIcon from '../custom-icons/ShipIcon'
 import EnlargeVerticalIcon from '../custom-icons/EnlargeVerticalIcon'
 import ShipDetailsPanel from '../components/ShipDetails/ShipDetailsPanel'
 import EventTimelineCard from '../components/ShipDetails/EventTimelineCard'
+import SanctionDetailsVersionB from '../components/SanctionDetailsVersionB'
 import { useShipContext } from '../context/ShipContext'
 import { ships } from '../data/mockData'
 import satImageA from '../assets/HAfSz3HbAAA34GM.jpeg'
@@ -39,11 +40,12 @@ import satImageB from '../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
 import satImageC from '../assets/b7305b3c008782765e2f14920270f2e7834f0f17.jpg'
 import satImageD from '../assets/e92d7378215156c8a7c8c4c73d773963c71bd6b1-1920x1080.avif'
 
-const detailTabs = [
+const baseDetailTabs = [
   'Event Timeline',
   'Sat. Imagery Timeline',
   'Ship Information',
 ]
+const tiffaniDetailTabs = [...baseDetailTabs, 'Sanctions Details']
 const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
 const GO_TO_DATE_CONFIRM_DELAY_MS = 420
 const GO_TO_DATE_MODAL_TRANSITION_MS = 220
@@ -211,6 +213,8 @@ function Myships() {
   const [loading, setLoading] = useState(false)
   const [overflowLeft, setOverflowLeft] = useState(false)
   const [overflowRight, setOverflowRight] = useState(false)
+  const [detailTabsOverflowLeft, setDetailTabsOverflowLeft] = useState(false)
+  const [detailTabsOverflowRight, setDetailTabsOverflowRight] = useState(false)
   const [menuOpened, setMenuOpened] = useState(false)
   const [isResizingTimeline, setIsResizingTimeline] = useState(false)
   const [isDragHandleHovered, setIsDragHandleHovered] = useState(false)
@@ -237,6 +241,8 @@ function Myships() {
   const cardRefs = useRef({})
   const scrollContainerRef = useRef(null)
   const tabScrollRef = useRef(null)
+  const detailTabScrollRef = useRef(null)
+  const detailTabButtonRefs = useRef({})
   const tabButtonRefs = useRef({})
   const tabScrollAnimationRef = useRef(null)
   const prevMapDateRef = useRef(mapDate)
@@ -261,6 +267,17 @@ function Myships() {
     if (!el) return
     setOverflowLeft(el.scrollLeft > 0)
     setOverflowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+  }, [])
+
+  const updateDetailTabsOverflow = useCallback(() => {
+    const el = detailTabScrollRef.current
+    if (!el) {
+      setDetailTabsOverflowLeft(false)
+      setDetailTabsOverflowRight(false)
+      return
+    }
+    setDetailTabsOverflowLeft(el.scrollLeft > 0)
+    setDetailTabsOverflowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
   }, [])
 
   const animateTabScrollTo = useCallback(
@@ -439,6 +456,19 @@ function Myships() {
   }, [updateOverflow, shipTabs])
 
   useEffect(() => {
+    const el = detailTabScrollRef.current
+    if (!el) return
+    updateDetailTabsOverflow()
+    el.addEventListener('scroll', updateDetailTabsOverflow)
+    const ro = new ResizeObserver(updateDetailTabsOverflow)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', updateDetailTabsOverflow)
+      ro.disconnect()
+    }
+  }, [updateDetailTabsOverflow, activeShipTab, shipTabs])
+
+  useEffect(() => {
     if (!activeShipTab) return
     const container = tabScrollRef.current
     const activeTabEl = tabButtonRefs.current[activeShipTab]
@@ -570,6 +600,26 @@ function Myships() {
       },
     }))
   }
+
+  useEffect(() => {
+    if (!activeShipTab) return
+    const currentTab = shipTabs.find((t) => t.id === activeShipTab)
+    const supportsSanctionsDetails =
+      currentTab?.type !== 'sts' && currentTab?.id === 'tiffani'
+    const detailTabCount = supportsSanctionsDetails
+      ? tiffaniDetailTabs.length
+      : baseDetailTabs.length
+    if (activeDetailTab < detailTabCount) return
+    setTabState((prev) => ({
+      ...prev,
+      [activeShipTab]: {
+        ...prev[activeShipTab],
+        selectedCard: prev[activeShipTab]?.selectedCard ?? null,
+        previewCards: prev[activeShipTab]?.previewCards ?? [],
+        activeDetailTab: 0,
+      },
+    }))
+  }, [activeShipTab, activeDetailTab, shipTabs])
 
   useEffect(() => {
     if (!activeShipTab) return
@@ -790,6 +840,8 @@ function Myships() {
     ? displayStsShipIds[activeStsShip]
     : activeShipTab
   const activeShip = activeShipId ? ships[activeShipId] : null
+  const isTiffaniShipTab = !isStsTab && activeShipId === 'tiffani'
+  const detailTabs = isTiffaniShipTab ? tiffaniDetailTabs : baseDetailTabs
   const stsPartnerShipId = isStsTab
     ? activeTab.shipIds[activeStsShip === 0 ? 1 : 0]
     : null
@@ -849,6 +901,30 @@ function Myships() {
   const latestNonStsDetection = activeShipDetections.find(
     (d) => d.type !== 'sts' && d.type !== 'sts-ais'
   )
+
+  useEffect(() => {
+    const container = detailTabScrollRef.current
+    const activeDetailTabEl = detailTabButtonRefs.current[activeDetailTab]
+    if (!container || !activeDetailTabEl) return
+
+    const padding = 18
+    const currentLeft = container.scrollLeft
+    const currentRight = currentLeft + container.clientWidth
+    const tabLeft = activeDetailTabEl.offsetLeft - padding
+    const tabRight =
+      activeDetailTabEl.offsetLeft + activeDetailTabEl.offsetWidth + padding
+
+    if (tabLeft < currentLeft) {
+      container.scrollTo({ left: Math.max(0, tabLeft), behavior: 'smooth' })
+      return
+    }
+    if (tabRight > currentRight) {
+      container.scrollTo({
+        left: tabRight - container.clientWidth,
+        behavior: 'smooth',
+      })
+    }
+  }, [activeDetailTab, detailTabs.length])
 
   useEffect(() => {
     if (!activeShipId) return
@@ -2377,37 +2453,150 @@ function Myships() {
               <Box
                 style={{
                   display: 'flex',
+                  alignItems: 'center',
                   borderBottom: '1px solid #393C56',
                   flexShrink: 0,
                 }}
               >
-                {detailTabs.map((tab, i) => (
+                {detailTabsOverflowLeft && (
                   <Box
-                    key={tab}
-                    onClick={() => updateTabState('activeDetailTab', i)}
+                    onClick={() =>
+                      detailTabScrollRef.current?.scrollBy({
+                        left: -140,
+                        behavior: 'smooth',
+                      })
+                    }
                     style={{
-                      flex: 1,
-                      padding: '12px 10px',
-                      textAlign: 'center',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 30,
+                      height: 50,
                       cursor: 'pointer',
-                      borderBottom:
-                        activeDetailTab === i
-                          ? '2px solid #fff'
-                          : '2px solid transparent',
+                      background: '#181926',
+                      flexShrink: 0,
                     }}
                   >
-                    <Text
+                    <ChevronDown
                       style={{
-                        color: '#fff',
-                        fontSize: 12,
-                        fontWeight: activeDetailTab === i ? 700 : 400,
-                        whiteSpace: 'nowrap',
+                        color: '#898f9d',
+                        width: 14,
+                        height: 14,
+                        transform: 'rotate(90deg)',
                       }}
-                    >
-                      {tab}
-                    </Text>
+                    />
                   </Box>
-                ))}
+                )}
+                <Box style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                  {detailTabsOverflowLeft && (
+                    <Box
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 36,
+                        background:
+                          'linear-gradient(to right, #181926, rgba(24, 25, 38, 0))',
+                        zIndex: 2,
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  )}
+                  {detailTabsOverflowRight && (
+                    <Box
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 36,
+                        background:
+                          'linear-gradient(to left, #181926, rgba(24, 25, 38, 0))',
+                        zIndex: 2,
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  )}
+                  <Box
+                    ref={detailTabScrollRef}
+                    className="tab-row-scroll"
+                    style={{
+                      display: 'flex',
+                      overflowX: 'auto',
+                      overflowY: 'hidden',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {detailTabs.map((tab, i) => (
+                      <Box
+                        key={tab}
+                        ref={(node) => {
+                          if (node) {
+                            detailTabButtonRefs.current[i] = node
+                          } else {
+                            delete detailTabButtonRefs.current[i]
+                          }
+                        }}
+                        onClick={() => updateTabState('activeDetailTab', i)}
+                        style={{
+                          flex: '0 0 auto',
+                          height: 50,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '0 18px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          borderBottom:
+                            activeDetailTab === i
+                              ? '2px solid #fff'
+                              : '2px solid transparent',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#fff',
+                            fontSize: 12,
+                            fontWeight: activeDetailTab === i ? 700 : 400,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {tab}
+                        </Text>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+                {detailTabsOverflowRight && (
+                  <Box
+                    onClick={() =>
+                      detailTabScrollRef.current?.scrollBy({
+                        left: 140,
+                        behavior: 'smooth',
+                      })
+                    }
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 30,
+                      height: 50,
+                      cursor: 'pointer',
+                      background: '#181926',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <ChevronDown
+                      style={{
+                        color: '#898f9d',
+                        width: 14,
+                        height: 14,
+                        transform: 'rotate(-90deg)',
+                      }}
+                    />
+                  </Box>
+                )}
               </Box>
               {ENABLE_TIMELINE_DRAG && (
                 <Tooltip
@@ -2936,6 +3125,11 @@ function Myships() {
                         ))}
                       </Box>
                     </Box>
+                  </Box>
+                )}
+                {isTiffaniShipTab && activeDetailTab === 3 && (
+                  <Box style={{ padding: 20 }}>
+                    <SanctionDetailsVersionB />
                   </Box>
                 )}
               </Box>
