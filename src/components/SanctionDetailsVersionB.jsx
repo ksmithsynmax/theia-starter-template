@@ -136,7 +136,14 @@ const SanctionDetailsVersionB = ({
   }
 
   return (
-    <>
+    <Box
+      style={{
+        border: '1px solid #3D456B',
+        borderRadius: 4,
+        background: '#24263C',
+        padding: 12,
+      }}
+    >
       <Box
         style={{
           marginBottom: 12,
@@ -145,7 +152,8 @@ const SanctionDetailsVersionB = ({
           gap: 8,
         }}
       >
-        <Box>
+        <Box
+          >
           <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}>
             Program(s)
           </Text>
@@ -503,7 +511,7 @@ const SanctionDetailsVersionB = ({
           )
         })}
       </Box>
-    </>
+    </Box>
   )
 }
 

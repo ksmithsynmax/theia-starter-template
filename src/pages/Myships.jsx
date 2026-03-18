@@ -2879,13 +2879,15 @@ function Myships() {
                             onMouseLeave={() => setHoveredSatelliteCardId(null)}
                             style={{
                               minWidth: 0,
-                              borderRadius: 6,
+                              border: '1px solid #3D456B',
+                              borderRadius: 4,
                               background:
                                 hoveredSatelliteCardId === item.id
-                                  ? '#24263C'
-                                  : 'transparent',
-                              padding: 8,
-                              transition: 'background 140ms ease',
+                                  ? '#262947'
+                                  : '#24263C',
+                              padding: 10,
+                              transition: 'background 140ms ease, border-color 140ms ease',
+                              boxSizing: 'border-box',
                             }}
                           >
                             <Box
@@ -2894,6 +2896,7 @@ function Myships() {
                                 overflow: 'hidden',
                                 background: '#1B1D2E',
                                 height: 226,
+                                border: '1px solid #393C56',
                               }}
                             >
                               <img
@@ -2907,7 +2910,7 @@ function Myships() {
                                 }}
                               />
                             </Box>
-                            <Box style={{ marginTop: 10 }}>
+                            <Box style={{ marginTop: 12 }}>
                               <KeyValuePair
                                 keyName="Image Captured Time"
                                 value={item.capturedTime}
@@ -2919,7 +2922,7 @@ function Myships() {
                                 display: 'grid',
                                 gridTemplateColumns:
                                   'repeat(3, minmax(0, 1fr))',
-                                gap: 16,
+                                gap: 12,
                               }}
                             >
                               <KeyValuePair
@@ -2949,11 +2952,10 @@ function Myships() {
                     >
                       <Text
                         style={{
-                          color: '#B8BECE',
-                          fontSize: 12,
+                          color: '#8D95AA',
+                          fontSize: 11,
                           fontWeight: 600,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.4,
+                          lineHeight: 1.2,
                         }}
                       >
                         Ownership
@@ -3003,11 +3005,10 @@ function Myships() {
 
                       <Text
                         style={{
-                          color: '#B8BECE',
-                          fontSize: 12,
+                          color: '#8D95AA',
+                          fontSize: 11,
                           fontWeight: 600,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.4,
+                          lineHeight: 1.2,
                         }}
                       >
                         Attribution
@@ -3132,18 +3133,6 @@ function Myships() {
                                 </Text>
                               </Box>
                             </Box>
-                            {(row.prediction !== row.reference || row.difference !== '0') && (
-                              <Text
-                                style={{
-                                  color: '#8D95AA',
-                                  fontSize: 11,
-                                  lineHeight: 1.2,
-                                  marginTop: 8,
-                                }}
-                              >
-                                {row.prediction} {'->'} {row.reference}
-                              </Text>
-                            )}
                           </Box>
                         ))}
                       </Box>
