@@ -45,6 +45,24 @@ const parseDateFromKey = (value) => {
   return date
 }
 
+const normalizePickerDate = (value) => {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const fromKey = parseDateFromKey(value)
+    if (fromKey) return fromKey
+
+    const parsed = new Date(value)
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
 const parseTypedDate = (rawValue) => {
   const trimmed = rawValue.trim()
   const match = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/)
@@ -286,11 +304,6 @@ const TopNav = () => {
                         setTypedDate(event.currentTarget.value)
                         if (typedDateError) setTypedDateError(null)
                       }}
-                      onBlur={() => {
-                        if (typedDate.trim().length > 0) {
-                          applyTypedDate(false)
-                        }
-                      }}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault()
@@ -316,8 +329,9 @@ const TopNav = () => {
                 value={selectedDate}
                 maxDate={new Date()}
                 onChange={(date) => {
-                  if (!date) return
-                  const nextDateKey = formatDateKey(date)
+                  const nextDate = normalizePickerDate(date)
+                  if (!nextDate) return
+                  const nextDateKey = formatDateKey(nextDate)
                   setMapDate(nextDateKey)
                   setTypedDate(nextDateKey.replace(/-/g, '/'))
                   setTypedDateError(null)
