@@ -7,6 +7,8 @@ function Myships() {
     mockAois,
     selectedAoiIds,
     setSelectedAoiIds,
+    watchedAoiIds,
+    setWatchedAoiIds,
     showAoiLayer,
     setShowAoiLayer,
     riskWindowDays,
@@ -27,6 +29,11 @@ function Myships() {
 
   const toggleAoi = (aoiId) => {
     setSelectedAoiIds((prev) =>
+      prev.includes(aoiId) ? prev.filter((id) => id !== aoiId) : [...prev, aoiId]
+    )
+  }
+  const toggleWatchAoi = (aoiId) => {
+    setWatchedAoiIds((prev) =>
       prev.includes(aoiId) ? prev.filter((id) => id !== aoiId) : [...prev, aoiId]
     )
   }
@@ -116,17 +123,46 @@ function Myships() {
         <Text style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
           Customer AOIs
         </Text>
-        {mockAois.map((aoi) => (
-          <Checkbox
-            key={aoi.id}
-            checked={selectedAoiIds.includes(aoi.id)}
-            onChange={() => toggleAoi(aoi.id)}
-            label={`${aoi.name} (${aoi.customerName})`}
-            size="xs"
-            mt={6}
-            styles={{ label: { color: '#DDE2EE', fontSize: 12 } }}
-          />
-        ))}
+        <Text style={{ color: '#8EA1C7', fontSize: 11, marginBottom: 6 }}>
+          Use Watch AOI to receive in-map high-risk notifications.
+        </Text>
+        {mockAois.map((aoi) => {
+          const isWatched = watchedAoiIds.includes(aoi.id)
+          return (
+            <Box
+              key={aoi.id}
+              style={{
+                marginTop: 6,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+              }}
+            >
+              <Checkbox
+                checked={selectedAoiIds.includes(aoi.id)}
+                onChange={() => toggleAoi(aoi.id)}
+                label={`${aoi.name} (${aoi.customerName})`}
+                size="xs"
+                styles={{ label: { color: '#DDE2EE', fontSize: 12 } }}
+              />
+              <Button
+                size="compact-xs"
+                variant={isWatched ? 'filled' : 'outline'}
+                onClick={() => toggleWatchAoi(aoi.id)}
+                style={{
+                  background: isWatched ? '#0094FF' : 'transparent',
+                  borderColor: '#4B5166',
+                  color: '#fff',
+                  fontSize: 11,
+                  minWidth: 88,
+                }}
+              >
+                {isWatched ? 'Watching' : 'Watch AOI'}
+              </Button>
+            </Box>
+          )
+        })}
       </Box>
 
       <Box

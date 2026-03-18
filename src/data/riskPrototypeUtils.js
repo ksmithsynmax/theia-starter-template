@@ -112,3 +112,63 @@ export const deriveShipRiskSignals = ({
   })
 }
 
+export const deriveWatchedAoiAlerts = ({
+  watchedAois,
+  detections,
+  riskSignals,
+}) => {
+  if (!Array.isArray(watchedAois) || watchedAois.length === 0) return []
+  if (!Array.isArray(riskSignals) || riskSignals.length === 0) return []
+
+  const isValidLngLat = (lng, lat) =>
+    Number.isFinite(lng) &&
+    Number.isFinite(lat) &&
+    lng >= -180 &&
+    lng <= 180 &&
+    lat >= -90 &&
+    lat <= 90
+
+  const alerts = []
+  riskSignals.forEach((signal) => {
+    if (!signal?.isFlagged) return
+    const latest = signal.latestDetection
+    if (!latest || !isValidLngLat(latest.lng, latest.lat)) return
+
+    const shipDetections = detections
+      .filter((item) => item.shipId === signal.shipId)
+      .sort((a, b) => toTimestamp(b.date) - toTimestamp(a.date))
+    const previousWithCoords = shipDetections.find(
+      (item) =>
+        item.id !== latest.id &&
+        isValidLngLat(item.lng, item.lat) &&
+        toTimestamp(item.date) <= toTimestamp(latest.date)
+    )
+
+    watchedAois.forEach((aoi) => {
+      const latestInside = pointInPolygon(latest.lng, latest.lat, aoi.coordinates)
+      if (!latestInside) return
+
+      const previousInside = previousWithCoords
+        ? pointInPolygon(
+            previousWithCoords.lng,
+            previousWithCoords.lat,
+            aoi.coordinates
+          )
+        : false
+      const status = previousWithCoords && !previousInside ? 'entered' : 'active'
+
+      alerts.push({
+        id: `${aoi.id}-${signal.shipId}`,
+        aoiId: aoi.id,
+        aoiName: aoi.name,
+        shipId: signal.shipId,
+        timestamp: latest.date,
+        reasonSummary: signal.reasonSummary,
+        status,
+      })
+    })
+  })
+
+  return alerts.sort((a, b) => toTimestamp(b.timestamp) - toTimestamp(a.timestamp))
+}
+
