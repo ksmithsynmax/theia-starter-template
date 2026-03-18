@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Box, Text } from '@mantine/core'
+import { Box, Text, TextInput } from '@mantine/core'
 import { DatePicker } from '@mantine/dates'
 import {
   Plus,
@@ -17,10 +17,75 @@ import {
 import TheiaLogo from '../assets/TheiaLogo.svg'
 import { useShipContext } from '../context/ShipContext'
 
+const formatDateKey = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const parseDateFromKey = (value) => {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value
+  }
+  if (typeof value !== 'string') return null
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return null
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+  return date
+}
+
+const parseTypedDate = (rawValue) => {
+  const trimmed = rawValue.trim()
+  const match = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/)
+  if (!match) return { value: null, error: 'Use format YYYY/MM/DD' }
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const parsedDate = new Date(year, month - 1, day)
+  if (
+    parsedDate.getFullYear() !== year ||
+    parsedDate.getMonth() !== month - 1 ||
+    parsedDate.getDate() !== day
+  ) {
+    return { value: null, error: 'Enter a valid date' }
+  }
+
+  const now = new Date()
+  now.setHours(23, 59, 59, 999)
+  if (parsedDate > now) {
+    return { value: null, error: 'Date cannot be in the future' }
+  }
+
+  return { value: parsedDate, error: null }
+}
+
 const TopNav = () => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
+  const [isEditingCalendarDate, setIsEditingCalendarDate] = useState(false)
+  const [typedDate, setTypedDate] = useState('')
+  const [typedDateError, setTypedDateError] = useState(null)
   const calendarRef = useRef(null)
+  const selectedDate = parseDateFromKey(mapDate) || new Date()
+  const selectedDateKey = formatDateKey(selectedDate)
+  const selectedDateToolbarLabel = selectedDateKey.replace(/-/g, '/')
+  const selectedDateHeaderLabel = selectedDate.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
 
   useEffect(() => {
     if (!calendarOpen) return
@@ -32,6 +97,35 @@ const TopNav = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [calendarOpen])
+
+  useEffect(() => {
+    setTypedDate(selectedDateKey.replace(/-/g, '/'))
+    setTypedDateError(null)
+  }, [selectedDateKey])
+
+  useEffect(() => {
+    if (!calendarOpen) {
+      setIsEditingCalendarDate(false)
+      setTypedDateError(null)
+    }
+  }, [calendarOpen])
+
+  const applyTypedDate = (closeOnSuccess = false) => {
+    const { value, error } = parseTypedDate(typedDate)
+    if (error || !value) {
+      setTypedDateError(error)
+      return
+    }
+
+    const nextDateKey = formatDateKey(value)
+    setMapDate(nextDateKey)
+    setTypedDate(nextDateKey.replace(/-/g, '/'))
+    setTypedDateError(null)
+    if (closeOnSuccess) {
+      setCalendarOpen(false)
+      setIsEditingCalendarDate(false)
+    }
+  }
 
   return (
     <div>
@@ -111,12 +205,8 @@ const TopNav = () => {
             onClick={() => setCalendarOpen(!calendarOpen)}
           >
             <Calendar color="white" size={20} />
-            <Text
-              variant="body1"
-              c="#fff"
-              style={{ margin: '0 8px' }}
-            >
-              {mapDate.replace(/-/g, '/')}
+            <Text variant="body1" c="#fff" style={{ margin: '0 8px' }}>
+              {selectedDateToolbarLabel}
             </Text>
           </Box>
           {calendarOpen && (
@@ -135,12 +225,104 @@ const TopNav = () => {
                 zIndex: 1000,
               }}
             >
+              <Box
+                style={{
+                  margin: '-16px -16px 0 -16px',
+                  padding: '14px 16px 10px 16px',
+                  borderBottom: '1px solid #393C56',
+                }}
+              >
+                <Box style={{ marginBottom: 0 }}>
+                  <Text
+                    style={{ color: '#A7AEC2', fontSize: 10, marginBottom: 4 }}
+                  >
+                    Select date
+                  </Text>
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                    }}
+                  >
+                    <Text
+                      style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 600 }}
+                    >
+                      {selectedDateHeaderLabel}
+                    </Text>
+                    <Box
+                      component="button"
+                      type="button"
+                      className="topnav-toolbar-btn--no-hover calendar-edit-icon-btn"
+                      onClick={() => {
+                        setIsEditingCalendarDate((prev) => !prev)
+                        setTypedDateError(null)
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        padding: 0,
+                        margin: 0,
+                        border: 'none',
+                        outline: 'none',
+                        boxShadow: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Edit01 style={{ color: '#fff', width: 16, height: 16 }} />
+                    </Box>
+                  </Box>
+                </Box>
+                {isEditingCalendarDate && (
+                  <Box style={{ marginTop: 8 }}>
+                    <TextInput
+                      value={typedDate}
+                      onChange={(event) => {
+                        setTypedDate(event.currentTarget.value)
+                        if (typedDateError) setTypedDateError(null)
+                      }}
+                      onBlur={() => {
+                        if (typedDate.trim().length > 0) {
+                          applyTypedDate(false)
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          applyTypedDate(true)
+                        }
+                      }}
+                      placeholder="YYYY/MM/DD"
+                      size="xs"
+                      error={typedDateError}
+                      styles={{
+                        input: {
+                          background: '#181926',
+                          borderColor: '#393C56',
+                          color: '#fff',
+                        },
+                      }}
+                    />
+                  </Box>
+                )}
+              </Box>
+              <Box style={{ paddingTop: 10 }}>
               <DatePicker
-                value={mapDate}
+                value={selectedDate}
                 maxDate={new Date()}
                 onChange={(date) => {
-                  setMapDate(date)
+                  if (!date) return
+                  const nextDateKey = formatDateKey(date)
+                  setMapDate(nextDateKey)
+                  setTypedDate(nextDateKey.replace(/-/g, '/'))
+                  setTypedDateError(null)
                   setCalendarOpen(false)
+                  setIsEditingCalendarDate(false)
                 }}
                 styles={{
                   day: { color: '#fff', borderRadius: '50%' },
@@ -152,6 +334,7 @@ const TopNav = () => {
                   yearsListControl: { color: '#fff' },
                 }}
               />
+              </Box>
             </Box>
           )}
         </Box>

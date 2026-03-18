@@ -265,6 +265,14 @@
   color: #fff !important;
 }
 
+.datepicker-dark .calendar-edit-icon-btn:hover,
+.datepicker-dark .calendar-edit-icon-btn:focus,
+.datepicker-dark .calendar-edit-icon-btn:focus-visible,
+.datepicker-dark .calendar-edit-icon-btn:active {
+  background: transparent !important;
+  color: inherit !important;
+}
+
 /* ===== Dark theme checkbox/radio overrides ===== */
 .dark-controls .mantine-Checkbox-input {
   background-color: transparent !important;
@@ -288,4 +296,19 @@
 .dark-controls .mantine-Checkbox-label,
 .dark-controls .mantine-Radio-label {
   color: #fff;
+}
+
+.go-to-date-warning-checkbox .mantine-Checkbox-input {
+  background-color: transparent !important;
+  border-color: #5c6270 !important;
+}
+
+.go-to-date-warning-checkbox .mantine-Checkbox-input:checked,
+.go-to-date-warning-checkbox .mantine-Checkbox-input[data-checked] {
+  background-color: #0094ff !important;
+  border-color: #0094ff !important;
+}
+
+.go-to-date-warning-checkbox .mantine-Checkbox-icon {
+  color: #fff !important;
 }

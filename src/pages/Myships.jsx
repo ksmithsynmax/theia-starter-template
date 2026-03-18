@@ -3014,113 +3014,136 @@ function Myships() {
                       </Text>
                       <Box
                         style={{
-                          borderRadius: 4,
-                          overflow: 'hidden',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
                         }}
                       >
-                        <Box
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns:
-                              '1.25fr 1.1fr 1.1fr 1fr 0.95fr',
-                            gap: 0,
-                            background: '#24263C',
-                            borderRadius: 4,
-                          }}
-                        >
-                          {[
-                            'Metric',
-                            'Prediction',
-                            'Reference',
-                            'Difference',
-                            'Score',
-                          ].map((col) => (
-                            <Text
-                              key={col}
-                              style={{
-                                color: '#B8BECE',
-                                fontSize: 12,
-                                fontWeight: 600,
-                                padding: '4px 8px',
-                              }}
-                            >
-                              {col}
-                            </Text>
-                          ))}
-                        </Box>
                         {attributionRows.map((row, idx) => (
                           <Box
                             key={`${row.metric}-${idx}`}
                             style={{
-                              display: 'grid',
-                              gridTemplateColumns:
-                                '1.25fr 1.1fr 1.1fr 1fr 0.95fr',
-                              gap: 0,
-                              borderBottom:
-                                idx === attributionRows.length - 1
-                                  ? 'none'
-                                  : '1px solid #393C56',
+                              border: '1px solid #3D456B',
+                              borderRadius: 4,
+                              background: '#24263C',
+                              padding: 12,
                             }}
                           >
-                            <Text
-                              style={{
-                                color: '#fff',
-                                fontSize: 12,
-                                padding: '8px',
-                              }}
-                            >
-                              {row.metric}
-                            </Text>
-                            <Text
-                              style={{
-                                color: '#fff',
-                                fontSize: 12,
-                                padding: '4px 12px',
-                              }}
-                            >
-                              {row.prediction}
-                            </Text>
-                            <Text
-                              style={{
-                                color: '#fff',
-                                fontSize: 12,
-                                padding: ' 4px 14px',
-                              }}
-                            >
-                              {row.reference}
-                            </Text>
-                            <Text
-                              style={{
-                                color: '#fff',
-                                fontSize: 12,
-                                padding: '4px 16px',
-                              }}
-                            >
-                              {row.difference}
-                            </Text>
                             <Box
                               style={{
-                                padding: '8px',
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 10,
+                                marginBottom: 8,
                               }}
                             >
+                              <Text
+                                style={{
+                                  color: '#fff',
+                                  fontSize: 14,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {row.metric}
+                              </Text>
                               <Box
                                 style={{
                                   borderRadius: 999,
                                   background: row.scoreBg,
                                   color: row.scoreColor,
                                   fontSize: 10,
-                                  fontWeight: 600,
-                                  padding: '4px 8px',
+                                  fontWeight: 700,
+                                  padding: '4px 10px',
                                   lineHeight: 1.2,
                                   textAlign: 'center',
-                                  minWidth: 70,
+                                  minWidth: 74,
+                                  flexShrink: 0,
                                 }}
                               >
                                 {row.score}
                               </Box>
                             </Box>
+                            <Box
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                gap: 10,
+                              }}
+                            >
+                              <Box>
+                                <Text
+                                  style={{
+                                    color: '#8D95AA',
+                                    fontSize: 11,
+                                    marginBottom: 2,
+                                  }}
+                                >
+                                  Prediction
+                                </Text>
+                                <Text
+                                  style={{
+                                    color: '#fff',
+                                    fontSize: 13,
+                                    lineHeight: 1.25,
+                                  }}
+                                >
+                                  {row.prediction}
+                                </Text>
+                              </Box>
+                              <Box>
+                                <Text
+                                  style={{
+                                    color: '#8D95AA',
+                                    fontSize: 11,
+                                    marginBottom: 2,
+                                  }}
+                                >
+                                  Reference
+                                </Text>
+                                <Text
+                                  style={{
+                                    color: '#fff',
+                                    fontSize: 13,
+                                    lineHeight: 1.25,
+                                  }}
+                                >
+                                  {row.reference}
+                                </Text>
+                              </Box>
+                              <Box>
+                                <Text
+                                  style={{
+                                    color: '#8D95AA',
+                                    fontSize: 11,
+                                    marginBottom: 2,
+                                  }}
+                                >
+                                  Difference
+                                </Text>
+                                <Text
+                                  style={{
+                                    color: '#fff',
+                                    fontSize: 13,
+                                    lineHeight: 1.25,
+                                  }}
+                                >
+                                  {row.difference}
+                                </Text>
+                              </Box>
+                            </Box>
+                            {(row.prediction !== row.reference || row.difference !== '0') && (
+                              <Text
+                                style={{
+                                  color: '#8D95AA',
+                                  fontSize: 11,
+                                  lineHeight: 1.2,
+                                  marginTop: 8,
+                                }}
+                              >
+                                {row.prediction} {'->'} {row.reference}
+                              </Text>
+                            )}
                           </Box>
                         ))}
                       </Box>
@@ -3197,6 +3220,8 @@ function Myships() {
             <Box style={{ marginTop: 8, marginBottom: 24 }}>
               <Checkbox
                 size="sm"
+                className="go-to-date-warning-checkbox"
+                color="#0094FF"
                 checked={dontShowGoToDateAgain}
                 disabled={goToDateSubmitting}
                 onChange={(e) =>
@@ -3208,11 +3233,13 @@ function Myships() {
                   input: {
                     background: 'transparent',
                     borderColor: '#5C6270',
-                    '&[data-checked]': {
-                      background: '#0094FF',
+                    '&:checked, &[data-checked]': {
+                      backgroundColor: '#0094FF',
                       borderColor: '#0094FF',
+                      color: '#fff',
                     },
                   },
+                  icon: { color: '#fff !important' },
                 }}
               />
             </Box>
