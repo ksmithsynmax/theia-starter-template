@@ -7,9 +7,11 @@ import LeftNav from './LeftNav'
 import Map from './Map'
 import CollapseButton from '../custom-icons/CollapseButton'
 import ShipFilterIcon from '../custom-icons/ShipFilterIcon.svg'
+import ShipFiltersPanel from './ShipFiltersPanel'
 
 function Layout() {
   const [panelOpen, setPanelOpen] = useState(true)
+  const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
   const mapRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -35,6 +37,9 @@ function Layout() {
       <TopNav />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map ref={mapRef} />
+        {shipFiltersOpen && (
+          <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
+        )}
         <Box
           style={{
             position: 'absolute',
@@ -63,7 +68,8 @@ function Layout() {
               style={{
                 width: 50,
                 height: 50,
-                backgroundColor: '#393C56',
+                backgroundColor: '#24263c',
+                border: '1px solid #4B5166',
                 borderRadius: '4px 4px 0 0',
                 borderBottom: '1px solid #24263C',
               }}
@@ -78,7 +84,9 @@ function Layout() {
               style={{
                 width: 50,
                 height: 50,
-                backgroundColor: '#393C56',
+                backgroundColor: '#24263c',
+                border: '1px solid #4B5166',
+                borderTop: 'none',
                 borderRadius: '0 0 4px 4px',
               }}
             >
@@ -89,10 +97,12 @@ function Layout() {
             className="ship-filter-action-icon"
             variant="filled"
             aria-label="Ship filter"
+            onClick={() => setShipFiltersOpen((prev) => !prev)}
             style={{
               width: 50,
               height: 50,
-              backgroundColor: '#393C56',
+              backgroundColor: '#24263c',
+              border: '1px solid #4B5166',
               borderRadius: 4,
             }}
           >

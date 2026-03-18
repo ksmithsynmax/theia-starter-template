@@ -129,9 +129,24 @@ button:active,
 }
 
 .ship-filter-action-icon:hover {
-  background-color: #24263c !important;
+  background-color: #181926 !important;
 }
 
 .map-zoom-action-icon:hover {
-  background-color: #24263c !important;
+  background-color: #181926 !important;
+}
+
+.ship-filter-checkbox .mantine-Checkbox-input {
+  background: transparent;
+  border-color: #5f667c;
+}
+
+.ship-filter-checkbox .mantine-Checkbox-input:checked,
+.ship-filter-checkbox .mantine-Checkbox-input[data-checked] {
+  background-color: #0094ff;
+  border-color: #0094ff;
+}
+
+.ship-filter-checkbox .mantine-Checkbox-icon {
+  color: #fff !important;
 }
