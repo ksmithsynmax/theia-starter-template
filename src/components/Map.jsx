@@ -1,12 +1,17 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
-const Map = () => {
+const Map = forwardRef(function Map(_, ref) {
   const mapContainer = useRef(null)
   const map = useRef(null)
+
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => map.current?.zoomIn(),
+    zoomOut: () => map.current?.zoomOut(),
+  }))
 
   useEffect(() => {
     if (map.current) return
@@ -44,6 +49,6 @@ const Map = () => {
       }}
     />
   )
-}
+})
 
 export default Map

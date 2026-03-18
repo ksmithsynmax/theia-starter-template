@@ -1,3 +1,12 @@
+.mantine-Button-root:active,
+.mantine-ActionIcon-root:active,
+button:active,
+[role='button']:active {
+  transform: none !important;
+  top: auto !important;
+  left: auto !important;
+}
+
 .topnav-icon-btn {
   display: flex;
   align-items: center;
@@ -112,4 +121,17 @@
   flex: 1;
   overflow-y: auto;
   min-width: 500px;
+}
+
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib {
+  display: none !important;
+}
+
+.ship-filter-action-icon:hover {
+  background-color: #24263c !important;
+}
+
+.map-zoom-action-icon:hover {
+  background-color: #24263c !important;
 }
