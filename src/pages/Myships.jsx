@@ -65,13 +65,16 @@ const TIMELINE_EVENT_TYPE_FILTER_OPTIONS = [
   { value: 'spoofing', label: 'Spoofing' },
   { value: 'ais-dark', label: 'AIS Dark' },
 ]
-const SAT_TIMELINE_EVENT_TYPE_FILTER_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'ais', label: 'AIS' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'AIS Dark' },
-  { value: 'spoofing', label: 'Spoofing' },
+const SAT_TIMELINE_DATA_SOURCE_FILTER_OPTIONS = [
+  { value: 'all', label: 'All Sources' },
+  { value: 'sar', label: 'SAR' },
+  { value: 'optical', label: 'Optical' },
 ]
+const SAT_TIMELINE_DETECTION_TYPES = ['light', 'dark', 'spoofing', 'ais']
+const STS_PREFERRED_SAT_TIMELINE_DETECTION_TYPES = ['light', 'dark', 'spoofing']
+const getSatTimelineDataSource = (detectionType) =>
+  detectionType === 'dark' ? 'sar' : 'optical'
+const normalizeDetectionId = (id) => String(id)
 const formatPrototypeDetectionDate = (date) => {
   const d = date instanceof Date ? date : new Date(date)
   return `${d.toLocaleDateString('en-US', {
@@ -92,19 +95,14 @@ const getDetectionDateKey = (dateStr) => {
     d.getDate()
   ).padStart(2, '0')}`
 }
-const getStableArrayIndex = (seed, length) => {
-  if (!length) return 0
-  const seedStr = String(seed ?? '')
-  let hash = 0
-  for (let i = 0; i < seedStr.length; i += 1) {
-    hash = (hash * 31 + seedStr.charCodeAt(i)) >>> 0
-  }
-  return hash % length
+const getSatTimelineImageForDetection = (detection) => {
+  if (['light', 'dark', 'spoofing'].includes(detection?.type)) return satImageB
+  if (detection?.type === 'ais') return satImageA
+  return satImageC
 }
 
 // Keep drag-resize code for possible future re-enable.
 const ENABLE_TIMELINE_DRAG = true
-const SATELLITE_TIMELINE_IMAGES = [satImageA, satImageB, satImageC, satImageD]
 const SHIP_OWNERSHIP = {
   invictus: {
     commercialOwner: 'No Info',
@@ -253,6 +251,7 @@ function Myships() {
   const [copiedField, setCopiedField] = useState(null)
   const [hoveredCopyField, setHoveredCopyField] = useState(null)
   const [hoveredSatelliteCardId, setHoveredSatelliteCardId] = useState(null)
+  const [selectedSatDetectionByTab, setSelectedSatDetectionByTab] = useState({})
   const [satSortByTab, setSatSortByTab] = useState({})
   const [timelineSortByTab, setTimelineSortByTab] = useState({})
   const [newLastKnownDotByShip, setNewLastKnownDotByShip] = useState({})
@@ -413,7 +412,8 @@ function Myships() {
   )
 
   const applyGoToDate = useCallback(
-    (dateKey, detectionId) => {
+    (dateKey, detectionId, options = {}) => {
+      const { preferExactDetection = false } = options
       const sourceDetection = allDetections.find((d) => d.id === detectionId)
       const sourceShipId = sourceDetection?.shipId
       const sourceType = sourceDetection?.type
@@ -426,11 +426,14 @@ function Myships() {
             )
             .sort((a, b) => new Date(b.date) - new Date(a.date))
         : []
-      const resolvedDetection =
-        shipDetectionsForDate.find((d) => d.type === 'ais') ||
-        shipDetectionsForDate.find((d) => d.type === sourceType) ||
-        shipDetectionsForDate[0] ||
-        sourceDetection
+      const resolvedDetection = preferExactDetection
+        ? sourceDetection ||
+          shipDetectionsForDate.find((d) => d.type === sourceType) ||
+          shipDetectionsForDate[0]
+        : shipDetectionsForDate.find((d) => d.type === 'ais') ||
+          shipDetectionsForDate.find((d) => d.type === sourceType) ||
+          shipDetectionsForDate[0] ||
+          sourceDetection
       const resolvedDetectionId = resolvedDetection?.id ?? detectionId
 
       setMapDate(dateKey)
@@ -626,7 +629,7 @@ function Myships() {
     timelineTimeFilter: 'all',
     timelineEventTypeFilter: 'all',
     satTimelineTimeFilter: 'all',
-    satTimelineEventTypeFilter: 'all',
+    satTimelineDataSourceFilter: 'all',
   }
   const selectedCard = currentTabState.selectedCard
   const previewCards = Array.isArray(currentTabState.previewCards)
@@ -639,8 +642,10 @@ function Myships() {
   const timelineEventTypeFilter =
     currentTabState.timelineEventTypeFilter || 'all'
   const satTimelineTimeFilter = currentTabState.satTimelineTimeFilter || 'all'
-  const satTimelineEventTypeFilter =
-    currentTabState.satTimelineEventTypeFilter || 'all'
+  const satTimelineDataSourceFilter =
+    currentTabState.satTimelineDataSourceFilter ||
+    currentTabState.satTimelineEventTypeFilter ||
+    'all'
   const satTimelineSortOrder = satSortByTab[activeShipTab] ?? 'desc'
   const timelineSortOrder = timelineSortByTab[activeShipTab] ?? 'desc'
 
@@ -657,8 +662,10 @@ function Myships() {
           prev[activeShipTab]?.timelineEventTypeFilter ?? 'all',
         satTimelineTimeFilter:
           prev[activeShipTab]?.satTimelineTimeFilter ?? 'all',
-        satTimelineEventTypeFilter:
-          prev[activeShipTab]?.satTimelineEventTypeFilter ?? 'all',
+        satTimelineDataSourceFilter:
+          prev[activeShipTab]?.satTimelineDataSourceFilter ??
+          prev[activeShipTab]?.satTimelineEventTypeFilter ??
+          'all',
         [key]: value,
       },
     }))
@@ -1059,6 +1066,13 @@ function Myships() {
   }, [activeDetailTab, detailTabs.length])
 
   useEffect(() => {
+    if (activeDetailTab !== 1) return
+    const container = scrollContainerRef.current
+    if (!container) return
+    container.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [activeDetailTab, activeShipTab])
+
+  useEffect(() => {
     if (!activeShipId) return
     if (newLastKnownDotByShip[activeShipId]) return
     if (pendingLastKnownDetectionByShip[activeShipId]) return
@@ -1127,8 +1141,13 @@ function Myships() {
   const canCopyMmsi = !isUnattributed && Boolean(activeShip?.mmsi)
   const canCopyShipId = !isUnattributed && Boolean(activeShip?.shipId)
   const selectedDetection = selectedCard
-    ? activeShipDetections.find((d) => d.id === selectedCard) || latestDetection
+    ? activeShipDetections.find(
+        (d) => normalizeDetectionId(d.id) === normalizeDetectionId(selectedCard)
+      ) || latestDetection
     : latestDetection
+  const selectedSatDetectionForTab = activeShipTab
+    ? selectedSatDetectionByTab[activeShipTab] ?? null
+    : null
   const activeMapToolPanels = activeShipTab
     ? openMapToolPanelsByTab[activeShipTab] || []
     : []
@@ -1136,6 +1155,15 @@ function Myships() {
   useEffect(() => {
     setPanelFocusDetectionId(selectedDetection?.id ?? null)
   }, [selectedDetection?.id, setPanelFocusDetectionId])
+
+  useEffect(() => {
+    if (activeDetailTab !== 1 || !activeShipTab || !selectedDetection) return
+    if (!SAT_TIMELINE_DETECTION_TYPES.includes(selectedDetection.type)) return
+    setSelectedSatDetectionByTab((prev) => ({
+      ...prev,
+      [activeShipTab]: normalizeDetectionId(selectedDetection.id),
+    }))
+  }, [activeDetailTab, activeShipTab, selectedDetection?.id, selectedDetection?.type])
 
   const eventLabel = {
     ais: 'AIS',
@@ -1346,13 +1374,13 @@ function Myships() {
     TIMELINE_TIME_FILTER_OPTIONS.find(
       (option) => option.value === satTimelineTimeFilter
     )?.label || 'Max Time'
-  const satTimelineEventTypeFilterLabel =
-    SAT_TIMELINE_EVENT_TYPE_FILTER_OPTIONS.find(
-      (option) => option.value === satTimelineEventTypeFilter
-    )?.label || 'All'
+  const satTimelineDataSourceFilterLabel =
+    SAT_TIMELINE_DATA_SOURCE_FILTER_OPTIONS.find(
+      (option) => option.value === satTimelineDataSourceFilter
+    )?.label || 'All Sources'
   const satTimeFilteredDetections = useMemo(() => {
     const satDetections = activeShipDetections.filter((d) =>
-      ['light', 'dark', 'spoofing', 'ais'].includes(d.type)
+      SAT_TIMELINE_DETECTION_TYPES.includes(d.type)
     )
     if (satTimelineTimeFilter === 'all') return satDetections
 
@@ -1381,25 +1409,66 @@ function Myships() {
     })
   }, [activeShipDetections, satTimelineTimeFilter])
   const satFilteredDetections = useMemo(() => {
-    if (satTimelineEventTypeFilter === 'all') return satTimeFilteredDetections
+    if (satTimelineDataSourceFilter === 'all') return satTimeFilteredDetections
     return satTimeFilteredDetections.filter(
-      (detection) => detection.type === satTimelineEventTypeFilter
+      (detection) =>
+        getSatTimelineDataSource(detection.type) === satTimelineDataSourceFilter
     )
-  }, [satTimeFilteredDetections, satTimelineEventTypeFilter])
-  const satelliteTimelineRows = [...satFilteredDetections]
-    .sort((a, b) => {
-      const aTs = new Date(a.date).getTime()
-      const bTs = new Date(b.date).getTime()
-      const safeA = Number.isNaN(aTs) ? 0 : aTs
-      const safeB = Number.isNaN(bTs) ? 0 : bTs
-      if (safeA !== safeB) {
-        return satTimelineSortOrder === 'asc' ? safeA - safeB : safeB - safeA
-      }
-      const aId = Number(a.id) || 0
-      const bId = Number(b.id) || 0
-      return satTimelineSortOrder === 'asc' ? aId - bId : bId - aId
-    })
-    .map((d) => {
+  }, [satTimeFilteredDetections, satTimelineDataSourceFilter])
+  const focusedSatDetectionId = [activeDetectionId, selectedDetection?.id]
+    .map((id) => (id == null ? null : normalizeDetectionId(id)))
+    .find(
+      (normalizedId) =>
+        normalizedId != null &&
+        satFilteredDetections.some(
+          (detection) => normalizeDetectionId(detection.id) === normalizedId
+        )
+    )
+  const compareSatTimelineDetections = (a, b) => {
+    const aTs = new Date(a.date).getTime()
+    const bTs = new Date(b.date).getTime()
+    const safeA = Number.isNaN(aTs) ? 0 : aTs
+    const safeB = Number.isNaN(bTs) ? 0 : bTs
+    if (safeA !== safeB) {
+      return satTimelineSortOrder === 'asc' ? safeA - safeB : safeB - safeA
+    }
+    const aId = Number(a.id) || 0
+    const bId = Number(b.id) || 0
+    return satTimelineSortOrder === 'asc' ? aId - bId : bId - aId
+  }
+  const sortedSatFilteredDetections = [...satFilteredDetections].sort(
+    compareSatTimelineDetections
+  )
+  const shouldPrioritizeStsSatCard =
+    timelineEventTypeFilter === 'ship-to-ship' ||
+    selectedDetection?.type === 'sts' ||
+    selectedDetection?.type === 'sts-ais'
+  const normalizedSelectedSatDetectionForTab =
+    selectedSatDetectionForTab != null &&
+    satFilteredDetections.some(
+      (detection) =>
+        normalizeDetectionId(detection.id) ===
+        normalizeDetectionId(selectedSatDetectionForTab)
+    )
+      ? normalizeDetectionId(selectedSatDetectionForTab)
+      : null
+  const stsPreferredSatDetectionId =
+    shouldPrioritizeStsSatCard
+      ? normalizeDetectionId(
+          sortedSatFilteredDetections.find((detection) =>
+            STS_PREFERRED_SAT_TIMELINE_DETECTION_TYPES.includes(detection.type)
+          )?.id || sortedSatFilteredDetections[0]?.id
+        )
+      : null
+  const selectedSatDetectionId =
+    shouldPrioritizeStsSatCard
+      ? stsPreferredSatDetectionId ||
+        normalizedSelectedSatDetectionForTab ||
+        focusedSatDetectionId ||
+        null
+      : normalizedSelectedSatDetectionForTab || focusedSatDetectionId || null
+  const shouldUseStsActiveSatImage = shouldPrioritizeStsSatCard
+  const satelliteTimelineRows = sortedSatFilteredDetections.map((d) => {
       const latValue =
         typeof d.lat === 'number'
           ? d.lat.toFixed(4)
@@ -1412,15 +1481,18 @@ function Myships() {
       const capturedTime = Number.isNaN(parsedDate.getTime())
         ? d.date
         : parsedDate.toISOString()
-      const imageIndex = getStableArrayIndex(
-        `${activeShip?.id || 'ship'}-${d.id}-${d.date}-${d.type}`,
-        SATELLITE_TIMELINE_IMAGES.length
-      )
+      const isSelectedDetection =
+        selectedSatDetectionId != null &&
+        normalizeDetectionId(d.id) === selectedSatDetectionId
       return {
         id: `${activeShip?.id || 'ship'}-sat-${d.id}`,
         detectionId: d.id,
+        isSelected: isSelectedDetection,
         detectionDateKey: getDetectionDateKey(d.date),
-        image: SATELLITE_TIMELINE_IMAGES[imageIndex],
+        image:
+          shouldUseStsActiveSatImage && isSelectedDetection
+            ? satImageD
+            : getSatTimelineImageForDetection(d),
         capturedTime,
         latitude: latValue,
         longitude: lonValue,
@@ -3139,7 +3211,10 @@ function Myships() {
                                 ? 'sts'
                                 : undefined
                             }
-                            selected={selectedCard === det.id}
+                            selected={
+                              normalizeDetectionId(selectedCard) ===
+                              normalizeDetectionId(det.id)
+                            }
                             isPreviewed={previewCards.includes(det.id)}
                             onTogglePreview={() => {
                               const nextPreviewCards = previewCards.includes(
@@ -3347,7 +3422,7 @@ function Myships() {
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              {`Event type: ${satTimelineEventTypeFilterLabel}`}
+                              {`Data Source: ${satTimelineDataSourceFilterLabel}`}
                             </Text>
                             <ChevronDown
                               style={{
@@ -3372,12 +3447,12 @@ function Myships() {
                             },
                           }}
                         >
-                          {SAT_TIMELINE_EVENT_TYPE_FILTER_OPTIONS.map((option) => (
+                          {SAT_TIMELINE_DATA_SOURCE_FILTER_OPTIONS.map((option) => (
                             <Menu.Item
                               key={option.value}
                               onClick={() => {
                                 updateTabState(
-                                  'satTimelineEventTypeFilter',
+                                  'satTimelineDataSourceFilter',
                                   option.value
                                 )
                                 setSatTimelineEventTypeMenuOpened(false)
@@ -3387,12 +3462,12 @@ function Myships() {
                                   color: '#fff',
                                   fontSize: 12,
                                   fontWeight:
-                                    satTimelineEventTypeFilter === option.value
+                                    satTimelineDataSourceFilter === option.value
                                       ? 700
                                       : 500,
                                   padding: '12px 16px',
                                   background:
-                                    satTimelineEventTypeFilter === option.value
+                                    satTimelineDataSourceFilter === option.value
                                       ? '#393C56'
                                       : 'transparent',
                                   borderRadius: 0,
@@ -3466,22 +3541,35 @@ function Myships() {
                         {satelliteTimelineRows.map((item) => (
                           <Box
                             key={item.id}
-                            onClick={() =>
+                            onClick={() => {
+                              if (activeShipTab) {
+                                setSelectedSatDetectionByTab((prev) => ({
+                                  ...prev,
+                                  [activeShipTab]: normalizeDetectionId(
+                                    item.detectionId
+                                  ),
+                                }))
+                              }
                               applyGoToDate(
                                 item.detectionDateKey,
-                                item.detectionId
+                                item.detectionId,
+                                { preferExactDetection: true }
                               )
-                            }
+                            }}
                             onMouseEnter={() =>
                               setHoveredSatelliteCardId(item.id)
                             }
                             onMouseLeave={() => setHoveredSatelliteCardId(null)}
                             style={{
                               minWidth: 0,
-                              border: '1px solid #3D456B',
+                              border: item.isSelected
+                                ? '1px solid #0094FF'
+                                : '1px solid #3D456B',
                               borderRadius: 4,
                               background:
-                                hoveredSatelliteCardId === item.id
+                                item.isSelected
+                                  ? '#262947'
+                                  : hoveredSatelliteCardId === item.id
                                   ? '#262947'
                                   : '#24263C',
                               padding: 10,
