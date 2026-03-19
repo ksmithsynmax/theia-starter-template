@@ -71,7 +71,7 @@ function Layout() {
                 backgroundColor: '#24263c',
                 border: '1px solid #4B5166',
                 borderRadius: '4px 4px 0 0',
-                borderBottom: '1px solid #24263C',
+                borderBottom: '1px solid #4B5166',
               }}
             >
               <Plus size={26} color="white" />
@@ -86,7 +86,7 @@ function Layout() {
                 height: 50,
                 backgroundColor: '#24263c',
                 border: '1px solid #4B5166',
-                borderTop: 'none',
+                borderTop: '0',
                 borderRadius: '0 0 4px 4px',
               }}
             >

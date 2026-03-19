@@ -7,14 +7,13 @@ import {
   User03,
   Edit01,
   SearchMd,
-  Calendar,
-  RefreshCcw01,
   BarChart01,
   ChevronDown,
   Save01,
 } from '@untitledui/icons'
 
 import TheiaLogo from '../assets/TheiaLogo.svg'
+import TopNavCalendar from './TopNavCalendar'
 
 const TopNav = () => {
   return (
@@ -87,13 +86,7 @@ const TopNav = () => {
             Search
           </Text>
         </Box>
-        <Box component="button" type="button" className="topnav-toolbar-btn">
-          <Calendar color="white" size={20} />
-          <Text variant="body1" c="#fff" style={{ margin: '0 8px' }}>
-            Live
-          </Text>
-          <RefreshCcw01 color="white" size={20} />
-        </Box>
+        <TopNavCalendar />
         <Box component="button" type="button" className="topnav-toolbar-btn">
           <BarChart01 color="white" size={20} />
           <Text variant="body1" c="#fff" style={{ margin: '0 8px' }}>
