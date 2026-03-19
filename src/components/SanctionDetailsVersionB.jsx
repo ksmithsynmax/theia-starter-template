@@ -123,6 +123,11 @@ const SanctionDetailsVersionB = ({
     Array.isArray(events) && events.length > 0 ? events : DEFAULT_EVENTS
   const safeBadgeStyles = { ...DEFAULT_BADGE_STYLES, ...(badgeStyles || {}) }
   const safeCountryFlags = { ...DEFAULT_COUNTRY_FLAGS, ...(countryFlags || {}) }
+  const sanctionDates = safeEvents
+    .filter((event) => event.eventType === 'sanctions' && event.effectiveDate)
+    .map((event) => event.effectiveDate)
+  const sanctionDateLabel =
+    safeOverview.sanctionDate || sanctionDates[0] || 'No info'
   const hasExternalExpandedState = typeof setExpandedEventId === 'function'
   const resolvedExpandedEventId = hasExternalExpandedState
     ? expandedEventId
@@ -149,11 +154,18 @@ const SanctionDetailsVersionB = ({
           marginBottom: 12,
           display: 'flex',
           flexDirection: 'column',
-          gap: 8,
+          gap: 14,
         }}
       >
-        <Box
-          >
+        <Box>
+          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}>
+            Date of sanction
+          </Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
+            {sanctionDateLabel}
+          </Text>
+        </Box>
+        <Box>
           <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}>
             Program(s)
           </Text>
@@ -180,7 +192,14 @@ const SanctionDetailsVersionB = ({
             <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
               Russia Sanctions 2019
             </Text>
-            <Text style={{ color: '#888F9E', fontSize: 14 }}>{'\u2022'}</Text>
+            <Box
+              style={{
+                width: 1,
+                height: 12,
+                background: '#4B5070',
+                margin: '0 2px',
+              }}
+            />
             <Box style={{ background: '#393C56', borderRadius: 4, padding: '4px 8px' }}>
               <Text
                 style={{

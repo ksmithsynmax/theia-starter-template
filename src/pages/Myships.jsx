@@ -308,7 +308,9 @@ function Myships() {
       return
     }
     setDetailTabsOverflowLeft(el.scrollLeft > 0)
-    setDetailTabsOverflowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+    setDetailTabsOverflowRight(
+      el.scrollLeft + el.clientWidth < el.scrollWidth - 1
+    )
   }, [])
 
   const animateTabScrollTo = useCallback(
@@ -637,7 +639,8 @@ function Myships() {
         timelineTimeFilter: prev[activeShipTab]?.timelineTimeFilter ?? 'all',
         timelineEventTypeFilter:
           prev[activeShipTab]?.timelineEventTypeFilter ?? 'all',
-        satTimelineTimeFilter: prev[activeShipTab]?.satTimelineTimeFilter ?? 'all',
+        satTimelineTimeFilter:
+          prev[activeShipTab]?.satTimelineTimeFilter ?? 'all',
         [key]: value,
       },
     }))
@@ -959,7 +962,9 @@ function Myships() {
       if (item.kind !== 'detection') return false
 
       if (timelineEventTypeFilter === 'ship-to-ship') {
-        return item.detection?.type === 'sts' || item.detection?.type === 'sts-ais'
+        return (
+          item.detection?.type === 'sts' || item.detection?.type === 'sts-ais'
+        )
       }
       if (timelineEventTypeFilter === 'spoofing') {
         return item.detection?.type === 'spoofing'
@@ -2620,7 +2625,9 @@ function Myships() {
                     />
                   </Box>
                 )}
-                <Box style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                <Box
+                  style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
+                >
                   {detailTabsOverflowLeft && (
                     <Box
                       style={{
@@ -2850,7 +2857,10 @@ function Myships() {
                             <Menu.Item
                               key={option.value}
                               onClick={() => {
-                                updateTabState('timelineTimeFilter', option.value)
+                                updateTabState(
+                                  'timelineTimeFilter',
+                                  option.value
+                                )
                                 setTimelineTimeMenuOpened(false)
                               }}
                               styles={{
@@ -2858,7 +2868,9 @@ function Myships() {
                                   color: '#fff',
                                   fontSize: 12,
                                   fontWeight:
-                                    timelineTimeFilter === option.value ? 700 : 500,
+                                    timelineTimeFilter === option.value
+                                      ? 700
+                                      : 500,
                                   padding: '12px 16px',
                                   background:
                                     timelineTimeFilter === option.value
@@ -2928,7 +2940,10 @@ function Myships() {
                             <Menu.Item
                               key={option.value}
                               onClick={() => {
-                                updateTabState('timelineEventTypeFilter', option.value)
+                                updateTabState(
+                                  'timelineEventTypeFilter',
+                                  option.value
+                                )
                                 setTimelineEventTypeMenuOpened(false)
                               }}
                               styles={{
@@ -2936,7 +2951,9 @@ function Myships() {
                                   color: '#fff',
                                   fontSize: 12,
                                   fontWeight:
-                                    timelineEventTypeFilter === option.value ? 700 : 500,
+                                    timelineEventTypeFilter === option.value
+                                      ? 700
+                                      : 500,
                                   padding: '12px 16px',
                                   background:
                                     timelineEventTypeFilter === option.value
@@ -3168,7 +3185,10 @@ function Myships() {
                             <Menu.Item
                               key={option.value}
                               onClick={() => {
-                                updateTabState('satTimelineTimeFilter', option.value)
+                                updateTabState(
+                                  'satTimelineTimeFilter',
+                                  option.value
+                                )
                                 setSatTimelineTimeMenuOpened(false)
                               }}
                               styles={{
@@ -3176,7 +3196,9 @@ function Myships() {
                                   color: '#fff',
                                   fontSize: 12,
                                   fontWeight:
-                                    satTimelineTimeFilter === option.value ? 700 : 500,
+                                    satTimelineTimeFilter === option.value
+                                      ? 700
+                                      : 500,
                                   padding: '12px 16px',
                                   background:
                                     satTimelineTimeFilter === option.value
@@ -3253,7 +3275,10 @@ function Myships() {
                           <Box
                             key={item.id}
                             onClick={() =>
-                              applyGoToDate(item.detectionDateKey, item.detectionId)
+                              applyGoToDate(
+                                item.detectionDateKey,
+                                item.detectionId
+                              )
                             }
                             onMouseEnter={() =>
                               setHoveredSatelliteCardId(item.id)
@@ -3268,7 +3293,8 @@ function Myships() {
                                   ? '#262947'
                                   : '#24263C',
                               padding: 10,
-                              transition: 'background 140ms ease, border-color 140ms ease',
+                              transition:
+                                'background 140ms ease, border-color 140ms ease',
                               boxSizing: 'border-box',
                             }}
                           >
@@ -3335,8 +3361,8 @@ function Myships() {
                       <Text
                         style={{
                           color: '#8D95AA',
-                          fontSize: 11,
-                          fontWeight: 600,
+                          fontSize: 12,
+                          fontWeight: 400,
                           lineHeight: 1.2,
                         }}
                       >
@@ -3388,8 +3414,8 @@ function Myships() {
                       <Text
                         style={{
                           color: '#8D95AA',
-                          fontSize: 11,
-                          fontWeight: 600,
+                          fontSize: 12,
+                          fontWeight: 400,
                           lineHeight: 1.2,
                         }}
                       >
@@ -3450,7 +3476,8 @@ function Myships() {
                             <Box
                               style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                gridTemplateColumns:
+                                  'repeat(3, minmax(0, 1fr))',
                                 gap: 10,
                               }}
                             >
@@ -3784,4 +3811,3 @@ function Myships() {
 }
 
 export default Myships
-
