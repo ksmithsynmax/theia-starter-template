@@ -45,7 +45,7 @@ const LeftNav = ({ onNavClick }) => {
           key={index}
           icon={item.icon}
           to={item.to}
-          // onNavClick={onNavClick}
+          onNavClick={onNavClick}
         />
       ))}
     </Box>

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
+import { Box, Text } from '@mantine/core'
+import { XClose } from '@untitledui/icons'
 import { useShipContext } from '../context/ShipContext'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
@@ -62,21 +64,50 @@ const getMarkerDateLabel = (dateStr) => {
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
+const MAP_TOOL_POPUP_LAYOUT = {
+  'extended-path': { top: 82, right: 28, width: 450 },
+  'estimated-location': { top: 156, right: 28, width: 450 },
+  'future-path-prediction': { top: 230, right: 28, width: 450 },
+}
+
+const MAP_TOOL_POPUP_TITLES = {
+  'extended-path': 'Extended path',
+  'estimated-location': 'Estimated Location',
+  'future-path-prediction': 'Future Path Prediction',
+}
+
+const getDefaultPopupPosition = (layout, containerWidth) => ({
+  x: Math.max(12, containerWidth - layout.width - layout.right),
+  y: layout.top,
+})
+
 const Map = ({ onDetectionClick }) => {
   const {
     activeDetectionId,
     previewDetectionId,
     panelFocusDetectionId,
     mapDate,
+    activeShipTab,
     shipTabs,
     runtimeDetections,
+    openMapToolPanelsByTab,
+    closeMapToolPanel,
   } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
   const markersRef = useRef({})
   const onDetectionClickRef = useRef(onDetectionClick)
   const [mapReady, setMapReady] = useState(false)
+  const [popupPositions, setPopupPositions] = useState({})
+  const [dragState, setDragState] = useState(null)
+  const popupPositionsRef = useRef({})
   onDetectionClickRef.current = onDetectionClick
+  const openToolPanels = activeShipTab
+    ? openMapToolPanelsByTab[activeShipTab] || []
+    : []
+  const mapWidth =
+    mapContainer.current?.clientWidth ||
+    (typeof window !== 'undefined' ? window.innerWidth : 1280)
 
   // Initialize map once.
   useEffect(() => {
@@ -260,18 +291,140 @@ const Map = ({ onDetectionClick }) => {
     runtimeDetections,
   ])
 
+  useEffect(() => {
+    popupPositionsRef.current = popupPositions
+  }, [popupPositions])
+
+  useEffect(() => {
+    if (!activeShipTab) return
+    setPopupPositions((prev) => {
+      let changed = false
+      const next = { ...prev }
+      openToolPanels.forEach((toolId) => {
+        if (!MAP_TOOL_POPUP_LAYOUT[toolId]) return
+        if (!next[toolId]) {
+          const layout = MAP_TOOL_POPUP_LAYOUT[toolId]
+          const defaultPosition = getDefaultPopupPosition(layout, mapWidth)
+          next[toolId] = {
+            x: defaultPosition.x,
+            y: defaultPosition.y,
+          }
+          changed = true
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [activeShipTab, openToolPanels, mapWidth])
+
+  useEffect(() => {
+    if (!dragState) return undefined
+
+    const handleMouseMove = (event) => {
+      const nextX = Math.max(12, event.clientX - dragState.offsetX)
+      const nextY = Math.max(12, event.clientY - dragState.offsetY)
+      setPopupPositions((prev) => ({
+        ...prev,
+        [dragState.toolId]: { x: nextX, y: nextY },
+      }))
+    }
+
+    const handleMouseUp = () => {
+      setDragState(null)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [dragState])
+
   return (
-    <div
-      ref={mapContainer}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        outline: 'none',
-      }}
-    />
+    <>
+      <div
+        ref={mapContainer}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          outline: 'none',
+        }}
+      />
+      <Box
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+      >
+        {openToolPanels
+          .filter((toolId) => MAP_TOOL_POPUP_LAYOUT[toolId])
+          .map((toolId) => {
+            const layout = MAP_TOOL_POPUP_LAYOUT[toolId]
+            const defaultPosition = getDefaultPopupPosition(layout, mapWidth)
+            const title = MAP_TOOL_POPUP_TITLES[toolId] || 'Tool'
+            return (
+              <Box
+                key={toolId}
+                style={{
+                  position: 'absolute',
+                  top: popupPositions[toolId]?.y ?? defaultPosition.y,
+                  left: popupPositions[toolId]?.x ?? defaultPosition.x,
+                  width: layout.width,
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  background: '#0A0F35',
+                  border: '1px solid #393C56',
+                  pointerEvents: 'auto',
+                }}
+              >
+                <Box
+                  style={{
+                    height: 58,
+                    padding: '0 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: '#252846',
+                    cursor: dragState?.toolId === toolId ? 'grabbing' : 'grab',
+                  }}
+                  onMouseDown={(event) => {
+                    if (event.button !== 0) return
+                    const currentPosition =
+                      popupPositionsRef.current[toolId] || {
+                        x: defaultPosition.x,
+                        y: defaultPosition.y,
+                      }
+                    setDragState({
+                      toolId,
+                      offsetX: event.clientX - currentPosition.x,
+                      offsetY: event.clientY - currentPosition.y,
+                    })
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 500 }}>
+                    {title}
+                  </Text>
+                  <XClose
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={() => closeMapToolPanel(activeShipTab, toolId)}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      color: '#FFFFFF',
+                      cursor: 'pointer',
+                    }}
+                  />
+                </Box>
+              </Box>
+            )
+          })}
+      </Box>
+    </>
   )
 }
 

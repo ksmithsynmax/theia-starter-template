@@ -6,6 +6,7 @@ const ShipContext = createContext()
 export function ShipProvider({ children }) {
   const [shipTabs, setShipTabs] = useState([])
   const [activeShipTab, setActiveShipTab] = useState(null)
+  const [openMapToolPanelsByTab, setOpenMapToolPanelsByTab] = useState({})
   const [detailPanelOpen, setDetailPanelOpen] = useState(false)
   const [selectedDetectionId, setSelectedDetectionId] = useState(null)
 
@@ -63,12 +64,40 @@ export function ShipProvider({ children }) {
       }
       return updated
     })
+    setOpenMapToolPanelsByTab((prev) => {
+      if (!prev[id]) return prev
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
   }, [activeShipTab])
 
   const closeAllTabs = useCallback(() => {
     setShipTabs([])
     setActiveShipTab(null)
     setDetailPanelOpen(false)
+    setOpenMapToolPanelsByTab({})
+  }, [])
+
+  const toggleMapToolPanel = useCallback((tabId, toolId) => {
+    if (!tabId || !toolId) return
+    setOpenMapToolPanelsByTab((prev) => {
+      const currentTabTools = prev[tabId] || []
+      const nextTabTools = currentTabTools.includes(toolId)
+        ? currentTabTools.filter((id) => id !== toolId)
+        : [...currentTabTools, toolId]
+      return { ...prev, [tabId]: nextTabTools }
+    })
+  }, [])
+
+  const closeMapToolPanel = useCallback((tabId, toolId) => {
+    if (!tabId || !toolId) return
+    setOpenMapToolPanelsByTab((prev) => {
+      const currentTabTools = prev[tabId] || []
+      if (!currentTabTools.includes(toolId)) return prev
+      const nextTabTools = currentTabTools.filter((id) => id !== toolId)
+      return { ...prev, [tabId]: nextTabTools }
+    })
   }, [])
 
   return (
@@ -77,6 +106,9 @@ export function ShipProvider({ children }) {
         shipTabs,
         activeShipTab,
         setActiveShipTab,
+        openMapToolPanelsByTab,
+        toggleMapToolPanel,
+        closeMapToolPanel,
         openShipTab,
         openStsTab,
         closeShipTab,

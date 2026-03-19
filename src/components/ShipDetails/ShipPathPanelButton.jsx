@@ -8,7 +8,8 @@ const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick })
 
   return (
     <Box
-      onClick={() => {
+      onClick={(event) => {
+        event.stopPropagation()
         if (!disabled) onClick?.()
       }}
       onMouseEnter={() => {
@@ -39,7 +40,7 @@ const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick })
         boxShadow: disabled
           ? 'none'
           : active
-            ? '0 0 0 1px rgba(0, 148, 255, 0.65), 0 0 24px 0 rgba(0, 148, 255, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.2)'
+            ? '0 0 0 1px rgba(0, 148, 255, 0.55), 0 0 24px 0 rgba(0, 148, 255, 0.35)'
             : '0 0 20px 0 rgba(0, 0, 0, 0.25)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -57,9 +58,7 @@ const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick })
             left: 0,
             right: 0,
             bottom: 0,
-            background: active
-              ? 'rgba(0, 148, 255, 0.3)'
-              : 'rgba(0, 148, 255, 0.15)',
+            background: active ? 'rgba(0, 148, 255, 0.24)' : 'rgba(0, 148, 255, 0.15)',
             borderRadius: 4,
             pointerEvents: 'none',
           }}

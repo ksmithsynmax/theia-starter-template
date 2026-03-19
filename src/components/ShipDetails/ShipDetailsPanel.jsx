@@ -59,6 +59,8 @@ const ShipDetailsPanel = ({
   flashEnabled,
   unattributed,
   onToolsVisibleChange,
+  onToolAction,
+  activeToolIds = [],
 }) => {
   const eventType = selectedEvent?.type
   const flashColor = unattributed ? eventColorMap.unattributed : (eventColorMap[eventType] || null)
@@ -67,12 +69,9 @@ const ShipDetailsPanel = ({
   const [flashing, setFlashing] = useState(false)
   const [toolsVisible, setToolsVisible] = useState(true)
   const [toolsToggleHovered, setToolsToggleHovered] = useState(false)
-  const [activeToolId, setActiveToolId] = useState(null)
   const prevEventRef = useRef(selectedEvent?.id)
 
-  const handleToolButtonClick = (toolId) => {
-    setActiveToolId((prev) => (prev === toolId ? null : toolId))
-  }
+  const handleToolButtonClick = (toolId) => onToolAction?.(toolId)
 
   useEffect(() => {
     if (flashEnabled && selectedEvent?.id && selectedEvent.id !== prevEventRef.current) {
@@ -191,66 +190,63 @@ const ShipDetailsPanel = ({
                 </Radio.Group>
               </Box>
             )}
-            <Box
-              style={{ display: 'flex', gap: 6, marginBottom: 6, marginTop: unattributed ? 0 : 16 }}
-            >
-              <ShipPathPanelButton
-                label="View Extended Path"
-                icon={<ViewExtendedPathIcon />}
-                disabled={unattributed}
-                active={activeToolId === 'extended-path'}
-                onClick={() => handleToolButtonClick('extended-path')}
-              />
-              <ShipPathPanelButton
-                label="View Path Playback"
-                icon={<ViewPathPlaybackIcon />}
-                disabled={unattributed}
-                active={activeToolId === 'path-playback'}
-                onClick={() => handleToolButtonClick('path-playback')}
-              />
-              <ShipPathPanelButton
-                label="Future Path Prediction"
-                icon={<FuturePathPredictionIcon />}
-                active={activeToolId === 'future-path-prediction'}
-                onClick={() => handleToolButtonClick('future-path-prediction')}
-              />
-              <ShipPathPanelButton
-                label="View Estimated Location"
-                icon={<ViewEstimatedLocationIcon />}
-                disabled={unattributed}
-                active={activeToolId === 'estimated-location'}
-                onClick={() => handleToolButtonClick('estimated-location')}
-              />
-            </Box>
-            <Box style={{ display: 'flex', gap: 6 }}>
-              <ShipPathPanelButton
-                label="Task Satellite Imagery"
-                icon={<SatelliteIcon />}
-                disabled={unattributed}
-                active={activeToolId === 'satellite-imagery'}
-                onClick={() => handleToolButtonClick('satellite-imagery')}
-              />
-              <ShipPathPanelButton
-                label="Search Similar Ship"
-                icon={<SimilarSearchIcon />}
-                disabled={unattributed}
-                active={activeToolId === 'search-similar-ship'}
-                onClick={() => handleToolButtonClick('search-similar-ship')}
-              />
-              <ShipPathPanelButton
-                label="Create Ship Alert"
-                icon={<AlertIcon />}
-                disabled={unattributed}
-                active={activeToolId === 'create-ship-alert'}
-                onClick={() => handleToolButtonClick('create-ship-alert')}
-              />
-              <ShipPathPanelButton
-                label="Download Path in XLS"
-                icon={<DownloadPathXLS />}
-                disabled={unattributed}
-                active={activeToolId === 'download-path-xls'}
-                onClick={() => handleToolButtonClick('download-path-xls')}
-              />
+            <Box style={{ marginTop: unattributed ? 0 : 8 }}>
+              <Box
+                style={{ display: 'flex', gap: 6, marginBottom: 6 }}
+              >
+                <ShipPathPanelButton
+                  label="View Extended Path"
+                  icon={<ViewExtendedPathIcon />}
+                  disabled={unattributed}
+                  active={activeToolIds.includes('extended-path')}
+                  onClick={() => handleToolButtonClick('extended-path')}
+                />
+                <ShipPathPanelButton
+                  label="View Path Playback"
+                  icon={<ViewPathPlaybackIcon />}
+                  disabled={unattributed}
+                  onClick={() => handleToolButtonClick('path-playback')}
+                />
+                <ShipPathPanelButton
+                  label="Future Path Prediction"
+                  icon={<FuturePathPredictionIcon />}
+                  active={activeToolIds.includes('future-path-prediction')}
+                  onClick={() => handleToolButtonClick('future-path-prediction')}
+                />
+                <ShipPathPanelButton
+                  label="View Estimated Location"
+                  icon={<ViewEstimatedLocationIcon />}
+                  disabled={unattributed}
+                  active={activeToolIds.includes('estimated-location')}
+                  onClick={() => handleToolButtonClick('estimated-location')}
+                />
+              </Box>
+              <Box style={{ display: 'flex', gap: 6 }}>
+                <ShipPathPanelButton
+                  label="Task Satellite Imagery"
+                  icon={<SatelliteIcon />}
+                  disabled={unattributed}
+                  onClick={() => handleToolButtonClick('satellite-imagery')}
+                />
+                <ShipPathPanelButton
+                  label="Search Similar Ship"
+                  icon={<SimilarSearchIcon />}
+                  disabled={unattributed}
+                  onClick={() => handleToolButtonClick('search-similar-ship')}
+                />
+                <ShipPathPanelButton
+                  label="Create Ship Alert"
+                  icon={<AlertIcon />}
+                  disabled={unattributed}
+                  onClick={() => handleToolButtonClick('create-ship-alert')}
+                />
+                <ShipPathPanelButton
+                  label="Download Path in XLS"
+                  icon={<DownloadPathXLS />}
+                  disabled={unattributed}
+                  onClick={() => handleToolButtonClick('download-path-xls')}
+                />
+              </Box>
             </Box>
           </Box>
           </>

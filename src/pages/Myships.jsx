@@ -65,6 +65,13 @@ const TIMELINE_EVENT_TYPE_FILTER_OPTIONS = [
   { value: 'spoofing', label: 'Spoofing' },
   { value: 'ais-dark', label: 'AIS Dark' },
 ]
+const SAT_TIMELINE_EVENT_TYPE_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'ais', label: 'AIS' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'AIS Dark' },
+  { value: 'spoofing', label: 'Spoofing' },
+]
 const formatPrototypeDetectionDate = (date) => {
   const d = date instanceof Date ? date : new Date(date)
   return `${d.toLocaleDateString('en-US', {
@@ -228,6 +235,8 @@ function Myships() {
     setPanelFocusDetectionId,
     runtimeDetections,
     setRuntimeDetections,
+    openMapToolPanelsByTab,
+    toggleMapToolPanel,
   } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
@@ -245,6 +254,7 @@ function Myships() {
   const [hoveredCopyField, setHoveredCopyField] = useState(null)
   const [hoveredSatelliteCardId, setHoveredSatelliteCardId] = useState(null)
   const [satSortByTab, setSatSortByTab] = useState({})
+  const [timelineSortByTab, setTimelineSortByTab] = useState({})
   const [newLastKnownDotByShip, setNewLastKnownDotByShip] = useState({})
   const [pendingLastKnownDetectionByShip, setPendingLastKnownDetectionByShip] =
     useState({})
@@ -267,6 +277,8 @@ function Myships() {
   const [timelineEventTypeMenuOpened, setTimelineEventTypeMenuOpened] =
     useState(false)
   const [satTimelineTimeMenuOpened, setSatTimelineTimeMenuOpened] =
+    useState(false)
+  const [satTimelineEventTypeMenuOpened, setSatTimelineEventTypeMenuOpened] =
     useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
@@ -614,6 +626,7 @@ function Myships() {
     timelineTimeFilter: 'all',
     timelineEventTypeFilter: 'all',
     satTimelineTimeFilter: 'all',
+    satTimelineEventTypeFilter: 'all',
   }
   const selectedCard = currentTabState.selectedCard
   const previewCards = Array.isArray(currentTabState.previewCards)
@@ -626,7 +639,10 @@ function Myships() {
   const timelineEventTypeFilter =
     currentTabState.timelineEventTypeFilter || 'all'
   const satTimelineTimeFilter = currentTabState.satTimelineTimeFilter || 'all'
+  const satTimelineEventTypeFilter =
+    currentTabState.satTimelineEventTypeFilter || 'all'
   const satTimelineSortOrder = satSortByTab[activeShipTab] ?? 'desc'
+  const timelineSortOrder = timelineSortByTab[activeShipTab] ?? 'desc'
 
   const updateTabState = (key, value) => {
     setTabState((prev) => ({
@@ -641,6 +657,8 @@ function Myships() {
           prev[activeShipTab]?.timelineEventTypeFilter ?? 'all',
         satTimelineTimeFilter:
           prev[activeShipTab]?.satTimelineTimeFilter ?? 'all',
+        satTimelineEventTypeFilter:
+          prev[activeShipTab]?.satTimelineEventTypeFilter ?? 'all',
         [key]: value,
       },
     }))
@@ -927,6 +945,12 @@ function Myships() {
     TIMELINE_EVENT_TYPE_FILTER_OPTIONS.find(
       (option) => option.value === timelineEventTypeFilter
     )?.label || 'All Event Types'
+  const timelineEventTypeDisplayLabel =
+    timelineEventTypeFilter === 'all' ? 'All' : timelineEventTypeFilterLabel
+  const timelineSortLabel =
+    timelineSortOrder === 'desc'
+      ? 'Sort by: Date (Newest)'
+      : 'Sort by: Date (Oldest)'
   const timeFilteredTimelineItems = useMemo(() => {
     if (timelineTimeFilter === 'all') return timelineItems
 
@@ -975,6 +999,13 @@ function Myships() {
       return true
     })
   }, [timeFilteredTimelineItems, timelineEventTypeFilter])
+  const sortedFilteredTimelineItems = useMemo(
+    () =>
+      [...filteredTimelineItems].sort((a, b) =>
+        timelineSortOrder === 'asc' ? a.sortTs - b.sortTs : b.sortTs - a.sortTs
+      ),
+    [filteredTimelineItems, timelineSortOrder]
+  )
 
   const latestDetection = activeShipDetections[0] || null
   const latestAisDetection =
@@ -1098,6 +1129,9 @@ function Myships() {
   const selectedDetection = selectedCard
     ? activeShipDetections.find((d) => d.id === selectedCard) || latestDetection
     : latestDetection
+  const activeMapToolPanels = activeShipTab
+    ? openMapToolPanelsByTab[activeShipTab] || []
+    : []
 
   useEffect(() => {
     setPanelFocusDetectionId(selectedDetection?.id ?? null)
@@ -1112,6 +1146,19 @@ function Myships() {
     'sts-ais': 'Ship-to-Ship',
     unattributed: 'Unattributed',
   }
+
+  const MULTI_SELECT_PANEL_TOOLS = new Set([
+    'extended-path',
+    'future-path-prediction',
+    'estimated-location',
+  ])
+  const handleShipToolAction = useCallback(
+    (toolId) => {
+      if (!activeShipTab || !MULTI_SELECT_PANEL_TOOLS.has(toolId)) return
+      toggleMapToolPanel(activeShipTab, toolId)
+    },
+    [activeShipTab, toggleMapToolPanel]
+  )
 
   const navigateToDetection = (targetDetection) => {
     if (!targetDetection) return
@@ -1299,6 +1346,10 @@ function Myships() {
     TIMELINE_TIME_FILTER_OPTIONS.find(
       (option) => option.value === satTimelineTimeFilter
     )?.label || 'Max Time'
+  const satTimelineEventTypeFilterLabel =
+    SAT_TIMELINE_EVENT_TYPE_FILTER_OPTIONS.find(
+      (option) => option.value === satTimelineEventTypeFilter
+    )?.label || 'All'
   const satTimeFilteredDetections = useMemo(() => {
     const satDetections = activeShipDetections.filter((d) =>
       ['light', 'dark', 'spoofing', 'ais'].includes(d.type)
@@ -1329,7 +1380,13 @@ function Myships() {
       return !Number.isNaN(ts) && ts >= cutoffTs
     })
   }, [activeShipDetections, satTimelineTimeFilter])
-  const satelliteTimelineRows = [...satTimeFilteredDetections]
+  const satFilteredDetections = useMemo(() => {
+    if (satTimelineEventTypeFilter === 'all') return satTimeFilteredDetections
+    return satTimeFilteredDetections.filter(
+      (detection) => detection.type === satTimelineEventTypeFilter
+    )
+  }, [satTimeFilteredDetections, satTimelineEventTypeFilter])
+  const satelliteTimelineRows = [...satFilteredDetections]
     .sort((a, b) => {
       const aTs = new Date(a.date).getTime()
       const bTs = new Date(b.date).getTime()
@@ -2524,6 +2581,8 @@ function Myships() {
                     eventIconOverride={selectedStsIcon}
                     flashEnabled={flashEnabled}
                     onToolsVisibleChange={setDetailToolsVisible}
+                    onToolAction={handleShipToolAction}
+                    activeToolIds={activeMapToolPanels}
                   />
                 )}
               </>
@@ -2543,6 +2602,8 @@ function Myships() {
                   flashEnabled={false}
                   unattributed
                   onToolsVisibleChange={setDetailToolsVisible}
+                  onToolAction={handleShipToolAction}
+                  activeToolIds={activeMapToolPanels}
                 />
               </Box>
               <Box
@@ -2798,8 +2859,9 @@ function Myships() {
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'flex-start',
-                        gap: 20,
+                        justifyContent: 'space-between',
+                        width: '100%',
+                        gap: 16,
                         marginBottom: 2,
                       }}
                     >
@@ -2824,11 +2886,12 @@ function Myships() {
                             <Text
                               style={{
                                 color: '#FFFFFF',
-                                fontSize: 12,
+                                fontSize: 10,
                                 fontWeight: 600,
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              {timelineTimeFilterLabel}
+                              {`Date: ${timelineTimeFilterLabel}`}
                             </Text>
                             <ChevronDown
                               style={{
@@ -2907,11 +2970,12 @@ function Myships() {
                             <Text
                               style={{
                                 color: '#FFFFFF',
-                                fontSize: 12,
+                                fontSize: 10,
                                 fontWeight: 600,
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              {timelineEventTypeFilterLabel}
+                              {`Event type: ${timelineEventTypeDisplayLabel}`}
                             </Text>
                             <ChevronDown
                               style={{
@@ -2969,8 +3033,49 @@ function Myships() {
                           ))}
                         </Menu.Dropdown>
                       </Menu>
+                      <Box
+                        onClick={() =>
+                          setTimelineSortByTab((prev) => ({
+                            ...prev,
+                            [activeShipTab]:
+                              (prev[activeShipTab] ?? 'desc') === 'desc'
+                                ? 'asc'
+                                : 'desc',
+                          }))
+                        }
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {timelineSortLabel}
+                        </Text>
+                        <ChevronDown
+                          style={{
+                            width: 16,
+                            height: 16,
+                            color: '#FFFFFF',
+                            transform:
+                              timelineSortOrder === 'asc'
+                                ? 'rotate(180deg)'
+                                : 'rotate(0deg)',
+                            transition: 'transform 140ms ease',
+                          }}
+                        />
+                      </Box>
                     </Box>
-                    {filteredTimelineItems.map((item) => {
+                    {sortedFilteredTimelineItems.map((item) => {
                       if (item.kind === 'context') {
                         const contextEvent = item.event
                         return (
@@ -3126,8 +3231,9 @@ function Myships() {
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'flex-start',
-                        gap: 20,
+                        justifyContent: 'space-between',
+                        width: '100%',
+                        gap: 16,
                         marginBottom: 2,
                       }}
                     >
@@ -3152,11 +3258,12 @@ function Myships() {
                             <Text
                               style={{
                                 color: '#FFFFFF',
-                                fontSize: 12,
+                                fontSize: 10,
                                 fontWeight: 600,
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              {satTimelineTimeFilterLabel}
+                              {`Date: ${satTimelineTimeFilterLabel}`}
                             </Text>
                             <ChevronDown
                               style={{
@@ -3214,6 +3321,90 @@ function Myships() {
                           ))}
                         </Menu.Dropdown>
                       </Menu>
+                      <Menu
+                        withinPortal
+                        position="top-start"
+                        middlewares={{ flip: false, shift: true }}
+                        offset={6}
+                        opened={satTimelineEventTypeMenuOpened}
+                        onChange={setSatTimelineEventTypeMenuOpened}
+                      >
+                        <Menu.Target>
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: '#FFFFFF',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {`Event type: ${satTimelineEventTypeFilterLabel}`}
+                            </Text>
+                            <ChevronDown
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: '#FFFFFF',
+                                transform: satTimelineEventTypeMenuOpened
+                                  ? 'rotate(180deg)'
+                                  : 'rotate(0deg)',
+                                transition: 'transform 140ms ease',
+                              }}
+                            />
+                          </Box>
+                        </Menu.Target>
+                        <Menu.Dropdown
+                          styles={{
+                            dropdown: {
+                              background: '#1B1D2E',
+                              border: '1px solid #393C56',
+                              minWidth: 170,
+                              padding: 0,
+                            },
+                          }}
+                        >
+                          {SAT_TIMELINE_EVENT_TYPE_FILTER_OPTIONS.map((option) => (
+                            <Menu.Item
+                              key={option.value}
+                              onClick={() => {
+                                updateTabState(
+                                  'satTimelineEventTypeFilter',
+                                  option.value
+                                )
+                                setSatTimelineEventTypeMenuOpened(false)
+                              }}
+                              styles={{
+                                item: {
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  fontWeight:
+                                    satTimelineEventTypeFilter === option.value
+                                      ? 700
+                                      : 500,
+                                  padding: '12px 16px',
+                                  background:
+                                    satTimelineEventTypeFilter === option.value
+                                      ? '#393C56'
+                                      : 'transparent',
+                                  borderRadius: 0,
+                                },
+                                itemLabel: { color: '#fff' },
+                              }}
+                            >
+                              {option.label}
+                            </Menu.Item>
+                          ))}
+                        </Menu.Dropdown>
+                      </Menu>
                       <Box
                         onClick={() =>
                           setSatSortByTab((prev) => ({
@@ -3235,13 +3426,14 @@ function Myships() {
                         <Text
                           style={{
                             color: '#FFFFFF',
-                            fontSize: 12,
+                            fontSize: 10,
                             fontWeight: 600,
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           {satTimelineSortOrder === 'desc'
-                            ? 'Sort by: Newest'
-                            : 'Sort by: Oldest'}
+                            ? 'Sort by: Date (Newest)'
+                            : 'Sort by: Date (Oldest)'}
                         </Text>
                         <ChevronDown
                           style={{
