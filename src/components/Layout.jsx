@@ -66,15 +66,14 @@ function Layout() {
               aria-label="Zoom in"
               onClick={() => mapRef.current?.zoomIn()}
               style={{
-                width: 50,
-                height: 50,
+                width: 46,
+                height: 46,
                 backgroundColor: '#24263c',
-                border: '1px solid #4B5166',
+                border: '1px solid #393C56',
                 borderRadius: '4px 4px 0 0',
-                borderBottom: '1px solid #4B5166',
               }}
             >
-              <Plus size={26} color="white" />
+              <Plus size={20} color="white" />
             </ActionIcon>
             <ActionIcon
               className="map-zoom-action-icon"
@@ -82,15 +81,15 @@ function Layout() {
               aria-label="Zoom out"
               onClick={() => mapRef.current?.zoomOut()}
               style={{
-                width: 50,
-                height: 50,
+                width: 46,
+                height: 46,
                 backgroundColor: '#24263c',
-                border: '1px solid #4B5166',
+                border: '1px solid #393C56',
                 borderTop: '0',
                 borderRadius: '0 0 4px 4px',
               }}
             >
-              <Minus size={26} color="white" />
+              <Minus size={20} color="white" />
             </ActionIcon>
           </Box>
           <ActionIcon
@@ -99,22 +98,43 @@ function Layout() {
             aria-label="Ship filter"
             onClick={() => setShipFiltersOpen((prev) => !prev)}
             style={{
-              width: 50,
-              height: 50,
+              width: 46,
+              height: 46,
               backgroundColor: '#24263c',
-              border: '1px solid #4B5166',
+              border: '1px solid #393C56',
               borderRadius: 4,
             }}
           >
-            <img src={ShipFilterIcon} alt="" style={{ width: 24, height: 24 }} />
+            <img
+              src={ShipFilterIcon}
+              alt=""
+              style={{ width: 20, height: 20 }}
+            />
           </ActionIcon>
         </Box>
-        <Box style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100%', pointerEvents: 'none' }}>
+        <Box
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            height: '100%',
+            pointerEvents: 'none',
+          }}
+        >
           <LeftNav onNavClick={handleNavClick} />
-          <Box className={`slide-panel ${panelOpen ? 'slide-panel--open' : ''}`}>
-            <Box onClick={closePanel} style={{ position: "relative"}}>
-              <Box style={{ position: "absolute", right: 0, top: 8,  cursor: "pointer" }}>
-                <CollapseButton  />
+          <Box
+            className={`slide-panel ${panelOpen ? 'slide-panel--open' : ''}`}
+          >
+            <Box onClick={closePanel} style={{ position: 'relative' }}>
+              <Box
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 8,
+                  cursor: 'pointer',
+                }}
+              >
+                <CollapseButton />
               </Box>
             </Box>
             <Box className="slide-panel-content">

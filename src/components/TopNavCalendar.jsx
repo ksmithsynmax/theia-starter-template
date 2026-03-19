@@ -19,9 +19,44 @@ const MONTH_LABELS = [
 ]
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+const toDateKey = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`
+
+const parseLocalDateKey = (value) => {
+  if (typeof value !== 'string') return null
+  const match = value.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!match) return null
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const parsed = new Date(year, month - 1, day)
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null
+  }
+  return parsed
+}
+
 const normalizeDate = (value, fallbackDate = new Date()) => {
+  if (value == null) {
+    return new Date(
+      fallbackDate.getFullYear(),
+      fallbackDate.getMonth(),
+      fallbackDate.getDate()
+    )
+  }
   if (value instanceof Date) {
     return new Date(value.getFullYear(), value.getMonth(), value.getDate())
+  }
+  const parsedFromKey = parseLocalDateKey(value)
+  if (parsedFromKey) {
+    return parsedFromKey
   }
   const parsed = new Date(value)
   if (!Number.isNaN(parsed.getTime())) {
@@ -78,6 +113,7 @@ const TopNavCalendar = () => {
   const [isEditingCalendarDate, setIsEditingCalendarDate] = useState(false)
   const [typedDate, setTypedDate] = useState(formatToolbarDate(maxDate))
   const [typedDateError, setTypedDateError] = useState(null)
+  const [hoveredDateKey, setHoveredDateKey] = useState(null)
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -98,6 +134,7 @@ const TopNavCalendar = () => {
     if (!opened) {
       setIsEditingCalendarDate(false)
       setTypedDateError(null)
+      setHoveredDateKey(null)
     }
   }, [opened])
 
@@ -141,7 +178,7 @@ const TopNavCalendar = () => {
             left: '50%',
             transform: 'translateX(-50%)',
             marginTop: 8,
-            borderRadius: 8,
+            borderRadius: 4,
             border: '1px solid #393C56',
             background: '#24263C',
             boxShadow: '0 18px 30px rgba(0, 0, 0, 0.35)',
@@ -157,11 +194,15 @@ const TopNavCalendar = () => {
               borderBottom: '1px solid #393C56',
             }}
           >
-            <Text style={{ color: '#A9B0C2', fontSize: 13, marginBottom: 8 }}>
+            <Text style={{ color: '#888F9E', fontSize: 10, marginBottom: 4 }}>
               Select date
             </Text>
             <Box
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
             >
               <Text
                 style={{
@@ -169,6 +210,7 @@ const TopNavCalendar = () => {
                   fontSize: 16,
                   fontWeight: 600,
                   lineHeight: 1.2,
+                  marginBottom: 2,
                 }}
               >
                 {formatPanelDate(selectedDate)}
@@ -224,6 +266,18 @@ const TopNavCalendar = () => {
                     },
                   }}
                 />
+                {!typedDateError && (
+                  <Text
+                    style={{
+                      marginTop: 6,
+                      color: '#fff',
+                      fontSize: 10,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    YYYY/MM/DD
+                  </Text>
+                )}
               </Box>
             )}
           </Box>
@@ -237,11 +291,33 @@ const TopNavCalendar = () => {
               onChange={(value) => {
                 const nextDate = normalizeDate(value, selectedDate)
                 if (!nextDate) return
+                if (toDateKey(nextDate) > toDateKey(maxDate)) return
                 setSelectedDate(nextDate)
                 setTypedDate(formatToolbarDate(nextDate))
                 setTypedDateError(null)
                 setOpened(false)
                 setIsEditingCalendarDate(false)
+              }}
+              getDayProps={(value) => {
+                const date = normalizeDate(value, selectedDate)
+                const key = toDateKey(date)
+                const isSelected = toDateKey(selectedDate) === key
+                const isFuture = key > toDateKey(maxDate)
+                const isHovered = !isFuture && hoveredDateKey === key
+
+                return {
+                  selected: isSelected,
+                  disabled: isFuture,
+                  onMouseEnter: () => {
+                    if (!isFuture) setHoveredDateKey(key)
+                  },
+                  onMouseLeave: () => setHoveredDateKey(null),
+                  style: {
+                    backgroundColor:
+                      isSelected || isHovered ? '#0094FF' : 'transparent',
+                    color: isFuture ? '#313754' : '#fff',
+                  },
+                }
               }}
               styles={{
                 day: {
@@ -249,32 +325,26 @@ const TopNavCalendar = () => {
                   borderRadius: '50%',
                   '&[data-outside]': {
                     color: '#fff',
+                    opacity: 1,
                   },
                   '&[data-disabled]': {
                     color: '#313754',
-                  },
-                  '&:hover': {
-                    background: '#0094FF',
-                    color: '#fff',
+                    opacity: 1,
                   },
                   '&[data-disabled]:hover': {
                     background: 'transparent',
                     color: '#313754',
+                    opacity: 1,
                   },
                 },
                 weekday: {
                   color: '#fff',
+                  fontWeight: 600,
                 },
                 calendarHeaderControl: {
                   color: '#fff',
                   background: 'transparent',
-                  borderRadius: 8,
-                  '&:hover': {
-                    background: '#0094FF',
-                  },
-                  '&:active': {
-                    background: '#0094FF',
-                  },
+                  borderRadius: 4,
                 },
                 calendarHeaderControlIcon: {
                   color: '#fff',
@@ -284,29 +354,37 @@ const TopNavCalendar = () => {
                   background: 'transparent',
                   border: 'none',
                   boxShadow: 'none',
-                  borderRadius: 8,
+                  borderRadius: 4,
                   padding: '0 22px',
                   height: 40,
-                  '&:hover': {
-                    background: '#0094FF',
-                  },
-                  '&:active': {
-                    background: '#0094FF',
-                  },
-                  '&:focus': {
-                    outline: 'none',
-                    background: '#0094FF',
-                  },
-                  '&:focus-visible': {
-                    outline: 'none',
-                    background: '#0094FF',
-                  },
+                  '&:focus': { outline: 'none' },
+                  '&:focus-visible': { outline: 'none' },
                 },
                 monthsListControl: {
                   color: '#fff',
+                  background: 'transparent',
+                  borderRadius: 4,
+                  '&:hover': {
+                    background: '#0094FF',
+                    color: '#fff',
+                  },
+                  '&:active': {
+                    background: '#0094FF',
+                    color: '#fff',
+                  },
                 },
                 yearsListControl: {
                   color: '#fff',
+                  background: 'transparent',
+                  borderRadius: 4,
+                  '&:hover': {
+                    background: '#0094FF',
+                    color: '#fff',
+                  },
+                  '&:active': {
+                    background: '#0094FF',
+                    color: '#fff',
+                  },
                 },
                 daySelected: {
                   background: '#0094FF',
@@ -326,4 +404,3 @@ const TopNavCalendar = () => {
 }
 
 export default TopNavCalendar
-

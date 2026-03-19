@@ -94,7 +94,7 @@ button:active,
 }
 
 .slide-panel--open {
-  width: 400px;
+  width: 500px;
 }
 
 .slide-panel-header {
@@ -106,8 +106,6 @@ button:active,
 }
 
 .slide-panel-close {
-
-
   background-color: transparent;
 
   cursor: pointer;
@@ -149,4 +147,35 @@ button:active,
 
 .ship-filter-checkbox .mantine-Checkbox-icon {
   color: #fff !important;
+}
+
+.datepicker-dark .mantine-DatePicker-calendarHeaderControl,
+.datepicker-dark .mantine-DatePicker-calendarHeaderLevel {
+  transition: background-color 120ms ease;
+}
+
+.datepicker-dark .mantine-DatePicker-calendarHeaderControl:hover {
+  background-color: #0094ff !important;
+}
+
+.datepicker-dark .mantine-DatePicker-calendarHeaderLevel {
+  cursor: pointer;
+}
+
+.datepicker-dark .mantine-DatePicker-calendarHeaderLevel:hover {
+  background-color: #0094ff !important;
+}
+
+.datepicker-dark .mantine-DatePicker-monthsListControl:hover,
+.datepicker-dark .mantine-DatePicker-yearsListControl:hover {
+  background-color: #0094ff !important;
+  color: #ffffff !important;
+}
+
+.datepicker-dark .mantine-DatePicker-day[data-outside],
+.datepicker-dark
+  .mantine-DatePicker-monthCell[data-outside]
+  .mantine-DatePicker-day {
+  color: #ffffff !important;
+  opacity: 1 !important;
 }
