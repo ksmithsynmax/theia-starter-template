@@ -179,3 +179,21 @@ button:active,
   color: #ffffff !important;
   opacity: 1 !important;
 }
+
+.password-gate {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #101226;
+}
+
+.password-gate-card {
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  border: 1px solid #393c56;
+  border-radius: 8px;
+  background: #24263c;
+  padding: 20px;
+}
