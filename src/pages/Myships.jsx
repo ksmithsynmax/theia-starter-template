@@ -3155,11 +3155,16 @@ function Myships() {
                         />
                       </Box>
                     </Box>
-                    {sortedFilteredTimelineItems.map((item) => {
+                    {sortedFilteredTimelineItems.map((item, index) => {
+                      const isLastTimelineItem =
+                        index === sortedFilteredTimelineItems.length - 1
                       if (item.kind === 'context') {
                         const contextEvent = item.event
                         return (
-                          <Box key={contextEvent.id}>
+                          <Box
+                            key={contextEvent.id}
+                            style={{ marginBottom: isLastTimelineItem ? 0 : 8 }}
+                          >
                             <EventTimelineCard
                               date={contextEvent.dateLabel}
                               variant={contextEvent.variant}
@@ -3209,6 +3214,7 @@ function Myships() {
                           ref={(el) => {
                             cardRefs.current[det.id] = el
                           }}
+                          style={{ marginBottom: isLastTimelineItem ? 0 : 8 }}
                         >
                           <EventTimelineCard
                             date={det.date}
