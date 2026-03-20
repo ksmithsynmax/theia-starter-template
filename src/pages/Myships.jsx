@@ -281,6 +281,7 @@ function Myships() {
     useState(false)
   const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
+  const satCardRefs = useRef({})
   const scrollContainerRef = useRef(null)
   const tabScrollRef = useRef(null)
   const detailTabScrollRef = useRef(null)
@@ -1066,13 +1067,6 @@ function Myships() {
   }, [activeDetailTab, detailTabs.length])
 
   useEffect(() => {
-    if (activeDetailTab !== 1) return
-    const container = scrollContainerRef.current
-    if (!container) return
-    container.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [activeDetailTab, activeShipTab])
-
-  useEffect(() => {
     if (!activeShipId) return
     if (newLastKnownDotByShip[activeShipId]) return
     if (pendingLastKnownDetectionByShip[activeShipId]) return
@@ -1470,6 +1464,33 @@ function Myships() {
       focusedSatDetectionId ||
       null
     : normalizedSelectedSatDetectionForTab || focusedSatDetectionId || null
+
+  useEffect(() => {
+    if (activeDetailTab !== 1) return
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    if (selectedSatDetectionId == null) {
+      container.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    const selectedCard =
+      satCardRefs.current[normalizeDetectionId(selectedSatDetectionId)]
+    if (!selectedCard) return
+
+    const frame = window.requestAnimationFrame(() => {
+      const containerRect = container.getBoundingClientRect()
+      const cardRect = selectedCard.getBoundingClientRect()
+      const topOffset = 64
+      const absoluteCardTop =
+        container.scrollTop + (cardRect.top - containerRect.top)
+      const targetTop = Math.max(0, absoluteCardTop - topOffset)
+      container.scrollTo({ top: targetTop, behavior: 'smooth' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [activeDetailTab, activeShipTab, selectedSatDetectionId])
+
   const shouldUseStsActiveSatImage = shouldPrioritizeStsSatCard
   const satelliteTimelineRows = sortedSatFilteredDetections.map((d) => {
     const latValue =
@@ -3564,6 +3585,14 @@ function Myships() {
                         {satelliteTimelineRows.map((item) => (
                           <Box
                             key={item.id}
+                            ref={(el) => {
+                              const key = normalizeDetectionId(item.detectionId)
+                              if (el) {
+                                satCardRefs.current[key] = el
+                              } else {
+                                delete satCardRefs.current[key]
+                              }
+                            }}
                             onClick={() => {
                               if (activeShipTab) {
                                 setSelectedSatDetectionByTab((prev) => ({
