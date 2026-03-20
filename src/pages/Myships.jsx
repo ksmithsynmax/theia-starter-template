@@ -1146,7 +1146,7 @@ function Myships() {
       ) || latestDetection
     : latestDetection
   const selectedSatDetectionForTab = activeShipTab
-    ? selectedSatDetectionByTab[activeShipTab] ?? null
+    ? (selectedSatDetectionByTab[activeShipTab] ?? null)
     : null
   const activeMapToolPanels = activeShipTab
     ? openMapToolPanelsByTab[activeShipTab] || []
@@ -1163,7 +1163,12 @@ function Myships() {
       ...prev,
       [activeShipTab]: normalizeDetectionId(selectedDetection.id),
     }))
-  }, [activeDetailTab, activeShipTab, selectedDetection?.id, selectedDetection?.type])
+  }, [
+    activeDetailTab,
+    activeShipTab,
+    selectedDetection?.id,
+    selectedDetection?.type,
+  ])
 
   const eventLabel = {
     ais: 'AIS',
@@ -1452,53 +1457,51 @@ function Myships() {
     )
       ? normalizeDetectionId(selectedSatDetectionForTab)
       : null
-  const stsPreferredSatDetectionId =
-    shouldPrioritizeStsSatCard
-      ? normalizeDetectionId(
-          sortedSatFilteredDetections.find((detection) =>
-            STS_PREFERRED_SAT_TIMELINE_DETECTION_TYPES.includes(detection.type)
-          )?.id || sortedSatFilteredDetections[0]?.id
-        )
-      : null
-  const selectedSatDetectionId =
-    shouldPrioritizeStsSatCard
-      ? stsPreferredSatDetectionId ||
-        normalizedSelectedSatDetectionForTab ||
-        focusedSatDetectionId ||
-        null
-      : normalizedSelectedSatDetectionForTab || focusedSatDetectionId || null
+  const stsPreferredSatDetectionId = shouldPrioritizeStsSatCard
+    ? normalizeDetectionId(
+        sortedSatFilteredDetections.find((detection) =>
+          STS_PREFERRED_SAT_TIMELINE_DETECTION_TYPES.includes(detection.type)
+        )?.id || sortedSatFilteredDetections[0]?.id
+      )
+    : null
+  const selectedSatDetectionId = shouldPrioritizeStsSatCard
+    ? stsPreferredSatDetectionId ||
+      normalizedSelectedSatDetectionForTab ||
+      focusedSatDetectionId ||
+      null
+    : normalizedSelectedSatDetectionForTab || focusedSatDetectionId || null
   const shouldUseStsActiveSatImage = shouldPrioritizeStsSatCard
   const satelliteTimelineRows = sortedSatFilteredDetections.map((d) => {
-      const latValue =
-        typeof d.lat === 'number'
-          ? d.lat.toFixed(4)
-          : activeShip?.aisInfo?.latitude || 'No info'
-      const lonValue =
-        typeof d.lng === 'number'
-          ? d.lng.toFixed(4)
-          : activeShip?.aisInfo?.longitude || 'No info'
-      const parsedDate = new Date(d.date)
-      const capturedTime = Number.isNaN(parsedDate.getTime())
-        ? d.date
-        : parsedDate.toISOString()
-      const isSelectedDetection =
-        selectedSatDetectionId != null &&
-        normalizeDetectionId(d.id) === selectedSatDetectionId
-      return {
-        id: `${activeShip?.id || 'ship'}-sat-${d.id}`,
-        detectionId: d.id,
-        isSelected: isSelectedDetection,
-        detectionDateKey: getDetectionDateKey(d.date),
-        image:
-          shouldUseStsActiveSatImage && isSelectedDetection
-            ? satImageD
-            : getSatTimelineImageForDetection(d),
-        capturedTime,
-        latitude: latValue,
-        longitude: lonValue,
-        oid: 16100000 + d.id * 37,
-      }
-    })
+    const latValue =
+      typeof d.lat === 'number'
+        ? d.lat.toFixed(4)
+        : activeShip?.aisInfo?.latitude || 'No info'
+    const lonValue =
+      typeof d.lng === 'number'
+        ? d.lng.toFixed(4)
+        : activeShip?.aisInfo?.longitude || 'No info'
+    const parsedDate = new Date(d.date)
+    const capturedTime = Number.isNaN(parsedDate.getTime())
+      ? d.date
+      : parsedDate.toISOString()
+    const isSelectedDetection =
+      selectedSatDetectionId != null &&
+      normalizeDetectionId(d.id) === selectedSatDetectionId
+    return {
+      id: `${activeShip?.id || 'ship'}-sat-${d.id}`,
+      detectionId: d.id,
+      isSelected: isSelectedDetection,
+      detectionDateKey: getDetectionDateKey(d.date),
+      image:
+        shouldUseStsActiveSatImage && isSelectedDetection
+          ? satImageD
+          : getSatTimelineImageForDetection(d),
+      capturedTime,
+      latitude: latValue,
+      longitude: lonValue,
+      oid: 16100000 + d.id * 37,
+    }
+  })
   const ownershipInfo = SHIP_OWNERSHIP[activeShip?.id] || SHIP_OWNERSHIP.unknown
   const attributionRows = [
     {
@@ -2921,10 +2924,10 @@ function Myships() {
                 {activeDetailTab === 0 && (
                   <Box
                     style={{
-                      padding: 20,
+                      padding: '8px 20px 20px 20px',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 8,
+                      gap: 0,
                     }}
                   >
                     <Box
@@ -2934,7 +2937,12 @@ function Myships() {
                         justifyContent: 'space-between',
                         width: '100%',
                         gap: 16,
-                        marginBottom: 2,
+                        marginBottom: 0,
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 5,
+                        background: '#181926',
+                        padding: '8px 0 8px 0',
                       }}
                     >
                       <Menu
@@ -3301,7 +3309,7 @@ function Myships() {
                   </Box>
                 )}
                 {activeDetailTab === 1 && (
-                  <Box style={{ padding: 20 }}>
+                  <Box style={{ padding: '8px 20px 20px 20px' }}>
                     <Box
                       style={{
                         display: 'flex',
@@ -3309,7 +3317,12 @@ function Myships() {
                         justifyContent: 'space-between',
                         width: '100%',
                         gap: 16,
-                        marginBottom: 2,
+                        marginBottom: 0,
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 5,
+                        background: '#181926',
+                        padding: '8px 0 8px 0',
                       }}
                     >
                       <Menu
@@ -3447,37 +3460,41 @@ function Myships() {
                             },
                           }}
                         >
-                          {SAT_TIMELINE_DATA_SOURCE_FILTER_OPTIONS.map((option) => (
-                            <Menu.Item
-                              key={option.value}
-                              onClick={() => {
-                                updateTabState(
-                                  'satTimelineDataSourceFilter',
-                                  option.value
-                                )
-                                setSatTimelineEventTypeMenuOpened(false)
-                              }}
-                              styles={{
-                                item: {
-                                  color: '#fff',
-                                  fontSize: 12,
-                                  fontWeight:
-                                    satTimelineDataSourceFilter === option.value
-                                      ? 700
-                                      : 500,
-                                  padding: '12px 16px',
-                                  background:
-                                    satTimelineDataSourceFilter === option.value
-                                      ? '#393C56'
-                                      : 'transparent',
-                                  borderRadius: 0,
-                                },
-                                itemLabel: { color: '#fff' },
-                              }}
-                            >
-                              {option.label}
-                            </Menu.Item>
-                          ))}
+                          {SAT_TIMELINE_DATA_SOURCE_FILTER_OPTIONS.map(
+                            (option) => (
+                              <Menu.Item
+                                key={option.value}
+                                onClick={() => {
+                                  updateTabState(
+                                    'satTimelineDataSourceFilter',
+                                    option.value
+                                  )
+                                  setSatTimelineEventTypeMenuOpened(false)
+                                }}
+                                styles={{
+                                  item: {
+                                    color: '#fff',
+                                    fontSize: 12,
+                                    fontWeight:
+                                      satTimelineDataSourceFilter ===
+                                      option.value
+                                        ? 700
+                                        : 500,
+                                    padding: '12px 16px',
+                                    background:
+                                      satTimelineDataSourceFilter ===
+                                      option.value
+                                        ? '#393C56'
+                                        : 'transparent',
+                                    borderRadius: 0,
+                                  },
+                                  itemLabel: { color: '#fff' },
+                                }}
+                              >
+                                {option.label}
+                              </Menu.Item>
+                            )
+                          )}
                         </Menu.Dropdown>
                       </Menu>
                       <Box
@@ -3533,7 +3550,7 @@ function Myships() {
                         style={{
                           display: 'grid',
                           gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                          marginTop: 8,
+                          // marginTop: 8,
                           gap: 8,
                           cursor: 'pointer',
                         }}
@@ -3566,10 +3583,9 @@ function Myships() {
                                 ? '1px solid #0094FF'
                                 : '1px solid #3D456B',
                               borderRadius: 4,
-                              background:
-                                item.isSelected
-                                  ? '#262947'
-                                  : hoveredSatelliteCardId === item.id
+                              background: item.isSelected
+                                ? '#262947'
+                                : hoveredSatelliteCardId === item.id
                                   ? '#262947'
                                   : '#24263C',
                               padding: 10,
@@ -3630,7 +3646,7 @@ function Myships() {
                   </Box>
                 )}
                 {activeDetailTab === 2 && (
-                  <Box style={{ padding: 20 }}>
+                  <Box style={{ padding: '8px 20px 20px 20px' }}>
                     <Box
                       style={{
                         display: 'flex',
@@ -3829,7 +3845,7 @@ function Myships() {
                   </Box>
                 )}
                 {isTiffaniShipTab && activeDetailTab === 3 && (
-                  <Box style={{ padding: 20 }}>
+                  <Box style={{ padding: '8px 20px 20px 20px' }}>
                     <SanctionDetailsVersionB />
                   </Box>
                 )}

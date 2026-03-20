@@ -138,7 +138,7 @@ const EventTimelineCard = ({
           border: selected ? '2px solid #0094FF' : '1px solid #393C56',
           borderRadius: 4,
           background: '#24263C',
-          scrollMarginTop: 16,
+          scrollMarginTop: 80,
           overflow: 'hidden',
         }}
       >
@@ -391,7 +391,7 @@ const EventTimelineCard = ({
         borderRadius: 4,
         background: '#24263C',
         overflow: 'hidden',
-        scrollMarginTop: 16,
+        scrollMarginTop: 80,
       }}
     >
       {selected && (

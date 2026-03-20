@@ -118,7 +118,10 @@ const SanctionDetailsVersionB = ({
 }) => {
   const [localExpandedEventId, setLocalExpandedEventId] = React.useState(null)
   const safeVersionData = versionData || {}
-  const safeOverview = { ...DEFAULT_OVERVIEW, ...(safeVersionData.overview || {}) }
+  const safeOverview = {
+    ...DEFAULT_OVERVIEW,
+    ...(safeVersionData.overview || {}),
+  }
   const safeEvents =
     Array.isArray(events) && events.length > 0 ? events : DEFAULT_EVENTS
   const safeBadgeStyles = { ...DEFAULT_BADGE_STYLES, ...(badgeStyles || {}) }
@@ -158,15 +161,15 @@ const SanctionDetailsVersionB = ({
         }}
       >
         <Box>
-          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}>
+          <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
             Date of sanction
           </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
             {sanctionDateLabel}
           </Text>
         </Box>
         <Box>
-          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}>
+          <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
             Program(s)
           </Text>
           <Box
@@ -177,7 +180,13 @@ const SanctionDetailsVersionB = ({
               flexWrap: 'wrap',
             }}
           >
-            <Box style={{ background: '#393C56', borderRadius: 4, padding: '4px 8px' }}>
+            <Box
+              style={{
+                background: '#393C56',
+                borderRadius: 4,
+                padding: '4px 8px',
+              }}
+            >
               <Text
                 style={{
                   color: '#FFFFFF',
@@ -189,7 +198,7 @@ const SanctionDetailsVersionB = ({
                 UK
               </Text>
             </Box>
-            <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
               Russia Sanctions 2019
             </Text>
             <Box
@@ -200,7 +209,13 @@ const SanctionDetailsVersionB = ({
                 margin: '0 2px',
               }}
             />
-            <Box style={{ background: '#393C56', borderRadius: 4, padding: '4px 8px' }}>
+            <Box
+              style={{
+                background: '#393C56',
+                borderRadius: 4,
+                padding: '4px 8px',
+              }}
+            >
               <Text
                 style={{
                   color: '#FFFFFF',
@@ -212,14 +227,14 @@ const SanctionDetailsVersionB = ({
                 EU
               </Text>
             </Box>
-            <Text style={{ color: '#FFFFFF', fontSize: 14 }}>Sanctions</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 12 }}>Sanctions</Text>
           </Box>
         </Box>
         <Box>
-          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 2 }}>
+          <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
             Vessel Owner
           </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
             {safeOverview.vesselOwner || 'No info'}
           </Text>
         </Box>
@@ -253,11 +268,12 @@ const SanctionDetailsVersionB = ({
             event.beforeValue && event.afterValue
           )
           const hasSingleValue =
-            !hasBeforeAndAfter &&
-            Boolean(event.afterValue || event.beforeValue)
-          const hideDuplicateChangeHeadline = ['mmsi_change', 'name_change', 'flag_change'].includes(
-            event.eventType
-          )
+            !hasBeforeAndAfter && Boolean(event.afterValue || event.beforeValue)
+          const hideDuplicateChangeHeadline = [
+            'mmsi_change',
+            'name_change',
+            'flag_change',
+          ].includes(event.eventType)
 
           return (
             <Box
@@ -281,7 +297,7 @@ const SanctionDetailsVersionB = ({
                     height: 12,
                     borderRadius: 3,
                     background: '#FFFFFF',
-                    outline: '2px solid #181926',
+                    outline: '2px solid #24263c',
                     position: 'absolute',
                     left: 5,
                     top: 5,
@@ -429,9 +445,7 @@ const SanctionDetailsVersionB = ({
                                 {safeCountryFlags[event.afterValue]}
                               </Text>
                             )}
-                            <Text
-                              style={{ color: '#FFFFFF', fontSize: 16 }}
-                            >
+                            <Text style={{ color: '#FFFFFF', fontSize: 16 }}>
                               {event.afterValue}
                             </Text>
                           </Box>
@@ -483,7 +497,9 @@ const SanctionDetailsVersionB = ({
                             width: 14,
                             height: 14,
                             color: '#0094FF',
-                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transform: isExpanded
+                              ? 'rotate(180deg)'
+                              : 'rotate(0deg)',
                             transition: 'transform 140ms ease',
                             flexShrink: 0,
                           }}
