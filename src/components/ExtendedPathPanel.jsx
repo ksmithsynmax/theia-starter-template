@@ -1,10 +1,29 @@
-import React, { useState } from 'react'
-import { Box, Text, TextInput, Button, Tooltip } from '@mantine/core'
+import React, { useState, useEffect } from 'react'
+import { Box, Text, TextInput, Button, Tooltip, Progress } from '@mantine/core'
 import { Calendar, Clock, Copy02 } from '@untitledui/icons'
 import flagIcon from '../assets/flag.png'
 
-const ExtendedPathPanel = ({ ship }) => {
+const ExtendedPathPanel = ({ ship, onClose }) => {
   const [copied, setCopied] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    let interval
+    if (isLoading) {
+      interval = setInterval(() => {
+        setProgress((p) => {
+          if (p >= 100) {
+            clearInterval(interval)
+            setIsLoading(false)
+            return 100
+          }
+          return p + 2 // 100% / 50 steps = 2% per 100ms = 5 seconds total
+        })
+      }, 100)
+    }
+    return () => clearInterval(interval)
+  }, [isLoading])
 
   if (!ship) return null
 
@@ -22,6 +41,50 @@ const ExtendedPathPanel = ({ ship }) => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
+  }
+
+  const handleViewClick = () => {
+    setIsLoading(true)
+    setProgress(0)
+  }
+
+  const handleCancelClick = () => {
+    setIsLoading(false)
+    setProgress(0)
+  }
+
+  if (isLoading) {
+    return (
+      <Box style={{ padding: '32px 24px' }}>
+        <Progress
+          value={progress}
+          size="sm"
+          radius="xl"
+          style={{ marginBottom: 24, backgroundColor: '#24263C' }}
+          styles={{
+            section: { backgroundColor: '#fff' },
+          }}
+        />
+        <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontSize: 14 }}>
+            {Math.round(progress)}% Fetching data...
+          </Text>
+          <Button
+            variant="outline"
+            onClick={handleCancelClick}
+            style={{
+              borderColor: '#fff',
+              color: '#fff',
+              height: 36,
+              padding: '0 16px',
+              fontWeight: 500,
+            }}
+          >
+            Cancel
+          </Button>
+        </Box>
+      </Box>
+    )
   }
 
   return (
@@ -214,6 +277,7 @@ const ExtendedPathPanel = ({ ship }) => {
       {/* Submit Button */}
       <Button
         fullWidth
+        onClick={handleViewClick}
         style={{
           background: '#0094ff',
           height: 40,
