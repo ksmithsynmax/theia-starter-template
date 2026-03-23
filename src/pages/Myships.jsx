@@ -2566,27 +2566,19 @@ function Myships() {
                         }}
                       >
                         {activeShip.shipId ? (
-                          <>
-                            <Box component="span" style={{ flexShrink: 0 }}>
-                              ...
-                            </Box>
-                            <Box
-                              component="span"
-                              style={{
-                                display: 'inline-block',
-                                flex: 1,
-                                minWidth: 0,
-                                overflow: 'hidden',
-                                whiteSpace: 'nowrap',
-                                textOverflow: 'clip',
-                                direction: 'rtl',
-                                unicodeBidi: 'plaintext',
-                                textAlign: 'left',
-                              }}
-                            >
-                              {String(activeShip.shipId).slice(1, -1)}
-                            </Box>
-                          </>
+                          <Box
+                            component="span"
+                            style={{
+                              display: 'inline-block',
+                              flex: 1,
+                              minWidth: 0,
+                              overflow: 'hidden',
+                              whiteSpace: 'nowrap',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {activeShip.shipId}
+                          </Box>
                         ) : (
                           'No info'
                         )}
@@ -2664,24 +2656,21 @@ function Myships() {
                 {shouldShowNewAisDetailsRow && (
                   <Box
                     style={{
-                      border: '1px solid #0094FF',
-                      borderRadius: 4,
-                      background: '#24263C',
-                      padding: '12px 16px',
-                      marginBottom: 16,
+                      display: 'grid',
+                      gridTemplateColumns:
+                        'max-content max-content minmax(0, 1fr)',
+                      columnGap: '20px',
+                      marginBottom: '16px',
+                      alignItems: 'flex-start',
                     }}
                   >
-                    <Box
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                        gap: '12px 20px',
-                      }}
-                    >
+                    <Box style={{ minWidth: 185 }}>
                       <KeyValuePair
                         keyName="Latest Speed"
                         value={activeShip?.aisInfo?.latestSpeed || 'No info'}
                       />
+                    </Box>
+                    <Box style={{ minWidth: 0 }}>
                       <KeyValuePair
                         keyName="Destination"
                         value={activeShip?.aisInfo?.destination || 'No info'}
@@ -3777,7 +3766,7 @@ function Myships() {
                           width: '100%',
                           borderRadius: 4,
                           overflow: 'hidden',
-                          background: '#24263C',
+                          background: 'transparent',
                         }}
                       >
                         <Box
@@ -3789,7 +3778,7 @@ function Myships() {
                             alignItems: 'center',
                             padding: '6px 12px',
                             background: '#24263C',
-                            borderRadius: '4px 4px 8px 8px',
+                            borderRadius: 4,
                             marginBottom: 2,
                           }}
                         >
