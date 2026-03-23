@@ -4,6 +4,8 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { Box, Text } from '@mantine/core'
 import { XClose, Minus } from '@untitledui/icons'
 import ExtendedPathPanel from './ExtendedPathPanel'
+import FuturePathPanel from './FuturePathPanel'
+import EstimatedLocationPanel from './EstimatedLocationPanel'
 import { useShipContext } from '../context/ShipContext'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
@@ -450,6 +452,12 @@ const Map = ({ onDetectionClick }) => {
                     ship={shipTabs.find((t) => t.id === activeShipTab)}
                   />
                 )}
+                {toolId === 'future-path-prediction' && (
+                  <FuturePathPanel
+                    ship={shipTabs.find((t) => t.id === activeShipTab)}
+                  />
+                )}
+                {toolId === 'estimated-location' && <EstimatedLocationPanel />}
               </Box>
             )
           })}
