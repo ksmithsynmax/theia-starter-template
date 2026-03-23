@@ -2328,7 +2328,7 @@ function Myships() {
                     display: 'grid',
                     gridTemplateColumns:
                       'max-content max-content minmax(0, 1fr)',
-                    columnGap: '20px',
+                    columnGap: '16px',
                     marginBottom: '16px',
                     alignItems: 'flex-start',
                   }}
@@ -2530,7 +2530,6 @@ function Myships() {
                     </Box>
                   </Box>
                   <Box
-                    style={{ minWidth: 0, width: '100%' }}
                     onMouseEnter={() => setHoveredCopyField('shipId')}
                     onMouseLeave={() => setHoveredCopyField(null)}
                   >
@@ -2546,8 +2545,6 @@ function Myships() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 6,
-                        minWidth: 0,
-                        width: '100%',
                         cursor: canCopyShipId ? 'pointer' : 'default',
                       }}
                     >
@@ -2555,14 +2552,12 @@ function Myships() {
                         title={activeShip.shipId || 'No info'}
                         style={{
                           color: 'white',
-                          minWidth: 0,
-                          flex: 1,
                           display: 'flex',
-                          alignItems: 'center',
+                          alignItems: 'flex-start',
                           gap: 0,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
                           fontSize: 11,
+                          whiteSpace: 'nowrap',
+                          overflow: 'visible',
                         }}
                       >
                         {activeShip.shipId ? (
@@ -2570,11 +2565,6 @@ function Myships() {
                             component="span"
                             style={{
                               display: 'inline-block',
-                              flex: 1,
-                              minWidth: 0,
-                              overflow: 'hidden',
-                              whiteSpace: 'nowrap',
-                              textOverflow: 'ellipsis',
                             }}
                           >
                             {activeShip.shipId}
@@ -2659,12 +2649,12 @@ function Myships() {
                       display: 'grid',
                       gridTemplateColumns:
                         'max-content max-content minmax(0, 1fr)',
-                      columnGap: '20px',
+                      columnGap: '16px',
                       marginBottom: '16px',
                       alignItems: 'flex-start',
                     }}
                   >
-                    <Box style={{ minWidth: 185 }}>
+                    <Box style={{ minWidth: 183 }}>
                       <KeyValuePair
                         keyName="Latest Speed"
                         value={activeShip?.aisInfo?.latestSpeed || 'No info'}
