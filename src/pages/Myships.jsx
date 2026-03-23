@@ -1143,9 +1143,7 @@ function Myships() {
   const selectedSatDetectionForTab = activeShipTab
     ? (selectedSatDetectionByTab[activeShipTab] ?? null)
     : null
-  const activeMapToolPanels = activeShipTab
-    ? openMapToolPanelsByTab[activeShipTab] || []
-    : []
+  const activeMapToolPanels = openMapToolPanelsByTab['__global__'] || []
 
   useEffect(() => {
     setPanelFocusDetectionId(selectedDetection?.id ?? null)
@@ -1182,10 +1180,10 @@ function Myships() {
   ])
   const handleShipToolAction = useCallback(
     (toolId) => {
-      if (!activeShipTab || !MULTI_SELECT_PANEL_TOOLS.has(toolId)) return
-      toggleMapToolPanel(activeShipTab, toolId)
+      if (!MULTI_SELECT_PANEL_TOOLS.has(toolId)) return
+      toggleMapToolPanel(toolId)
     },
-    [activeShipTab, toggleMapToolPanel]
+    [toggleMapToolPanel]
   )
 
   const navigateToDetection = (targetDetection) => {

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { Box, Text } from '@mantine/core'
-import { XClose } from '@untitledui/icons'
+import { XClose, Minus } from '@untitledui/icons'
+import ExtendedPathPanel from './ExtendedPathPanel'
 import { useShipContext } from '../context/ShipContext'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
@@ -100,14 +101,10 @@ const Map = ({ onDetectionClick }) => {
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
+  const [mapDimensions, setMapDimensions] = useState({ width: 1280, height: 800 })
   const popupPositionsRef = useRef({})
   onDetectionClickRef.current = onDetectionClick
-  const openToolPanels = activeShipTab
-    ? openMapToolPanelsByTab[activeShipTab] || []
-    : []
-  const mapWidth =
-    mapContainer.current?.clientWidth ||
-    (typeof window !== 'undefined' ? window.innerWidth : 1280)
+  const openToolPanels = openMapToolPanelsByTab['__global__'] || []
 
   // Initialize map once.
   useEffect(() => {
@@ -126,6 +123,12 @@ const Map = ({ onDetectionClick }) => {
 
     const observer = new ResizeObserver(() => {
       map.current?.resize()
+      if (mapContainer.current) {
+        setMapDimensions({
+          width: mapContainer.current.clientWidth,
+          height: mapContainer.current.clientHeight,
+        })
+      }
     })
     observer.observe(mapContainer.current)
 
@@ -201,8 +204,10 @@ const Map = ({ onDetectionClick }) => {
 
     const panelFocusId =
       panelFocusDetectionId == null ? null : String(panelFocusDetectionId)
-    const activeId = activeDetectionId == null ? null : String(activeDetectionId)
-    const previewId = previewDetectionId == null ? null : String(previewDetectionId)
+    const activeId =
+      activeDetectionId == null ? null : String(activeDetectionId)
+    const previewId =
+      previewDetectionId == null ? null : String(previewDetectionId)
     const primaryFocusId = panelFocusId || activeId
 
     // Clear all selection/preview highlights
@@ -228,7 +233,11 @@ const Map = ({ onDetectionClick }) => {
       (d) => String(d.id) === String(focusDetectionId)
     )
     if (!focusDet) return
-    map.current.flyTo({ center: [focusDet.lng, focusDet.lat], zoom: 6, duration: 1500 })
+    map.current.flyTo({
+      center: [focusDet.lng, focusDet.lat],
+      zoom: 6,
+      duration: 1500,
+    })
   }, [
     panelFocusDetectionId,
     activeDetectionId,
@@ -251,10 +260,7 @@ const Map = ({ onDetectionClick }) => {
       const marker = markersRef.current[det.id]
       if (!marker) return
       const el = marker.getElement()
-      if (
-        openShipIds.has(det.shipId) &&
-        !el.classList.contains('active')
-      ) {
+      if (openShipIds.has(det.shipId) && !el.classList.contains('active')) {
         el.classList.add('opened')
       } else {
         el.classList.remove('opened')
@@ -268,8 +274,10 @@ const Map = ({ onDetectionClick }) => {
 
     const panelFocusId =
       panelFocusDetectionId == null ? null : String(panelFocusDetectionId)
-    const activeId = activeDetectionId == null ? null : String(activeDetectionId)
-    const previewId = previewDetectionId == null ? null : String(previewDetectionId)
+    const activeId =
+      activeDetectionId == null ? null : String(activeDetectionId)
+    const previewId =
+      previewDetectionId == null ? null : String(previewDetectionId)
     const primaryFocusId = panelFocusId || activeId
 
     runtimeDetections.forEach((det) => {
@@ -281,7 +289,8 @@ const Map = ({ onDetectionClick }) => {
       const isPreviewed = previewId != null && String(det.id) === previewId
       const isCurrentDate = getDateKey(det.date) === mapDate
       el.dataset.historical = isCurrentDate ? 'false' : 'true'
-      el.style.display = isCurrentDate || isSelected || isPreviewed ? '' : 'none'
+      el.style.display =
+        isCurrentDate || isSelected || isPreviewed ? '' : 'none'
     })
   }, [
     mapDate,
@@ -304,7 +313,7 @@ const Map = ({ onDetectionClick }) => {
         if (!MAP_TOOL_POPUP_LAYOUT[toolId]) return
         if (!next[toolId]) {
           const layout = MAP_TOOL_POPUP_LAYOUT[toolId]
-          const defaultPosition = getDefaultPopupPosition(layout, mapWidth)
+          const defaultPosition = getDefaultPopupPosition(layout, mapDimensions.width)
           next[toolId] = {
             x: defaultPosition.x,
             y: defaultPosition.y,
@@ -314,7 +323,7 @@ const Map = ({ onDetectionClick }) => {
       })
       return changed ? next : prev
     })
-  }, [activeShipTab, openToolPanels, mapWidth])
+  }, [activeShipTab, openToolPanels, mapDimensions.width])
 
   useEffect(() => {
     if (!dragState) return undefined
@@ -365,61 +374,82 @@ const Map = ({ onDetectionClick }) => {
           .filter((toolId) => MAP_TOOL_POPUP_LAYOUT[toolId])
           .map((toolId) => {
             const layout = MAP_TOOL_POPUP_LAYOUT[toolId]
-            const defaultPosition = getDefaultPopupPosition(layout, mapWidth)
+            const defaultPosition = getDefaultPopupPosition(layout, mapDimensions.width)
             const title = MAP_TOOL_POPUP_TITLES[toolId] || 'Tool'
+            
+            // Clamp the position so it doesn't go off-screen when the window shrinks
+            const rawX = popupPositions[toolId]?.x ?? defaultPosition.x
+            const clampedX = Math.max(12, Math.min(rawX, mapDimensions.width - layout.width - 12))
+            const clampedY = popupPositions[toolId]?.y ?? defaultPosition.y
+
             return (
               <Box
                 key={toolId}
                 style={{
                   position: 'absolute',
-                  top: popupPositions[toolId]?.y ?? defaultPosition.y,
-                  left: popupPositions[toolId]?.x ?? defaultPosition.x,
+                  top: clampedY,
+                  left: clampedX,
                   width: layout.width,
                   borderRadius: 4,
                   overflow: 'hidden',
-                  background: '#0A0F35',
+                  background: '#181926',
                   border: '1px solid #393C56',
                   pointerEvents: 'auto',
                 }}
               >
                 <Box
                   style={{
-                    height: 58,
-                    padding: '0 16px',
+                    padding: '16px 24px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    background: '#252846',
+                    background: '#24263C',
                     cursor: dragState?.toolId === toolId ? 'grabbing' : 'grab',
                   }}
                   onMouseDown={(event) => {
                     if (event.button !== 0) return
-                    const currentPosition =
-                      popupPositionsRef.current[toolId] || {
-                        x: defaultPosition.x,
-                        y: defaultPosition.y,
-                      }
                     setDragState({
                       toolId,
-                      offsetX: event.clientX - currentPosition.x,
-                      offsetY: event.clientY - currentPosition.y,
+                      offsetX: event.clientX - clampedX,
+                      offsetY: event.clientY - clampedY,
                     })
                   }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 500 }}>
+                  <Text
+                    style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 500 }}
+                  >
                     {title}
                   </Text>
-                  <XClose
-                    onMouseDown={(event) => event.stopPropagation()}
-                    onClick={() => closeMapToolPanel(activeShipTab, toolId)}
-                    style={{
-                      width: 20,
-                      height: 20,
-                      color: '#FFFFFF',
-                      cursor: 'pointer',
-                    }}
-                  />
+                  <Box
+                    style={{ display: 'flex', alignItems: 'center', gap: 16 }}
+                  >
+                    <Minus
+                      onMouseDown={(event) => event.stopPropagation()}
+                      style={{
+                        width: 20,
+                        height: 20,
+                        color: '#FFFFFF',
+                        cursor: 'pointer',
+                        marginTop: 10,
+                      }}
+                    />
+                    <XClose
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onClick={() => closeMapToolPanel(toolId)}
+                      style={{
+                        width: 20,
+                        height: 20,
+                        color: '#FFFFFF',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </Box>
                 </Box>
+                {toolId === 'extended-path' && (
+                  <ExtendedPathPanel
+                    ship={shipTabs.find((t) => t.id === activeShipTab)}
+                  />
+                )}
               </Box>
             )
           })}

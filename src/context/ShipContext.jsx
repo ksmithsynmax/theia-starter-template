@@ -64,12 +64,6 @@ export function ShipProvider({ children }) {
       }
       return updated
     })
-    setOpenMapToolPanelsByTab((prev) => {
-      if (!prev[id]) return prev
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
   }, [activeShipTab])
 
   const closeAllTabs = useCallback(() => {
@@ -79,24 +73,25 @@ export function ShipProvider({ children }) {
     setOpenMapToolPanelsByTab({})
   }, [])
 
-  const toggleMapToolPanel = useCallback((tabId, toolId) => {
-    if (!tabId || !toolId) return
+  const toggleMapToolPanel = useCallback((toolId) => {
+    if (!toolId) return
     setOpenMapToolPanelsByTab((prev) => {
-      const currentTabTools = prev[tabId] || []
-      const nextTabTools = currentTabTools.includes(toolId)
-        ? currentTabTools.filter((id) => id !== toolId)
-        : [...currentTabTools, toolId]
-      return { ...prev, [tabId]: nextTabTools }
+      // Use a special global key for tools that should persist across tabs
+      const globalTools = prev['__global__'] || []
+      const nextGlobalTools = globalTools.includes(toolId)
+        ? globalTools.filter((id) => id !== toolId)
+        : [...globalTools, toolId]
+      return { ...prev, ['__global__']: nextGlobalTools }
     })
   }, [])
 
-  const closeMapToolPanel = useCallback((tabId, toolId) => {
-    if (!tabId || !toolId) return
+  const closeMapToolPanel = useCallback((toolId) => {
+    if (!toolId) return
     setOpenMapToolPanelsByTab((prev) => {
-      const currentTabTools = prev[tabId] || []
-      if (!currentTabTools.includes(toolId)) return prev
-      const nextTabTools = currentTabTools.filter((id) => id !== toolId)
-      return { ...prev, [tabId]: nextTabTools }
+      const globalTools = prev['__global__'] || []
+      if (!globalTools.includes(toolId)) return prev
+      const nextGlobalTools = globalTools.filter((id) => id !== toolId)
+      return { ...prev, ['__global__']: nextGlobalTools }
     })
   }, [])
 
