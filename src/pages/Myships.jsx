@@ -12,7 +12,6 @@ import {
 } from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
 import {
-  File02,
   Star01,
   Copy02,
   XClose,
@@ -30,6 +29,7 @@ import STSIcon from '../custom-icons/STSIcon'
 import STSAisIcon from '../custom-icons/STSAisIcon'
 import ShipIcon from '../custom-icons/ShipIcon'
 import EnlargeVerticalIcon from '../custom-icons/EnlargeVerticalIcon'
+import TransferIcon from '../custom-icons/TransferIcon.svg'
 import ShipDetailsPanel from '../components/ShipDetails/ShipDetailsPanel'
 import EventTimelineCard from '../components/ShipDetails/EventTimelineCard'
 import SanctionDetailsVersionB from '../components/SanctionDetailsVersionB'
@@ -1139,6 +1139,7 @@ function Myships() {
         (d) => normalizeDetectionId(d.id) === normalizeDetectionId(selectedCard)
       ) || latestDetection
     : latestDetection
+  const shouldShowNewAisDetailsRow = selectedDetection?.type === 'ais'
   const selectedSatDetectionForTab = activeShipTab
     ? (selectedSatDetectionByTab[activeShipTab] ?? null)
     : null
@@ -2002,10 +2003,6 @@ function Myships() {
               const s1 = ships[sid1]
               const s2 = ships[sid2]
               if (!s1 || !s2) return null
-              const [color1, color2] = getStsTabBarColors(activeTab) || [
-                '#393C56',
-                '#393C56',
-              ]
               const pill = (s, idx) => {
                 const isActive = activeStsShip === idx
                 return (
@@ -2051,25 +2048,17 @@ function Myships() {
                   <Box
                     style={{
                       display: 'flex',
-                      alignItems: 'stretch',
-                      gap: 2,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 24,
+                      height: 24,
                       flexShrink: 0,
-                      height: 20,
                     }}
                   >
-                    <Box
-                      style={{
-                        width: 8,
-                        height: 20,
-                        backgroundColor: color1,
-                      }}
-                    />
-                    <Box
-                      style={{
-                        width: 8,
-                        height: 20,
-                        backgroundColor: color2,
-                      }}
+                    <img
+                      src={TransferIcon}
+                      alt="Transfer"
+                      style={{ width: 20, height: 20, display: 'block' }}
                     />
                   </Box>
                   {pill(s2, 1)}
@@ -2236,6 +2225,8 @@ function Myships() {
                   marginRight: 24,
                 }}
               >
+                {/* Temporarily hidden until Add ship notes feature is implemented. */}
+                {/*
                 <Tooltip label="Add ship notes" withArrow openDelay={200}>
                   <Box
                     onMouseEnter={() => setHoveredTopAction('note')}
@@ -2255,6 +2246,7 @@ function Myships() {
                     <File02 style={{ color: '#fff', width: 20, height: 20 }} />
                   </Box>
                 </Tooltip>
+                */}
                 <Tooltip label="Create alert" withArrow openDelay={200}>
                   <Box
                     onMouseEnter={() => setHoveredTopAction('alert')}
@@ -2669,6 +2661,34 @@ function Myships() {
                     </Box>
                   </Box>
                 </Box>
+                {shouldShowNewAisDetailsRow && (
+                  <Box
+                    style={{
+                      border: '1px solid #0094FF',
+                      borderRadius: 4,
+                      background: '#24263C',
+                      padding: '12px 16px',
+                      marginBottom: 16,
+                    }}
+                  >
+                    <Box
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: '12px 20px',
+                      }}
+                    >
+                      <KeyValuePair
+                        keyName="Latest Speed"
+                        value={activeShip?.aisInfo?.latestSpeed || 'No info'}
+                      />
+                      <KeyValuePair
+                        keyName="Destination"
+                        value={activeShip?.aisInfo?.destination || 'No info'}
+                      />
+                    </Box>
+                  </Box>
+                )}
                 {!isUnattributed && (
                   <ShipDetailsPanel
                     selectedEvent={selectedDetection}
@@ -3754,124 +3774,170 @@ function Myships() {
                       </Text>
                       <Box
                         style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 8,
+                          width: '100%',
+                          borderRadius: 4,
+                          overflow: 'hidden',
+                          background: '#24263C',
                         }}
                       >
+                        <Box
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns:
+                              'minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.9fr) 96px',
+                            columnGap: 10,
+                            alignItems: 'center',
+                            padding: '6px 12px',
+                            background: '#24263C',
+                            borderRadius: '4px 4px 8px 8px',
+                            marginBottom: 2,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#ffff',
+                              fontSize: 12,
+                              minWidth: 0,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            Metric
+                          </Text>
+                          <Text
+                            style={{
+                              color: '#ffff',
+                              fontSize: 12,
+                              minWidth: 0,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            Prediction
+                          </Text>
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 12,
+                              minWidth: 0,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            Reference
+                          </Text>
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 12,
+                              minWidth: 0,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            Difference
+                          </Text>
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 12,
+                              textAlign: 'center',
+                            }}
+                          >
+                            Score
+                          </Text>
+                        </Box>
                         {attributionRows.map((row, idx) => (
                           <Box
                             key={`${row.metric}-${idx}`}
                             style={{
-                              border: '1px solid #3D456B',
-                              borderRadius: 4,
-                              background: '#24263C',
-                              padding: 12,
+                              display: 'grid',
+                              gridTemplateColumns:
+                                'minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.9fr) 96px',
+                              columnGap: 10,
+                              alignItems: 'center',
+                              padding: '6px 12px',
+                              borderTop:
+                                idx === 0 ? 'none' : '1px solid #393C56',
+                              background: '#181926',
                             }}
                           >
-                            <Box
+                            <Text
                               style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: 10,
-                                marginBottom: 8,
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                fontWeight: 500,
+                                lineHeight: 1.2,
+                                minWidth: 0,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
                               }}
                             >
-                              <Text
-                                style={{
-                                  color: '#fff',
-                                  fontSize: 14,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {row.metric}
-                              </Text>
-                              <Box
-                                style={{
-                                  borderRadius: 999,
-                                  background: row.scoreBg,
-                                  color: row.scoreColor,
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  padding: '4px 10px',
-                                  lineHeight: 1.2,
-                                  textAlign: 'center',
-                                  minWidth: 74,
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {row.score}
-                              </Box>
-                            </Box>
-                            <Box
+                              {row.metric}
+                            </Text>
+                            <Text
                               style={{
-                                display: 'grid',
-                                gridTemplateColumns:
-                                  'repeat(3, minmax(0, 1fr))',
-                                gap: 10,
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                fontWeight: 400,
+                                lineHeight: 1.2,
+                                minWidth: 0,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
                               }}
                             >
-                              <Box>
-                                <Text
-                                  style={{
-                                    color: '#8D95AA',
-                                    fontSize: 11,
-                                    marginBottom: 2,
-                                  }}
-                                >
-                                  Prediction
-                                </Text>
-                                <Text
-                                  style={{
-                                    color: '#fff',
-                                    fontSize: 13,
-                                    lineHeight: 1.25,
-                                  }}
-                                >
-                                  {row.prediction}
-                                </Text>
-                              </Box>
-                              <Box>
-                                <Text
-                                  style={{
-                                    color: '#8D95AA',
-                                    fontSize: 11,
-                                    marginBottom: 2,
-                                  }}
-                                >
-                                  Reference
-                                </Text>
-                                <Text
-                                  style={{
-                                    color: '#fff',
-                                    fontSize: 13,
-                                    lineHeight: 1.25,
-                                  }}
-                                >
-                                  {row.reference}
-                                </Text>
-                              </Box>
-                              <Box>
-                                <Text
-                                  style={{
-                                    color: '#8D95AA',
-                                    fontSize: 11,
-                                    marginBottom: 2,
-                                  }}
-                                >
-                                  Difference
-                                </Text>
-                                <Text
-                                  style={{
-                                    color: '#fff',
-                                    fontSize: 13,
-                                    lineHeight: 1.25,
-                                  }}
-                                >
-                                  {row.difference}
-                                </Text>
-                              </Box>
+                              {row.prediction}
+                            </Text>
+                            <Text
+                              style={{
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                fontWeight: 400,
+                                lineHeight: 1.2,
+                                minWidth: 0,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {row.reference}
+                            </Text>
+                            <Text
+                              style={{
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                fontWeight: 400,
+                                lineHeight: 1.2,
+                                minWidth: 0,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {row.difference}
+                            </Text>
+                            <Box
+                              style={{
+                                justifySelf: 'center',
+                                borderRadius: 999,
+                                background: row.scoreBg,
+                                color: row.scoreColor,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: '3px 10px',
+                                lineHeight: 1.2,
+                                textAlign: 'center',
+                                minWidth: 70,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {row.score}
                             </Box>
                           </Box>
                         ))}
