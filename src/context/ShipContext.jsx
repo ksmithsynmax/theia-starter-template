@@ -5,6 +5,7 @@ const ShipContext = createContext()
 
 export function ShipProvider({ children }) {
   const [shipTabs, setShipTabs] = useState([])
+  const [favoriteShipIds, setFavoriteShipIds] = useState([])
   const [activeShipTab, setActiveShipTab] = useState(null)
   const [openMapToolPanelsByTab, setOpenMapToolPanelsByTab] = useState({})
   const [detailPanelOpen, setDetailPanelOpen] = useState(false)
@@ -95,15 +96,26 @@ export function ShipProvider({ children }) {
     })
   }, [])
 
+  const toggleFavoriteShip = useCallback((shipId) => {
+    if (!shipId) return
+    setFavoriteShipIds((prev) =>
+      prev.includes(shipId)
+        ? prev.filter((id) => id !== shipId)
+        : [...prev, shipId]
+    )
+  }, [])
+
   return (
     <ShipContext.Provider
       value={{
         shipTabs,
+        favoriteShipIds,
         activeShipTab,
         setActiveShipTab,
         openMapToolPanelsByTab,
         toggleMapToolPanel,
         closeMapToolPanel,
+        toggleFavoriteShip,
         openShipTab,
         openStsTab,
         closeShipTab,

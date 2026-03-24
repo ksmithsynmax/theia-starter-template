@@ -217,6 +217,7 @@ const TIMELINE_CONTEXT_EVENTS = {
 function Myships() {
   const {
     shipTabs,
+    favoriteShipIds,
     activeShipTab,
     setActiveShipTab,
     closeShipTab,
@@ -235,6 +236,7 @@ function Myships() {
     setRuntimeDetections,
     openMapToolPanelsByTab,
     toggleMapToolPanel,
+    toggleFavoriteShip,
   } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
@@ -911,6 +913,9 @@ function Myships() {
     ? displayStsShipIds[activeStsShip]
     : activeShipTab
   const activeShip = activeShipId ? ships[activeShipId] : null
+  const isActiveShipFavorite = activeShip?.id
+    ? favoriteShipIds.includes(activeShip.id)
+    : false
   const isTiffaniShipTab = !isStsTab && activeShipId === 'tiffani'
   const detailTabs = isTiffaniShipTab ? tiffaniDetailTabs : baseDetailTabs
   const stsPartnerShipId = isStsTab
@@ -2268,8 +2273,19 @@ function Myships() {
                     />
                   </Box>
                 </Tooltip>
-                <Tooltip label="Add to favorites" withArrow openDelay={200}>
+                <Tooltip
+                  label={
+                    isActiveShipFavorite
+                      ? 'Remove from My Ships'
+                      : 'Add to My Ships'
+                  }
+                  withArrow
+                  openDelay={200}
+                >
                   <Box
+                    onClick={() => {
+                      if (activeShip?.id) toggleFavoriteShip(activeShip.id)
+                    }}
                     onMouseEnter={() => setHoveredTopAction('favorite')}
                     onMouseLeave={() => setHoveredTopAction(null)}
                     style={{
@@ -2286,7 +2302,14 @@ function Myships() {
                           : 'transparent',
                     }}
                   >
-                    <Star01 style={{ color: '#fff', width: 20, height: 20 }} />
+                    <Star01
+                      style={{
+                        color: isActiveShipFavorite ? '#F7C948' : '#fff',
+                        fill: isActiveShipFavorite ? '#F7C948' : 'none',
+                        width: 20,
+                        height: 20,
+                      }}
+                    />
                   </Box>
                 </Tooltip>
                 <Tooltip label="Expand/collapse" withArrow openDelay={200}>

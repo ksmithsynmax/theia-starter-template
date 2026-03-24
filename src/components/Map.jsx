@@ -79,6 +79,14 @@ const MAP_TOOL_POPUP_TITLES = {
   'future-path-prediction': 'Future Path Prediction',
 }
 
+// Keep overlapping popup stacking deterministic so child controls/icons
+// never render above a panel that should be on top.
+const MAP_TOOL_POPUP_ZINDEX = {
+  'extended-path': 10,
+  'estimated-location': 20,
+  'future-path-prediction': 30,
+}
+
 const getDefaultPopupPosition = (layout, containerWidth) => ({
   x: Math.max(12, containerWidth - layout.width - layout.right),
   y: layout.top,
@@ -378,6 +386,7 @@ const Map = ({ onDetectionClick }) => {
             const layout = MAP_TOOL_POPUP_LAYOUT[toolId]
             const defaultPosition = getDefaultPopupPosition(layout, mapDimensions.width)
             const title = MAP_TOOL_POPUP_TITLES[toolId] || 'Tool'
+            const popupZIndex = MAP_TOOL_POPUP_ZINDEX[toolId] || 10
             
             // Clamp the position so it doesn't go off-screen when the window shrinks
             const rawX = popupPositions[toolId]?.x ?? defaultPosition.x
@@ -397,6 +406,8 @@ const Map = ({ onDetectionClick }) => {
                   background: '#181926',
                   border: '1px solid #393C56',
                   pointerEvents: 'auto',
+                  zIndex: popupZIndex,
+                  isolation: 'isolate',
                 }}
               >
                 <Box
