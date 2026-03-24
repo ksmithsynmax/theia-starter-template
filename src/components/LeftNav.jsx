@@ -16,9 +16,8 @@ import LeftNavButton from './LeftNavButton'
 
 const leftNavItems = [
   // { icon: <Signal01 color="white" size={20} />, to: '/events' },
-    { icon: <ShipIcon />, to: '/myships' },
-    { icon: <List color="white" size={20} />, to: '/events' },
-
+  { icon: <ShipIcon />, to: '/myships' },
+  { icon: <List color="white" size={20} />, to: '/events' },
 
   { icon: <Anchor color="white" size={20} />, to: '/ports' },
   { icon: <SatelliteIcon />, to: '/tip-cue' },
@@ -42,7 +41,12 @@ const LeftNav = ({ onNavClick }) => {
       }}
     >
       {leftNavItems.map((item, index) => (
-        <LeftNavButton key={index} icon={item.icon} to={item.to} onNavClick={onNavClick} />
+        <LeftNavButton
+          key={index}
+          icon={item.icon}
+          to={item.to}
+          onNavClick={onNavClick}
+        />
       ))}
     </Box>
   )
