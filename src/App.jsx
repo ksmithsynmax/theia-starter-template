@@ -11,6 +11,7 @@ import Osint from './pages/Osint'
 import Webcams from './pages/Webcams'
 import Polygons from './pages/Polygons'
 import Ports from './pages/Ports'
+import TemporalAnalysis from './pages/TemporalAnalysis'
 import PasswordGate from './pages/PasswordGate'
 import './App.css'
 
@@ -48,6 +49,10 @@ function App() {
               <Route
                 path="/login"
                 element={<Navigate to="/myships" replace />}
+              />
+              <Route
+                path="/temporal-analysis/:detectionId"
+                element={<TemporalAnalysis />}
               />
             </>
           ) : (

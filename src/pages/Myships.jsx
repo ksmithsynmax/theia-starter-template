@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Text,
@@ -215,6 +216,7 @@ const TIMELINE_CONTEXT_EVENTS = {
 }
 
 function Myships() {
+  const navigate = useNavigate()
   const {
     shipTabs,
     favoriteShipIds,
@@ -1192,10 +1194,16 @@ function Myships() {
   ])
   const handleShipToolAction = useCallback(
     (toolId) => {
+      if (toolId === 'path-playback') {
+        if (selectedDetection?.id != null) {
+          navigate(`/temporal-analysis/${selectedDetection.id}`)
+        }
+        return
+      }
       if (!MULTI_SELECT_PANEL_TOOLS.has(toolId)) return
       toggleMapToolPanel(toolId)
     },
-    [toggleMapToolPanel]
+    [toggleMapToolPanel, navigate, selectedDetection?.id]
   )
 
   const navigateToDetection = (targetDetection) => {
