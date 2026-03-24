@@ -2250,6 +2250,7 @@ function Myships() {
                   </Box>
                 </Tooltip>
                 */}
+                {/*
                 <Tooltip label="Create alert" withArrow openDelay={200}>
                   <Box
                     onMouseEnter={() => setHoveredTopAction('alert')}
@@ -2273,6 +2274,7 @@ function Myships() {
                     />
                   </Box>
                 </Tooltip>
+                */}
                 <Tooltip
                   label={
                     isActiveShipFavorite
