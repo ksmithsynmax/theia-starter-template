@@ -63,8 +63,8 @@ function Layout() {
   }, [])
 
   const isMyShips = location.pathname === '/myships'
-  const showPanelExpand = !panelOpen && isMyShips
-  const slidePanelClass = panelOpen ? 'slide-panel--open' : (isMyShips ? 'slide-panel--collapsed' : '')
+  const showPanelExpand = !panelOpen && shipTabs.length > 0
+  const slidePanelClass = panelOpen ? 'slide-panel--open' : (shipTabs.length > 0 ? 'slide-panel--collapsed' : '')
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
