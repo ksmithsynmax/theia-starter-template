@@ -232,43 +232,56 @@ export const ships = {
 }
 
 export const detections = [
-  // --- Invictus (6 detections) ---
+  // --- Invictus (9 detections) ---
   { id: 1, shipId: 'invictus', type: 'ais', lng: 63.0, lat: 18.0, date: ago(0, 9, 53) },
   { id: 2, shipId: 'invictus', type: 'light', lng: 60.5, lat: 13.0, date: ago(1, 7, 43) },
   { id: 3, shipId: 'invictus', type: 'dark', lng: 62.0, lat: 8.5, date: ago(2, 14, 21) },
   { id: 4, shipId: 'invictus', type: 'spoofing', lng: 61.0, lat: 21.0, date: ago(2, 10, 5) },
   { id: 5, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', lng: 59.0, lat: 10.0, date: ago(3, 7, 43) },
   { id: 6, shipId: 'invictus', type: 'dark', lng: 57.0, lat: 12.0, date: ago(4, 8, 12) },
+  { id: 32, shipId: 'invictus', type: 'dark', lng: 61.8, lat: 16.2, date: ago(0, 10, 40) },
+  { id: 33, shipId: 'invictus', type: 'spoofing', lng: 64.2, lat: 19.2, date: ago(0, 12, 10) },
+  { id: 43, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', lng: 66.1, lat: 17.0, date: ago(0, 13, 55) },
 
-  // --- Tiffani (6 detections) ---
+  // --- Tiffani (9 detections) ---
   { id: 7, shipId: 'tiffani', type: 'light', lng: 60.0, lat: 19.5, date: ago(0, 11, 20) },
   { id: 8, shipId: 'tiffani', type: 'dark', lng: 66.0, lat: 15.0, date: ago(1, 16, 30) },
   { id: 10, shipId: 'tiffani', type: 'spoofing', lng: 67.0, lat: 12.5, date: ago(3, 9, 45) },
   { id: 11, shipId: 'tiffani', type: 'sts-ais', stsPartner: 'celestine', lng: 62.0, lat: 16.0, date: ago(4, 14, 0) },
   { id: 12, shipId: 'tiffani', type: 'light', lng: 69.0, lat: 14.0, date: ago(5, 6, 30) },
   { id: 13, shipId: 'tiffani', type: 'ais', lng: 56.0, lat: 9.0, date: ago(6, 18, 50) },
+  { id: 34, shipId: 'tiffani', type: 'dark', lng: 62.7, lat: 14.9, date: ago(0, 13, 5) },
+  { id: 35, shipId: 'tiffani', type: 'spoofing', lng: 69.4, lat: 13.4, date: ago(0, 15, 25) },
+  { id: 44, shipId: 'tiffani', type: 'sts-ais', stsPartner: 'celestine', lng: 67.2, lat: 15.8, date: ago(0, 16, 5) },
 
-  // --- Celestine (5 detections) ---
+  // --- Celestine (7 detections) ---
   { id: 14, shipId: 'celestine', type: 'ais', lng: 68.0, lat: 10.0, date: ago(0, 8, 0) },
   { id: 15, shipId: 'celestine', type: 'light', lng: 65.0, lat: 7.0, date: ago(1, 12, 15) },
   { id: 16, shipId: 'celestine', type: 'dark', lng: 54.0, lat: 10.0, date: ago(2, 18, 45) },
   { id: 18, shipId: 'celestine', type: 'sts', stsPartner: 'meridian-star', lng: 66.0, lat: 19.0, date: ago(4, 11, 30) },
   { id: 19, shipId: 'celestine', type: 'sts-ais', stsPartner: 'tiffani', lng: 70.0, lat: 9.0, date: ago(5, 15, 45) },
+  { id: 36, shipId: 'celestine', type: 'dark', lng: 63.7, lat: 9.7, date: ago(0, 9, 40) },
+  { id: 37, shipId: 'celestine', type: 'spoofing', lng: 71.2, lat: 11.3, date: ago(0, 16, 35) },
 
-  // --- Meridian Star (5 detections) ---
+  // --- Meridian Star (7 detections) ---
   { id: 20, shipId: 'meridian-star', type: 'ais', lng: 54.0, lat: 15.0, date: ago(0, 7, 10) },
   { id: 21, shipId: 'meridian-star', type: 'spoofing', lng: 55.0, lat: 14.0, date: ago(1, 19, 25) },
   { id: 23, shipId: 'meridian-star', type: 'sts', stsPartner: 'invictus', lng: 53.0, lat: 7.0, date: ago(3, 20, 40) },
-  { id: 24, shipId: 'meridian-star', type: 'sts-ais', stsPartner: 'wisdom-star', lng: 55.0, lat: 11.0, date: ago(4, 5, 55) },
+  { id: 24, shipId: 'meridian-star', type: 'sts-ais', stsPartner: 'wisdom-star', lng: 54.2, lat: 10.4, date: ago(4, 5, 55) },
   { id: 25, shipId: 'meridian-star', type: 'dark', lng: 64.0, lat: 20.5, date: ago(5, 10, 10) },
+  { id: 38, shipId: 'meridian-star', type: 'dark', lng: 55.1, lat: 16.5, date: ago(0, 11, 55) },
+  { id: 39, shipId: 'meridian-star', type: 'spoofing', lng: 56.2, lat: 15.3, date: ago(0, 17, 15) },
 
-  // --- Wisdom Star (5 detections) ---
+  // --- Wisdom Star (7 detections) ---
   { id: 27, shipId: 'wisdom-star', type: 'light', lng: 61.5, lat: 23.5, date: ago(0, 6, 45) },
   { id: 28, shipId: 'wisdom-star', type: 'ais', lng: 61.0, lat: 22.0, date: ago(1, 14, 20) },
   { id: 29, shipId: 'wisdom-star', type: 'dark', lng: 60.0, lat: 20.5, date: ago(2, 9, 30) },
-  { id: 30, shipId: 'wisdom-star', type: 'sts-ais', stsPartner: 'meridian-star', lng: 55.0, lat: 11.0, date: ago(4, 5, 55) },
+  { id: 30, shipId: 'wisdom-star', type: 'sts-ais', stsPartner: 'meridian-star', lng: 57.2, lat: 12.1, date: ago(4, 5, 55) },
   { id: 31, shipId: 'wisdom-star', type: 'ais', lng: 60.5, lat: 24.5, date: ago(5, 11, 15) },
+  { id: 40, shipId: 'wisdom-star', type: 'dark', lng: 61.4, lat: 20.9, date: ago(0, 8, 50) },
+  { id: 41, shipId: 'wisdom-star', type: 'spoofing', lng: 62.6, lat: 22.0, date: ago(0, 14, 45) },
 
-  // --- Unknown (1 detection) ---
+  // --- Unknown (2 detections) ---
   { id: 26, shipId: 'unknown', type: 'unattributed', lng: 60.0, lat: 24.1, date: ago(0, 9, 3) },
+  { id: 42, shipId: 'unknown', type: 'spoofing', lng: 59.8, lat: 21.3, date: ago(0, 13, 30) },
 ]

@@ -9,6 +9,8 @@ import SpoofingIcon from '../custom-icons/SpoofingIcon'
 import STSIcon from '../custom-icons/STSIcon'
 import STSAisIcon from '../custom-icons/STSAisIcon'
 import SimilarSearchIcon from '../custom-icons/SimilarSearchIcon'
+import { useShipContext } from '../context/ShipContext'
+import { SHIP_FILTER_IDS } from '../constants/shipFilters'
 
 const HelpDot = () => (
   <Box
@@ -33,75 +35,60 @@ const HelpDot = () => (
 const RowAdjustIcon = () => <Sliders04 size={16} color="#A4ABBE" />
 
 const dataTypeRows = [
-  { id: 'ais', label: 'AIS', icon: <AisIcon style={{ width: 14, height: 22 }} /> },
-  { id: 'light', label: 'Light', icon: <LightShipIcon style={{ width: 14, height: 22 }} /> },
-  { id: 'dark', label: 'Dark', icon: <DarkShipIcon style={{ width: 14, height: 22 }} /> },
+  { id: SHIP_FILTER_IDS.AIS, label: 'AIS', icon: <AisIcon style={{ width: 14, height: 22 }} /> },
+  { id: SHIP_FILTER_IDS.LIGHT, label: 'Light', icon: <LightShipIcon style={{ width: 14, height: 22 }} /> },
+  { id: SHIP_FILTER_IDS.DARK, label: 'Dark', icon: <DarkShipIcon style={{ width: 14, height: 22 }} /> },
   {
-    id: 'unattributed',
+    id: SHIP_FILTER_IDS.UNATTRIBUTED,
     label: 'Unattributed',
     icon: <UnattributedIcon style={{ width: 14, height: 22 }} />,
   },
 ]
 
 const analyticsRows = [
-  { id: 'spoofing', label: 'Spoofing', icon: <SpoofingIcon style={{ width: 18, height: 18 }} /> },
-  { id: 'sts', label: 'Ship-To-Ship', icon: <STSIcon style={{ width: 18, height: 18 }} /> },
+  { id: SHIP_FILTER_IDS.SPOOFING, label: 'Spoofing', icon: <SpoofingIcon style={{ width: 18, height: 18 }} /> },
+  { id: SHIP_FILTER_IDS.STS, label: 'Ship-To-Ship', icon: <STSIcon style={{ width: 18, height: 18 }} /> },
   {
-    id: 'sts-ais',
+    id: SHIP_FILTER_IDS.STS_AIS,
     label: 'AIS Ship-To-Ship',
     icon: <STSAisIcon style={{ width: 18, height: 18 }} />,
   },
-  { id: 'similar-ships', label: 'Similar Ships', icon: <SimilarSearchIcon /> },
+  { id: SHIP_FILTER_IDS.SIMILAR_SHIPS, label: 'Similar Ships', icon: <SimilarSearchIcon /> },
 ]
 
 const ShipFiltersPanel = ({ onClose }) => {
+  const {
+    shipFilters,
+    setShipFilterChecked,
+    setShipFiltersBulk,
+    resetShipFilters,
+    showLegendOnMap,
+    setShowLegendOnMap,
+  } = useShipContext()
   const [dataTypesOpen, setDataTypesOpen] = useState(true)
   const [analyticsOpen, setAnalyticsOpen] = useState(true)
-  const [showLegendOnMap, setShowLegendOnMap] = useState(false)
-  const [checked, setChecked] = useState({
-    ais: true,
-    light: true,
-    dark: true,
-    unattributed: true,
-    spoofing: true,
-    sts: true,
-    'sts-ais': true,
-    'similar-ships': true,
-  })
 
   const dataTypesAllSelected = useMemo(
-    () => dataTypeRows.every((row) => checked[row.id]),
-    [checked]
+    () => dataTypeRows.every((row) => shipFilters[row.id]),
+    [shipFilters]
   )
   const analyticsAllSelected = useMemo(
-    () => analyticsRows.every((row) => checked[row.id]),
-    [checked]
+    () => analyticsRows.every((row) => shipFilters[row.id]),
+    [shipFilters]
   )
 
   const resetFilters = () => {
-    setChecked({
-      ais: true,
-      light: true,
-      dark: true,
-      unattributed: true,
-      spoofing: true,
-      sts: true,
-      'sts-ais': true,
-      'similar-ships': true,
-    })
-    setShowLegendOnMap(false)
+    resetShipFilters()
     setDataTypesOpen(true)
     setAnalyticsOpen(true)
   }
 
   const toggleSectionRows = (rows, value) => {
-    setChecked((prev) => {
-      const next = { ...prev }
-      rows.forEach((row) => {
-        next[row.id] = value
-      })
-      return next
+    const updates = {}
+    rows.forEach((row) => {
+      updates[row.id] = value
     })
+    setShipFiltersBulk(updates)
   }
 
   const renderRows = (rows) => (
@@ -119,10 +106,10 @@ const ShipFiltersPanel = ({ onClose }) => {
         >
           <Box style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
             <Checkbox
-              checked={checked[row.id]}
+              checked={shipFilters[row.id]}
               onChange={(event) => {
                 const isChecked = event.currentTarget.checked
-                setChecked((prev) => ({ ...prev, [row.id]: isChecked }))
+                setShipFilterChecked(row.id, isChecked)
               }}
               size="sm"
               className="ship-filter-checkbox"

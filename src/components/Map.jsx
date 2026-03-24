@@ -101,6 +101,7 @@ const Map = forwardRef(function Map({ onDetectionClick }, ref) {
     activeShipTab,
     shipTabs,
     runtimeDetections,
+    enabledDetectionTypes,
     openMapToolPanelsByTab,
     closeMapToolPanel,
   } = useShipContext()
@@ -108,6 +109,7 @@ const Map = forwardRef(function Map({ onDetectionClick }, ref) {
   const map = useRef(null)
   const markersRef = useRef({})
   const onDetectionClickRef = useRef(onDetectionClick)
+  const detectionByIdRef = useRef(new globalThis.Map())
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
@@ -115,6 +117,12 @@ const Map = forwardRef(function Map({ onDetectionClick }, ref) {
   const popupPositionsRef = useRef({})
   onDetectionClickRef.current = onDetectionClick
   const openToolPanels = openMapToolPanelsByTab['__global__'] || []
+
+  useEffect(() => {
+    detectionByIdRef.current = new globalThis.Map(
+      runtimeDetections.map((detection) => [String(detection.id), detection])
+    )
+  }, [runtimeDetections])
 
   useImperativeHandle(ref, () => ({
     zoomIn: () => map.current?.zoomIn(),
@@ -174,13 +182,19 @@ const Map = forwardRef(function Map({ onDetectionClick }, ref) {
         const el = document.createElement('div')
         el.className = 'map-marker'
         el.style.cursor = 'pointer'
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (event) => {
+          const markerEl = event.currentTarget
+          const detectionId = markerEl?.dataset?.detectionId
+          const latestDetection = detectionId
+            ? detectionByIdRef.current.get(String(detectionId))
+            : detection
+          if (!latestDetection) return
           Object.values(markersRef.current).forEach((m) => {
             m.getElement().classList.remove('active')
             m.getElement().classList.remove('previewed')
           })
           el.classList.add('active')
-          onDetectionClickRef.current?.(detection)
+          onDetectionClickRef.current?.(latestDetection)
         })
         marker = new mapboxgl.Marker({ element: el })
           .setLngLat([detection.lng, detection.lat])
@@ -196,11 +210,14 @@ const Map = forwardRef(function Map({ onDetectionClick }, ref) {
       el.dataset.shipId = detection.shipId
       el.dataset.detectionType = detection.type
       el.dataset.markerDate = getMarkerDateLabel(detection.date)
-      if (getDateKey(detection.date) !== mapDate) {
+      if (
+        getDateKey(detection.date) !== mapDate ||
+        !enabledDetectionTypes.has(detection.type)
+      ) {
         el.style.display = 'none'
       }
     })
-  }, [runtimeDetections, mapDate, mapReady])
+  }, [runtimeDetections, mapDate, mapReady, enabledDetectionTypes])
 
   // Refresh marker SVGs so STS colors stay in sync.
   useEffect(() => {
@@ -248,6 +265,17 @@ const Map = forwardRef(function Map({ onDetectionClick }, ref) {
       (d) => String(d.id) === String(focusDetectionId)
     )
     if (!focusDet) return
+    if (import.meta.env.DEV) {
+      const focusedMarker = markersRef.current[String(focusDetectionId)]
+      const markerType = focusedMarker?.getElement()?.dataset?.detectionType
+      if (markerType && markerType !== focusDet.type) {
+        console.warn('[selection-sync] marker type mismatch for focused detection', {
+          focusDetectionId: String(focusDetectionId),
+          markerType,
+          detectionType: focusDet.type,
+        })
+      }
+    }
     map.current.flyTo({
       center: [focusDet.lng, focusDet.lat],
       zoom: 6,
@@ -303,12 +331,14 @@ const Map = forwardRef(function Map({ onDetectionClick }, ref) {
         primaryFocusId != null && String(det.id) === String(primaryFocusId)
       const isPreviewed = previewId != null && String(det.id) === previewId
       const isCurrentDate = getDateKey(det.date) === mapDate
+      const isTypeEnabled = enabledDetectionTypes.has(det.type)
       el.dataset.historical = isCurrentDate ? 'false' : 'true'
       el.style.display =
-        isCurrentDate || isSelected || isPreviewed ? '' : 'none'
+        (isCurrentDate && isTypeEnabled) || isSelected || isPreviewed ? '' : 'none'
     })
   }, [
     mapDate,
+    enabledDetectionTypes,
     panelFocusDetectionId,
     activeDetectionId,
     previewDetectionId,

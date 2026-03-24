@@ -1,5 +1,10 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo } from 'react'
 import { ships, detections as seedDetections } from '../data/mockData'
+import {
+  SHIP_FILTER_DEFAULTS,
+  SHIP_FILTER_TO_DETECTION_TYPES,
+  SHIP_FILTERED_TYPE_IDS,
+} from '../constants/shipFilters'
 
 const ShipContext = createContext()
 
@@ -18,21 +23,23 @@ export function ShipProvider({ children }) {
   const [previewDetectionId, setPreviewDetectionId] = useState(null)
   const [panelFocusDetectionId, setPanelFocusDetectionId] = useState(null)
   const [runtimeDetections, setRuntimeDetections] = useState(seedDetections)
+  const [shipFilters, setShipFilters] = useState(SHIP_FILTER_DEFAULTS)
+  const [showLegendOnMap, setShowLegendOnMap] = useState(false)
 
   const openShipTab = useCallback((detection) => {
+    if (!detection?.shipId) return
     const ship = ships[detection.shipId]
     if (!ship) return
 
-    const existing = shipTabs.find((t) => t.id === ship.id)
-    if (existing) {
-      setActiveShipTab(ship.id)
-      setSelectedDetectionId(detection.id)
-    } else {
-      setShipTabs((prev) => [...prev, { id: ship.id, name: ship.name }])
-      setActiveShipTab(ship.id)
+    setShipTabs((prev) => {
+      if (prev.some((tab) => tab.id === ship.id)) return prev
+      return [...prev, { id: ship.id, name: ship.name }]
+    })
+    setActiveShipTab(ship.id)
+    if (detection.id != null) {
       setSelectedDetectionId(detection.id)
     }
-  }, [shipTabs])
+  }, [])
 
   const openStsTab = useCallback((shipId, partnerShipId, detectionType = 'sts', detectionId = null) => {
     const ship = ships[shipId]
@@ -40,19 +47,58 @@ export function ShipProvider({ children }) {
     if (!ship || !partner) return
 
     const stsTabId = `sts-${shipId}-${partnerShipId}`
-    const existing = shipTabs.find((t) => t.id === stsTabId)
-    if (existing) {
-      setActiveShipTab(stsTabId)
-    } else {
+    setShipTabs((prev) => {
+      if (prev.some((tab) => tab.id === stsTabId)) return prev
       // Add STS tab but keep existing ship tabs so user can switch back
-      setShipTabs((prev) => [
+      return [
         ...prev,
-        { id: stsTabId, name: 'Ship-to-Ship', type: 'sts', stsType: detectionType, shipIds: [shipId, partnerShipId] },
-      ])
-      setActiveShipTab(stsTabId)
-    }
+        {
+          id: stsTabId,
+          name: 'Ship-to-Ship',
+          type: 'sts',
+          stsType: detectionType,
+          shipIds: [shipId, partnerShipId],
+        },
+      ]
+    })
+    setActiveShipTab(stsTabId)
     if (detectionId) setSelectedDetectionId(detectionId)
-  }, [shipTabs])
+  }, [])
+
+  const selectDetection = useCallback(
+    (detection, options = {}) => {
+      if (!detection?.id) return
+      const { source = 'unknown', allowTabSwitch = true } = options
+      const isStsDetection =
+        (detection.type === 'sts' || detection.type === 'sts-ais') &&
+        Boolean(detection.stsPartner)
+
+      if (allowTabSwitch) {
+        if (isStsDetection) {
+          openStsTab(
+            detection.shipId,
+            detection.stsPartner,
+            detection.type,
+            detection.id
+          )
+        } else {
+          openShipTab(detection)
+        }
+      } else {
+        setSelectedDetectionId(detection.id)
+      }
+
+      // Keep map focus and panel focus aligned with the same chosen detection.
+      setActiveDetectionId(detection.id)
+      setPreviewDetectionId(null)
+      setPanelFocusDetectionId(detection.id)
+
+      if (source === 'map') {
+        setDetailPanelOpen(true)
+      }
+    },
+    [openShipTab, openStsTab]
+  )
 
   const closeShipTab = useCallback((id) => {
     setShipTabs((prev) => {
@@ -105,6 +151,36 @@ export function ShipProvider({ children }) {
     )
   }, [])
 
+  const setShipFilterChecked = useCallback((filterId, isChecked) => {
+    setShipFilters((prev) => ({ ...prev, [filterId]: isChecked }))
+  }, [])
+
+  const setShipFiltersBulk = useCallback((updates) => {
+    setShipFilters((prev) => ({ ...prev, ...updates }))
+  }, [])
+
+  const resetShipFilters = useCallback(() => {
+    setShipFilters(SHIP_FILTER_DEFAULTS)
+    setShowLegendOnMap(false)
+  }, [])
+
+  const enabledDetectionTypes = useMemo(() => {
+    const enabled = new Set()
+    SHIP_FILTERED_TYPE_IDS.forEach((filterId) => {
+      if (!shipFilters[filterId]) return
+      const mappedTypes = SHIP_FILTER_TO_DETECTION_TYPES[filterId] || []
+      mappedTypes.forEach((type) => enabled.add(type))
+    })
+    return enabled
+  }, [shipFilters])
+
+  const filteredRuntimeDetections = useMemo(() => {
+    if (enabledDetectionTypes.size === 0) return []
+    return runtimeDetections.filter((detection) =>
+      enabledDetectionTypes.has(detection.type)
+    )
+  }, [runtimeDetections, enabledDetectionTypes])
+
   return (
     <ShipContext.Provider
       value={{
@@ -118,6 +194,7 @@ export function ShipProvider({ children }) {
         toggleFavoriteShip,
         openShipTab,
         openStsTab,
+        selectDetection,
         closeShipTab,
         closeAllTabs,
         detailPanelOpen,
@@ -134,6 +211,14 @@ export function ShipProvider({ children }) {
         setPanelFocusDetectionId,
         runtimeDetections,
         setRuntimeDetections,
+        shipFilters,
+        setShipFilterChecked,
+        setShipFiltersBulk,
+        resetShipFilters,
+        showLegendOnMap,
+        setShowLegendOnMap,
+        enabledDetectionTypes,
+        filteredRuntimeDetections,
       }}
     >
       {children}

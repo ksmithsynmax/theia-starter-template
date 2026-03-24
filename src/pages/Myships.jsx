@@ -224,6 +224,7 @@ function Myships() {
     closeAllTabs,
     openShipTab,
     openStsTab,
+    selectDetection,
     selectedDetectionId,
     setSelectedDetectionId,
     mapDate,
@@ -281,7 +282,6 @@ function Myships() {
     useState(false)
   const [satTimelineEventTypeMenuOpened, setSatTimelineEventTypeMenuOpened] =
     useState(false)
-  const loadedTabsRef = useRef(new Set())
   const cardRefs = useRef({})
   const satCardRefs = useRef({})
   const scrollContainerRef = useRef(null)
@@ -695,63 +695,48 @@ function Myships() {
   }, [activeShipTab, activeDetailTab, shipTabs])
 
   useEffect(() => {
-    if (!activeShipTab) return
-    if (selectedCard != null) return
-    if (loadedTabsRef.current.has(activeShipTab)) return
-    const currentTab = activeShipTab
-    loadedTabsRef.current.add(currentTab)
-    // Auto-select: use the clicked detection from map if set, otherwise pick the latest.
-    const shipTab = shipTabs.find((t) => t.id === currentTab)
-    const shipId = shipTab?.type === 'sts' ? shipTab.shipIds[0] : currentTab
-    const shipDetections = allDetections
-      .filter((d) => d.shipId === shipId)
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-    const shouldHonorSelectedDetection = shipTab?.type !== 'sts'
-    const stsPreferredDetectionId =
-      shipTab?.type === 'sts'
-        ? shipDetections.find((d) => d.stsPartner === shipTab.shipIds[1])?.id
-        : null
-    const targetId =
-      shouldHonorSelectedDetection &&
-      selectedDetectionId &&
-      shipDetections.some((d) => d.id === selectedDetectionId)
-        ? selectedDetectionId
-        : stsPreferredDetectionId || shipDetections[0]?.id
-    if (targetId) {
-      updateTabState('selectedCard', targetId)
-      updateTabState('previewCards', [])
-      setActiveDetectionId(targetId)
-      setPreviewDetectionId(null)
-      if (selectedDetectionId) setSelectedDetectionId(null)
-    }
-  }, [activeShipTab, allDetections, selectedCard])
+    if (selectedDetectionId == null || !activeShipTab) return
 
-  useEffect(() => {
-    if (selectedDetectionId != null) {
-      if (selectedCard != null) {
-        setSelectedDetectionId(null)
-        return
-      }
-      const activeTabForSelection = shipTabs.find((t) => t.id === activeShipTab)
-      const isCurrentTabSts = activeTabForSelection?.type === 'sts'
-      if (isCurrentTabSts) {
-        setSelectedDetectionId(null)
-        return
-      }
-      updateTabState('selectedCard', selectedDetectionId)
-      updateTabState('previewCards', [])
-      setActiveDetectionId(selectedDetectionId)
-      setPreviewDetectionId(null)
+    const normalizedSelectedId = normalizeDetectionId(selectedDetectionId)
+    const targetDetection = allDetections.find(
+      (detection) =>
+        normalizeDetectionId(detection.id) === normalizedSelectedId
+    )
+    if (!targetDetection) {
       setSelectedDetectionId(null)
+      return
     }
+
+    const activeTabForSelection = shipTabs.find((t) => t.id === activeShipTab)
+    if (!activeTabForSelection) {
+      // Tab activation can lag behind click dispatch by one render.
+      // Keep the clicked id until the target tab is mounted/active.
+      return
+    }
+
+    const tabShipIds =
+      activeTabForSelection.type === 'sts'
+        ? activeTabForSelection.shipIds || []
+        : [activeShipTab]
+    if (!tabShipIds.includes(targetDetection.shipId)) {
+      // The clicked detection belongs to a different ship/tab that may still
+      // be opening. Preserve the id so it can apply on the next render.
+      return
+    }
+
+    updateTabState('selectedCard', targetDetection.id)
+    updateTabState('previewCards', [])
+    setActiveDetectionId(targetDetection.id)
+    setPreviewDetectionId(null)
+    setSelectedDetectionId(null)
   }, [
+    activeShipTab,
+    allDetections,
     selectedDetectionId,
-    selectedCard,
     setActiveDetectionId,
     setSelectedDetectionId,
     setPreviewDetectionId,
     shipTabs,
-    activeShipTab,
   ])
 
   useEffect(() => {
@@ -1117,6 +1102,7 @@ function Myships() {
 
   useEffect(() => {
     if (!activeShipTab || !activeShipDetections.length) return
+    if (selectedDetectionId != null) return
     const preferredId = isStsTab
       ? activeShipDetections.find((d) => d.stsPartner === stsPartnerShipId)?.id
       : activeShipDetections[0]?.id
@@ -1130,20 +1116,41 @@ function Myships() {
     activeShipTab,
     activeShipDetections,
     selectedCard,
+    selectedDetectionId,
     isStsTab,
     stsPartnerShipId,
   ])
   const isStsUnattributed =
     isStsTab && activeTab?.stsType === 'sts' && activeStsShip === 1
-  const isUnattributed = activeShip?.id === 'unknown' || isStsUnattributed
-  const canCopyImo = !isUnattributed && Boolean(activeShip?.imo)
-  const canCopyMmsi = !isUnattributed && Boolean(activeShip?.mmsi)
-  const canCopyShipId = !isUnattributed && Boolean(activeShip?.shipId)
   const selectedDetection = selectedCard
     ? activeShipDetections.find(
         (d) => normalizeDetectionId(d.id) === normalizeDetectionId(selectedCard)
       ) || latestDetection
     : latestDetection
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    if (selectedCard == null || !selectedDetection) return
+    if (
+      normalizeDetectionId(selectedDetection.id) !==
+      normalizeDetectionId(selectedCard)
+    ) {
+      // Surface state divergence quickly while prototyping.
+      console.warn(
+        '[selection-sync] selectedCard does not match resolved selectedDetection',
+        {
+          activeShipTab,
+          selectedCard,
+          resolvedDetectionId: selectedDetection.id,
+          resolvedDetectionType: selectedDetection.type,
+        }
+      )
+    }
+  }, [activeShipTab, selectedCard, selectedDetection])
+  const isUnattributed =
+    isStsUnattributed || selectedDetection?.type === 'unattributed'
+  const canCopyImo = !isUnattributed && Boolean(activeShip?.imo)
+  const canCopyMmsi = !isUnattributed && Boolean(activeShip?.mmsi)
+  const canCopyShipId = !isUnattributed && Boolean(activeShip?.shipId)
   const shouldShowNewAisDetailsRow = selectedDetection?.type === 'ais'
   const selectedSatDetectionForTab = activeShipTab
     ? (selectedSatDetectionByTab[activeShipTab] ?? null)
@@ -2715,7 +2722,7 @@ function Myships() {
                   eventLabel={
                     isStsUnattributed
                       ? 'Unattributed'
-                      : eventLabel[latestDetection?.type] || ''
+                      : eventLabel[selectedDetection?.type] || ''
                   }
                   flashEnabled={false}
                   unattributed
@@ -2737,8 +2744,8 @@ function Myships() {
                   event={
                     isStsUnattributed
                       ? 'Unattributed'
-                      : eventLabel[latestDetection?.type] ||
-                        latestDetection?.type
+                      : eventLabel[selectedDetection?.type] ||
+                        selectedDetection?.type
                   }
                   icon={<UnattributedIcon style={{ height: 14 }} />}
                   selected
@@ -3306,29 +3313,23 @@ function Myships() {
                             onSelect={() => {
                               setFlashEnabled(true)
                               setPreviewDetectionId(null)
-                              setSelectedDetectionId(null)
                               updateTabState('previewCards', [])
 
                               // On STS tab, selecting a non-STS event navigates to ship tab.
-                              if (isStsTab && !det.stsPartner) {
-                                openShipTab(det)
-                                setActiveDetectionId(det.id)
-                                return
-                              }
-
-                              // Always focus exactly what the user clicked.
-                              updateTabState('selectedCard', det.id)
-                              setActiveDetectionId(det.id)
+                              const shouldSwitchToShipTab =
+                                isStsTab && !det.stsPartner
+                              selectDetection(det, {
+                                source: 'timeline',
+                                allowTabSwitch: shouldSwitchToShipTab,
+                              })
                             }}
                             onViewStsShips={
                               det.stsPartner
                                 ? () =>
-                                    openStsTab(
-                                      det.shipId,
-                                      det.stsPartner,
-                                      det.type,
-                                      det.id
-                                    )
+                                    selectDetection(det, {
+                                      source: 'timeline',
+                                      allowTabSwitch: true,
+                                    })
                                 : undefined
                             }
                             aisInfo={activeShip.aisInfo}

@@ -21,7 +21,7 @@ function Layout() {
   const mapRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
-  const { openShipTab, openStsTab, shipTabs } = useShipContext()
+  const { selectDetection, shipTabs } = useShipContext()
 
   useEffect(() => {
     if (shipTabs.length === 0) setPanelOpen(false)
@@ -29,25 +29,13 @@ function Layout() {
 
   const handleDetectionClick = useCallback(
     (detection) => {
-      if (
-        (detection.type === 'sts' || detection.type === 'sts-ais') &&
-        detection.stsPartner
-      ) {
-        openStsTab(
-          detection.shipId,
-          detection.stsPartner,
-          detection.type,
-          detection.id
-        )
-      } else {
-        openShipTab(detection)
-      }
+      selectDetection(detection, { source: 'map', allowTabSwitch: true })
       if (location.pathname !== '/myships') {
         navigate('/myships')
       }
       setPanelOpen(true)
     },
-    [openShipTab, openStsTab, location.pathname, navigate]
+    [selectDetection, location.pathname, navigate]
   )
 
   const handleNavClick = useCallback(
