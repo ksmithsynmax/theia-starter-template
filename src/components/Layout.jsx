@@ -5,11 +5,16 @@ import TopNav from './TopNav'
 import LeftNav from './LeftNav'
 import Map from './Map'
 import CollapseButton from '../custom-icons/CollapseButton'
+import ExpandButton from '../custom-icons/ExpandButton'
 import { useShipContext } from '../context/ShipContext'
+import SecondaryNav from './SecondaryNav'
 
 function Layout() {
   const [panelOpen, setPanelOpen] = useState(false)
+  const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [collapseBtnHovered, setCollapseBtnHovered] = useState(false)
+  const [expandSecNavHovered, setExpandSecNavHovered] = useState(false)
+  const [expandPanelHovered, setExpandPanelHovered] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { openShipTab, openStsTab, shipTabs } = useShipContext()
@@ -24,7 +29,12 @@ function Layout() {
         (detection.type === 'sts' || detection.type === 'sts-ais') &&
         detection.stsPartner
       ) {
-        openStsTab(detection.shipId, detection.stsPartner, detection.type, detection.id)
+        openStsTab(
+          detection.shipId,
+          detection.stsPartner,
+          detection.type,
+          detection.id
+        )
       } else {
         openShipTab(detection)
       }
@@ -39,9 +49,9 @@ function Layout() {
   const handleNavClick = useCallback(
     (to) => {
       if (location.pathname === to) {
-        setPanelOpen((prev) => !prev)
+        setSecondaryNavOpen((prev) => !prev)
       } else {
-        setPanelOpen(true)
+        setSecondaryNavOpen(true)
         navigate(to)
       }
     },
@@ -51,6 +61,10 @@ function Layout() {
   const closePanel = useCallback(() => {
     setPanelOpen(false)
   }, [])
+
+  const isMyShips = location.pathname === '/myships'
+  const showPanelExpand = !panelOpen && isMyShips
+  const slidePanelClass = panelOpen ? 'slide-panel--open' : (isMyShips ? 'slide-panel--collapsed' : '')
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -67,27 +81,58 @@ function Layout() {
           }}
         >
           <LeftNav onNavClick={handleNavClick} />
+
+          <SecondaryNav
+            isOpen={secondaryNavOpen}
+            onOpen={() => setSecondaryNavOpen(true)}
+            onClose={() => setSecondaryNavOpen(false)}
+            currentPath={location.pathname}
+          />
+
           <Box
-            className={`slide-panel ${panelOpen ? 'slide-panel--open' : ''}`}
+            className={`slide-panel ${slidePanelClass}`}
           >
-            <Box onClick={closePanel} style={{ position: 'relative' }}>
+            {showPanelExpand && (
               <Box
+                onClick={() => setPanelOpen(true)}
+                onMouseEnter={() => setExpandPanelHovered(true)}
+                onMouseLeave={() => setExpandPanelHovered(false)}
                 style={{
                   position: 'absolute',
                   right: 0,
                   top: 71,
                   cursor: 'pointer',
                   pointerEvents: 'auto',
+                  zIndex: 10,
                 }}
-                onMouseEnter={() => setCollapseBtnHovered(true)}
-                onMouseLeave={() => setCollapseBtnHovered(false)}
               >
-                <CollapseButton
-                  backgroundColor={collapseBtnHovered ? '#4C5070' : '#393C56'}
+                <ExpandButton
+                  backgroundColor={expandPanelHovered ? '#4C5070' : '#393C56'}
                 />
               </Box>
-            </Box>
-            <Box className="slide-panel-content">
+            )}
+
+            {panelOpen && (
+              <Box onClick={closePanel} style={{ position: 'relative' }}>
+                <Box
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 71,
+                    cursor: 'pointer',
+                    pointerEvents: 'auto',
+                  }}
+                  onMouseEnter={() => setCollapseBtnHovered(true)}
+                  onMouseLeave={() => setCollapseBtnHovered(false)}
+                >
+                  <CollapseButton
+                    backgroundColor={collapseBtnHovered ? '#4C5070' : '#393C56'}
+                  />
+                </Box>
+              </Box>
+            )}
+            
+            <Box className="slide-panel-content" style={{ minWidth: 500, opacity: panelOpen ? 1 : 0, transition: 'opacity 0.2s ease' }}>
               <Outlet />
             </Box>
           </Box>

@@ -102,13 +102,19 @@
   transition: width 0.3s ease;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #393c56;
   flex-shrink: 0;
   pointer-events: auto;
+  position: relative;
 }
 
 .slide-panel--open {
   width: 500px;
+  border-right: 1px solid #393c56;
+}
+
+.slide-panel--collapsed {
+  width: 32px;
+  border-right: 1px solid #393c56;
 }
 
 .slide-panel-header {
