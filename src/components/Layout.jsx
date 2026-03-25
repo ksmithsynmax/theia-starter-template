@@ -14,6 +14,7 @@ import { useShipContext } from '../context/ShipContext'
 import SecondaryNav from './SecondaryNav'
 import RouteSecondaryNav from './RouteSecondaryNav'
 import EventsSecondaryNav from './EventsSecondaryNav'
+import AlertsSecondaryNav from './AlertsSecondaryNav'
 import Myships from '../pages/Myships'
 
 function Layout() {
@@ -205,6 +206,12 @@ function Layout() {
             />
           ) : location.pathname === '/events' ? (
             <EventsSecondaryNav
+              isOpen={routeSecondaryNavOpen}
+              onOpen={() => setRouteSecondaryNavOpen(true)}
+              onClose={() => setRouteSecondaryNavOpen(false)}
+            />
+          ) : location.pathname === '/alerts' ? (
+            <AlertsSecondaryNav
               isOpen={routeSecondaryNavOpen}
               onOpen={() => setRouteSecondaryNavOpen(true)}
               onClose={() => setRouteSecondaryNavOpen(false)}
