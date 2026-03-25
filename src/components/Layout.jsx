@@ -1,7 +1,7 @@
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Box, ActionIcon } from '@mantine/core'
-import { Plus, Minus } from '@untitledui/icons'
+import { Plus, Minus, LayersThree01 } from '@untitledui/icons'
 import TopNav from './TopNav'
 import LeftNav from './LeftNav'
 import Map from './Map'
@@ -9,13 +9,20 @@ import CollapseButton from '../custom-icons/CollapseButton'
 import ExpandButton from '../custom-icons/ExpandButton'
 import ShipFilterIcon from '../custom-icons/ShipFilterIcon.svg'
 import ShipFiltersPanel from './ShipFiltersPanel'
+import MapLayersPanel from './MapLayersPanel'
 import { useShipContext } from '../context/ShipContext'
 import SecondaryNav from './SecondaryNav'
+import RouteSecondaryNav from './RouteSecondaryNav'
+import EventsSecondaryNav from './EventsSecondaryNav'
+import Myships from '../pages/Myships'
 
 function Layout() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
+  const [routeSecondaryNavOpen, setRouteSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
+  const [mapLayersOpen, setMapLayersOpen] = useState(false)
+  const [portsLayerVisible, setPortsLayerVisible] = useState(false)
   const [collapseBtnHovered, setCollapseBtnHovered] = useState(false)
   const [expandPanelHovered, setExpandPanelHovered] = useState(false)
   const mapRef = useRef(null)
@@ -30,20 +37,28 @@ function Layout() {
   const handleDetectionClick = useCallback(
     (detection) => {
       selectDetection(detection, { source: 'map', allowTabSwitch: true })
-      if (location.pathname !== '/myships') {
-        navigate('/myships')
-      }
       setPanelOpen(true)
     },
-    [selectDetection, location.pathname, navigate]
+    [selectDetection]
   )
 
   const handleNavClick = useCallback(
     (to) => {
+      const isShipRoute = to === '/myships'
       if (location.pathname === to) {
-        setSecondaryNavOpen((prev) => !prev)
+        if (isShipRoute) {
+          setSecondaryNavOpen((prev) => !prev)
+        } else {
+          setRouteSecondaryNavOpen((prev) => !prev)
+        }
       } else {
-        setSecondaryNavOpen(true)
+        if (isShipRoute) {
+          setSecondaryNavOpen(true)
+          setRouteSecondaryNavOpen(false)
+        } else {
+          setSecondaryNavOpen(false)
+          setRouteSecondaryNavOpen(true)
+        }
         navigate(to)
       }
     },
@@ -54,17 +69,31 @@ function Layout() {
     setPanelOpen(false)
   }, [])
 
-  const isMyShips = location.pathname === '/myships'
   const showPanelExpand = !panelOpen && shipTabs.length > 0
-  const slidePanelClass = panelOpen ? 'slide-panel--open' : (shipTabs.length > 0 ? 'slide-panel--collapsed' : '')
+  const slidePanelClass = panelOpen
+    ? 'slide-panel--open'
+    : shipTabs.length > 0
+      ? 'slide-panel--collapsed'
+      : ''
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TopNav />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-        <Map ref={mapRef} onDetectionClick={handleDetectionClick} />
+        <Map
+          ref={mapRef}
+          onDetectionClick={handleDetectionClick}
+          showPorts={portsLayerVisible}
+        />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
+        )}
+        {mapLayersOpen && (
+          <MapLayersPanel
+            onClose={() => setMapLayersOpen(false)}
+            portsChecked={portsLayerVisible}
+            onPortsCheckedChange={setPortsLayerVisible}
+          />
         )}
         <Box
           style={{
@@ -133,6 +162,21 @@ function Layout() {
           >
             <img src={ShipFilterIcon} alt="" style={{ width: 20, height: 20 }} />
           </ActionIcon>
+          <ActionIcon
+            className="map-layer-action-icon"
+            variant="filled"
+            aria-label="Layers"
+            onClick={() => setMapLayersOpen((prev) => !prev)}
+            style={{
+              width: 46,
+              height: 46,
+              backgroundColor: '#24263c',
+              border: '1px solid #393C56',
+              borderRadius: 4,
+            }}
+          >
+            <LayersThree01 size={20} color="white" />
+          </ActionIcon>
         </Box>
         <Box
           style={{
@@ -145,12 +189,26 @@ function Layout() {
         >
           <LeftNav onNavClick={handleNavClick} />
 
-          <SecondaryNav
-            isOpen={secondaryNavOpen}
-            onOpen={() => setSecondaryNavOpen(true)}
-            onClose={() => setSecondaryNavOpen(false)}
-            currentPath={location.pathname}
-          />
+          {location.pathname === '/myships' ? (
+            <SecondaryNav
+              isOpen={secondaryNavOpen}
+              onOpen={() => setSecondaryNavOpen(true)}
+              onClose={() => setSecondaryNavOpen(false)}
+            />
+          ) : location.pathname === '/events' ? (
+            <EventsSecondaryNav
+              isOpen={routeSecondaryNavOpen}
+              onOpen={() => setRouteSecondaryNavOpen(true)}
+              onClose={() => setRouteSecondaryNavOpen(false)}
+            />
+          ) : (
+            <RouteSecondaryNav
+              isOpen={routeSecondaryNavOpen}
+              onOpen={() => setRouteSecondaryNavOpen(true)}
+              onClose={() => setRouteSecondaryNavOpen(false)}
+              currentPath={location.pathname}
+            />
+          )}
 
           <Box
             className={`slide-panel ${slidePanelClass}`}
@@ -203,7 +261,7 @@ function Layout() {
                 transition: 'opacity 0.2s ease',
               }}
             >
-              <Outlet />
+              <Myships />
             </Box>
           </Box>
         </Box>

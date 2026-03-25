@@ -7,6 +7,7 @@ import ExtendedPathPanel from './ExtendedPathPanel'
 import FuturePathPanel from './FuturePathPanel'
 import EstimatedLocationPanel from './EstimatedLocationPanel'
 import { useShipContext } from '../context/ShipContext'
+import { getPortIconSvg } from '../custom-icons/PortIcon'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
@@ -92,7 +93,13 @@ const getDefaultPopupPosition = (layout, containerWidth) => ({
   y: layout.top,
 })
 
-const Map = forwardRef(function Map({ onDetectionClick }, ref) {
+const PROTOTYPE_PORTS = [
+  { id: 'port-dubai', name: 'Dubai', lng: 55.2708, lat: 25.2048 },
+  { id: 'port-muscat', name: 'Muscat', lng: 58.4059, lat: 23.588 },
+  { id: 'port-mumbai', name: 'Mumbai', lng: 72.8777, lat: 19.076 },
+]
+
+const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref) {
   const {
     activeDetectionId,
     previewDetectionId,
@@ -108,6 +115,7 @@ const Map = forwardRef(function Map({ onDetectionClick }, ref) {
   const mapContainer = useRef(null)
   const map = useRef(null)
   const markersRef = useRef({})
+  const portMarkersRef = useRef({})
   const onDetectionClickRef = useRef(onDetectionClick)
   const detectionByIdRef = useRef(new globalThis.Map())
   const [mapReady, setMapReady] = useState(false)
@@ -158,10 +166,74 @@ const Map = forwardRef(function Map({ onDetectionClick }, ref) {
     return () => {
       setMapReady(false)
       observer.disconnect()
+      Object.values(portMarkersRef.current).forEach((marker) => {
+        marker.__cleanupListeners?.()
+        marker.remove()
+      })
+      portMarkersRef.current = {}
       map.current.remove()
       map.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+
+    if (!showPorts) {
+      Object.values(portMarkersRef.current).forEach((marker) => {
+        marker.remove()
+      })
+      portMarkersRef.current = {}
+      return
+    }
+
+    PROTOTYPE_PORTS.forEach((port) => {
+      let marker = portMarkersRef.current[port.id]
+      if (!marker) {
+        const el = document.createElement('div')
+        el.setAttribute('aria-label', `${port.name} port`)
+        el.style.width = '40px'
+        el.style.height = '40px'
+        el.style.cursor = 'pointer'
+        el.style.pointerEvents = 'auto'
+        
+        // Render the SVG exactly once to prevent any flicker
+        el.innerHTML = getPortIconSvg('#393C56', 40)
+
+        const onClick = (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          
+          const isCurrentlySelected = el.dataset.selected === 'true'
+
+          // Reset all ports to default border
+          Object.values(portMarkersRef.current).forEach((m) => {
+            const mEl = m.getElement()
+            mEl.dataset.selected = 'false'
+            const circle = mEl.querySelector('circle')
+            if (circle) circle.setAttribute('stroke', '#393C56')
+          })
+
+          // If it wasn't selected before, select it now
+          if (!isCurrentlySelected) {
+            el.dataset.selected = 'true'
+            const circle = el.querySelector('circle')
+            if (circle) circle.setAttribute('stroke', '#0094FF')
+          }
+        }
+
+        el.addEventListener('click', onClick)
+
+        marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([port.lng, port.lat])
+          .addTo(map.current)
+          
+        portMarkersRef.current[port.id] = marker
+      } else {
+        marker.setLngLat([port.lng, port.lat])
+      }
+    })
+  }, [showPorts, mapReady])
 
   // Create markers for all detections (including newly added prototype detections).
   useEffect(() => {

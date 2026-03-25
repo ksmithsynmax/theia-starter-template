@@ -10,7 +10,7 @@ const SECONDARY_NAV_DEFAULT_WIDTH = 386
 const SECONDARY_NAV_MIN_WIDTH = 340
 const SECONDARY_NAV_MAX_WIDTH = 720
 
-const SecondaryNav = ({ isOpen, onOpen, onClose, currentPath }) => {
+const SecondaryNav = ({ isOpen, onOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState('My Ships')
   const [collapseHovered, setCollapseHovered] = useState(false)
   const [expandHovered, setExpandHovered] = useState(false)
@@ -20,7 +20,6 @@ const SecondaryNav = ({ isOpen, onOpen, onClose, currentPath }) => {
   const resizeStartWidthRef = useRef(SECONDARY_NAV_DEFAULT_WIDTH)
   const { shipTabs, favoriteShipIds } = useShipContext()
 
-  const isMyShips = currentPath === '/myships'
   const recentlyViewedRows = shipTabs
     .filter((tab) => tab.type !== 'sts')
     .map((tab) => ships[tab.id])
@@ -76,19 +75,19 @@ const SecondaryNav = ({ isOpen, onOpen, onClose, currentPath }) => {
   return (
     <Box
       style={{
-        width: isOpen && isMyShips ? navWidth : isMyShips ? 32 : 0,
+        width: isOpen ? navWidth : 32,
         overflow: 'hidden',
         backgroundColor: '#181926',
         transition: isResizing ? 'none' : 'width 0.3s ease',
         display: 'flex',
         flexDirection: 'column',
-        borderRight: isMyShips ? '1px solid #393c56' : 'none',
+        borderRight: '1px solid #393c56',
         flexShrink: 0,
         pointerEvents: 'auto',
         position: 'relative',
       }}
     >
-      {!isOpen && isMyShips && (
+      {!isOpen && (
         <Box
           onClick={onOpen}
           onMouseEnter={() => setExpandHovered(true)}
@@ -107,7 +106,7 @@ const SecondaryNav = ({ isOpen, onOpen, onClose, currentPath }) => {
         </Box>
       )}
 
-      {isOpen && isMyShips && (
+      {isOpen && (
         <Box
           onClick={onClose}
           onMouseEnter={() => setCollapseHovered(true)}
@@ -648,7 +647,7 @@ const SecondaryNav = ({ isOpen, onOpen, onClose, currentPath }) => {
           )}
         </Box>
       </Box>
-      {isOpen && isMyShips && (
+      {isOpen && (
         <Box
           onMouseDown={(event) => {
             if (event.button !== 0) return

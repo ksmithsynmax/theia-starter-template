@@ -337,6 +337,10 @@ button:active,
   background-color: #181926 !important;
 }
 
+.map-layer-action-icon:hover {
+  background-color: #181926 !important;
+}
+
 .map-zoom-action-icon:hover {
   background-color: #181926 !important;
 }
