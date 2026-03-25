@@ -503,24 +503,24 @@ export default function TheiaTemporalReplay() {
                 <div style={{ fontSize: 20, lineHeight: 1 }}>{vesselData.flag}</div>
               )}
             </div>
-            <div
-              style={{
-                marginTop: 4,
-                display: 'flex',
-                justifyContent: 'flex-start',
-                alignItems: 'baseline',
-                gap: 12,
-              }}
-            >
-              {vesselData.type !== 'Unknown' && (
+            {vesselData.type !== 'Unknown' && (
+              <div
+                style={{
+                  marginTop: 4,
+                  display: 'flex',
+                  justifyContent: 'flex-start',
+                  alignItems: 'baseline',
+                  gap: 12,
+                }}
+              >
                 <div style={{ fontSize: '10px', color: '#888F9E' }}>
                   {vesselData.type}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
             <div
               style={{
-                marginTop: 8,
+                marginTop: 4,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 32,
