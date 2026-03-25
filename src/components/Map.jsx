@@ -14,6 +14,7 @@ import FuturePathPanel from './FuturePathPanel'
 import EstimatedLocationPanel from './EstimatedLocationPanel'
 import { useShipContext } from '../context/ShipContext'
 import { getPortIconSvg } from '../custom-icons/PortIcon'
+import { mockPortFeatures } from '../data/mockPortFeatures'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
@@ -100,9 +101,10 @@ const getDefaultPopupPosition = (layout, containerWidth) => ({
 })
 
 const PROTOTYPE_PORTS = [
-  { id: 'port-dubai', name: 'Dubai', lng: 55.2708, lat: 25.2048 },
-  { id: 'port-muscat', name: 'Muscat', lng: 58.4059, lat: 23.588 },
-  { id: 'port-mumbai', name: 'Mumbai', lng: 72.8777, lat: 19.076 },
+  { id: 'port-dubai', name: 'Dubai', lng: 55.2708, lat: 25.2648 },
+  { id: 'port-muscat', name: 'Muscat', lng: 58.5659, lat: 23.6280 },
+  { id: 'port-mumbai', name: 'Mumbai', lng: 72.8277, lat: 18.9360 },
+  { id: 'port-bar-harbor', name: 'Bar Harbor', lng: 103.78, lat: 1.25, flag: '🇺🇸' },
 ]
 
 const Map = forwardRef(function Map(
@@ -120,6 +122,9 @@ const Map = forwardRef(function Map(
     enabledDetectionTypes,
     openMapToolPanelsByTab,
     closeMapToolPanel,
+    activePortLevel,
+    selectedTerminal,
+    selectedBerth,
   } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -164,7 +169,10 @@ const Map = forwardRef(function Map(
       attributionControl: false,
       logoPosition: 'bottom-right',
     })
-    setMapReady(true)
+    
+    map.current.on('load', () => {
+      setMapReady(true)
+    })
 
     const observer = new ResizeObserver(() => {
       map.current?.resize()
@@ -193,6 +201,267 @@ const Map = forwardRef(function Map(
   useEffect(() => {
     if (!map.current || !mapReady) return
 
+    if (!map.current.getSource('port-features')) {
+      map.current.addSource('port-features', {
+        type: 'geojson',
+        data: mockPortFeatures,
+      })
+
+      // Port Boundary Fill
+      map.current.addLayer({
+        id: 'port-fill',
+        type: 'fill',
+        source: 'port-features',
+        filter: ['==', 'type', 'port'],
+        paint: {
+          'fill-color': '#0094FF',
+          'fill-opacity': 0, // Default hidden
+        },
+      })
+
+      // Port Boundary Outline
+      map.current.addLayer({
+        id: 'port-outline',
+        type: 'line',
+        source: 'port-features',
+        filter: ['==', 'type', 'port'],
+        paint: {
+          'line-color': '#0094FF',
+          'line-width': 2,
+          'line-opacity': 0, // Default hidden
+        },
+      })
+
+      // Terminal Fill
+      map.current.addLayer({
+        id: 'terminal-fill',
+        type: 'fill',
+        source: 'port-features',
+        filter: ['==', 'type', 'terminal'],
+        paint: {
+          'fill-color': '#0094FF',
+          'fill-opacity': 0, // Default hidden
+        },
+      })
+
+      // Terminal Outline
+      map.current.addLayer({
+        id: 'terminal-outline',
+        type: 'line',
+        source: 'port-features',
+        filter: ['==', 'type', 'terminal'],
+        paint: {
+          'line-color': '#FFFFFF',
+          'line-width': 1,
+          'line-dasharray': [2, 2],
+          'line-opacity': 0, // Default hidden
+        },
+      })
+
+      // Berth Fill
+      map.current.addLayer({
+        id: 'berth-fill',
+        type: 'fill',
+        source: 'port-features',
+        filter: ['==', 'type', 'berth'],
+        paint: {
+          'fill-color': '#0094FF',
+          'fill-opacity': 0, // Default hidden
+        },
+      })
+      
+      // Berth Outline
+      map.current.addLayer({
+        id: 'berth-outline',
+        type: 'line',
+        source: 'port-features',
+        filter: ['==', 'type', 'berth'],
+        paint: {
+          'line-color': '#FFFFFF',
+          'line-width': 1,
+          'line-opacity': 0, // Default hidden
+        },
+      })
+
+      // Labels for Terminals and Berths
+      map.current.addLayer({
+        id: 'port-labels',
+        type: 'symbol',
+        source: 'port-features',
+        filter: ['in', 'type', 'terminal', 'berth'],
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-size': 12,
+          'text-anchor': 'left',
+          'text-offset': [1, 0],
+        },
+        paint: {
+          'text-color': '#FFFFFF',
+          'text-halo-color': '#000000',
+          'text-halo-width': 2,
+          'text-opacity': 0, // Default hidden
+        },
+      })
+    }
+  }, [mapReady])
+
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+
+    const activeTab = shipTabs.find((t) => t.id === activeShipTab)
+    const isPortTabActive = activeTab?.type === 'port'
+
+    if (isPortTabActive) {
+      const port = PROTOTYPE_PORTS.find(p => p.id === activeTab.id)
+      if (port) {
+        // Fly to port
+        map.current.flyTo({ center: [port.lng, port.lat], zoom: 13.5, essential: true })
+
+        // Translate GeoJSON to the port's location
+        // Base coordinates are roughly around [103.78, 1.25] (Bar Harbor / Singapore)
+        const BASE_LNG = 103.78
+        const BASE_LAT = 1.25
+        const lngOffset = port.lng - BASE_LNG
+        const latOffset = port.lat - BASE_LAT
+
+        const translatedFeatures = {
+          ...mockPortFeatures,
+          features: mockPortFeatures.features.map(feature => ({
+            ...feature,
+            geometry: {
+              ...feature.geometry,
+              coordinates: feature.geometry.coordinates.map(ring => 
+                ring.map(coord => [coord[0] + lngOffset, coord[1] + latOffset])
+              )
+            }
+          }))
+        }
+
+        const source = map.current.getSource('port-features')
+        if (source) {
+          source.setData(translatedFeatures)
+        }
+      }
+    }
+
+    if (!isPortTabActive) {
+      // Hide all port features
+      map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
+      map.current.setPaintProperty('port-outline', 'line-opacity', 0)
+      map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
+      map.current.setPaintProperty('terminal-outline', 'line-opacity', 0)
+      map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
+      map.current.setPaintProperty('berth-outline', 'line-opacity', 0)
+      map.current.setPaintProperty('port-labels', 'text-opacity', 0)
+      return
+    }
+
+    // Port Details Active
+    if (activePortLevel === 'Port Details') {
+      map.current.setPaintProperty('port-fill', 'fill-opacity', 0.2)
+      map.current.setPaintProperty('port-outline', 'line-opacity', 1)
+      map.current.setPaintProperty('port-outline', 'line-color', '#0094FF')
+      
+      map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
+      map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
+      map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
+      
+      map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
+      map.current.setPaintProperty('berth-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('berth-outline', 'line-color', '#FFFFFF')
+    } 
+    // Terminal Details Active
+    else if (activePortLevel === 'Terminal Details') {
+      map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
+      map.current.setPaintProperty('port-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('port-outline', 'line-color', '#FFFFFF')
+
+      if (selectedTerminal) {
+        // Highlight selected terminal
+        map.current.setPaintProperty('terminal-fill', 'fill-opacity', [
+          'case',
+          ['==', ['get', 'id'], selectedTerminal],
+          0.2,
+          0
+        ])
+        map.current.setPaintProperty('terminal-outline', 'line-opacity', 1)
+        map.current.setPaintProperty('terminal-outline', 'line-color', [
+          'case',
+          ['==', ['get', 'id'], selectedTerminal],
+          '#0094FF',
+          '#FFFFFF'
+        ])
+        map.current.setPaintProperty('terminal-outline', 'line-dasharray', [
+          'case',
+          ['==', ['get', 'id'], selectedTerminal],
+          ['literal', [1]], // solid line
+          ['literal', [2, 2]] // dashed line
+        ])
+        map.current.setPaintProperty('port-labels', 'text-opacity', [
+          'case',
+          ['==', ['get', 'id'], selectedTerminal],
+          1,
+          0
+        ])
+      } else {
+        // No terminal selected, show all dashed
+        map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
+        map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
+        map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
+        map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
+        map.current.setPaintProperty('port-labels', 'text-opacity', 0)
+      }
+
+      map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
+      map.current.setPaintProperty('berth-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('berth-outline', 'line-color', '#FFFFFF')
+    }
+    // Berth Details Active
+    else if (activePortLevel === 'Berth Details') {
+      map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
+      map.current.setPaintProperty('port-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('port-outline', 'line-color', '#FFFFFF')
+
+      map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
+      map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
+      map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
+
+      if (selectedBerth) {
+        // Highlight selected berth
+        map.current.setPaintProperty('berth-fill', 'fill-opacity', [
+          'case',
+          ['==', ['get', 'id'], selectedBerth],
+          1,
+          0
+        ])
+        map.current.setPaintProperty('berth-outline', 'line-opacity', 1)
+        map.current.setPaintProperty('berth-outline', 'line-color', [
+          'case',
+          ['==', ['get', 'id'], selectedBerth],
+          '#0094FF',
+          '#FFFFFF'
+        ])
+        map.current.setPaintProperty('port-labels', 'text-opacity', [
+          'case',
+          ['==', ['get', 'id'], selectedBerth],
+          1,
+          0
+        ])
+      } else {
+        map.current.setPaintProperty('berth-fill', 'fill-opacity', 0.5)
+        map.current.setPaintProperty('berth-fill', 'fill-color', '#0094FF')
+        map.current.setPaintProperty('berth-outline', 'line-opacity', 1)
+        map.current.setPaintProperty('berth-outline', 'line-color', '#0094FF')
+        map.current.setPaintProperty('port-labels', 'text-opacity', 0)
+      }
+    }
+  }, [mapReady, activeShipTab, shipTabs, activePortLevel, selectedTerminal, selectedBerth])
+
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+
     if (!showPorts) {
       Object.values(portMarkersRef.current).forEach((marker) => {
         marker.remove()
@@ -210,9 +479,38 @@ const Map = forwardRef(function Map(
         el.style.height = '40px'
         el.style.cursor = 'pointer'
         el.style.pointerEvents = 'auto'
+        el.style.position = 'relative'
 
         // Render the SVG exactly once to prevent any flicker
         el.innerHTML = getPortIconSvg('#393C56', 40)
+
+        // Add tooltip
+        const tooltip = document.createElement('div')
+        tooltip.innerText = port.name
+        tooltip.style.position = 'absolute'
+        tooltip.style.left = '48px'
+        tooltip.style.top = '50%'
+        tooltip.style.transform = 'translateY(-50%)'
+        tooltip.style.background = '#000'
+        tooltip.style.color = '#fff'
+        tooltip.style.padding = '4px 8px'
+        tooltip.style.borderRadius = '4px'
+        tooltip.style.fontSize = '12px'
+        tooltip.style.whiteSpace = 'nowrap'
+        tooltip.style.pointerEvents = 'none'
+        tooltip.style.opacity = '0'
+        tooltip.style.transition = 'opacity 0.2s ease'
+        tooltip.style.border = '1px solid #393C56'
+        el.appendChild(tooltip)
+
+        el.addEventListener('mouseenter', () => {
+          tooltip.style.opacity = '1'
+        })
+        el.addEventListener('mouseleave', () => {
+          if (el.dataset.selected !== 'true') {
+            tooltip.style.opacity = '0'
+          }
+        })
 
         const onClick = (event) => {
           event.preventDefault()
@@ -226,6 +524,8 @@ const Map = forwardRef(function Map(
             mEl.dataset.selected = 'false'
             const circle = mEl.querySelector('circle')
             if (circle) circle.setAttribute('stroke', '#393C56')
+            const t = mEl.querySelector('div')
+            if (t) t.style.opacity = '0'
           })
 
           // If it wasn't selected before, select it now
@@ -233,6 +533,7 @@ const Map = forwardRef(function Map(
             el.dataset.selected = 'true'
             const circle = el.querySelector('circle')
             if (circle) circle.setAttribute('stroke', '#0094FF')
+            tooltip.style.opacity = '1'
             if (onPortClickRef.current) onPortClickRef.current(port)
           }
         }

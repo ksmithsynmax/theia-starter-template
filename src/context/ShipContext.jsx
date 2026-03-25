@@ -32,6 +32,11 @@ export function ShipProvider({ children }) {
   const [shipFilters, setShipFilters] = useState(SHIP_FILTER_DEFAULTS)
   const [showLegendOnMap, setShowLegendOnMap] = useState(false)
 
+  // Port specific state
+  const [activePortLevel, setActivePortLevel] = useState('Port Details')
+  const [selectedTerminal, setSelectedTerminal] = useState(null)
+  const [selectedBerth, setSelectedBerth] = useState(null)
+
   const openShipTab = useCallback((detection) => {
     if (!detection?.shipId) return
     const ship = ships[detection.shipId]
@@ -55,6 +60,9 @@ export function ShipProvider({ children }) {
       return [...prev, { id: port.id, type: 'port', name: port.name, flag: port.flag }]
     })
     setActiveShipTab(port.id)
+    setActivePortLevel('Port Details')
+    setSelectedTerminal(null)
+    setSelectedBerth(null)
     setDetailPanelOpen(true)
   }, [])
 
@@ -243,6 +251,12 @@ export function ShipProvider({ children }) {
         setShowLegendOnMap,
         enabledDetectionTypes,
         filteredRuntimeDetections,
+        activePortLevel,
+        setActivePortLevel,
+        selectedTerminal,
+        setSelectedTerminal,
+        selectedBerth,
+        setSelectedBerth,
       }}
     >
       {children}

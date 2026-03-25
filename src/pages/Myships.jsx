@@ -242,6 +242,12 @@ function Myships() {
     openMapToolPanelsByTab,
     toggleMapToolPanel,
     toggleFavoriteShip,
+    activePortLevel,
+    setActivePortLevel,
+    selectedTerminal,
+    setSelectedTerminal,
+    selectedBerth,
+    setSelectedBerth,
   } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
@@ -269,10 +275,7 @@ function Myships() {
   const [hoveredTopAction, setHoveredTopAction] = useState(null)
   const [detailToolsVisible, setDetailToolsVisible] = useState(true)
   const [showGoToDateModal, setShowGoToDateModal] = useState(false)
-  const [activePortLevel, setActivePortLevel] = useState('Port Details')
   const [activePortTab, setActivePortTab] = useState('Ships In Port')
-  const [selectedTerminal, setSelectedTerminal] = useState(null)
-  const [selectedBerth, setSelectedBerth] = useState(null)
   const [portTabOverflowLeft, setPortTabOverflowLeft] = useState(false)
   const [portTabOverflowRight, setPortTabOverflowRight] = useState(false)
   const portTabScrollRef = useRef(null)
@@ -4097,8 +4100,6 @@ function Myships() {
                   { value: 'brani', label: 'BRANI TERMINAL' },
                   { value: 'jurong_vlcc', label: 'JURONG ISLAND VLCC TERMINAL' },
                   { value: 'jurong_port', label: 'JURONG PORT' },
-                  { value: 'cafhi', label: 'CAFHI (SINGAPORE AIRPORT)' },
-                  { value: 'jurong_rock', label: 'JURONG ROCK CAVERNS' },
                 ]}
                 searchable
                 rightSection={<ChevronDown style={{ width: 16, height: 16, color: '#fff' }} />}
@@ -4151,8 +4152,8 @@ function Myships() {
                 >
                   <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
                     <KeyValuePair keyName="Terminal Name" value={
-                      ['brani', 'jurong_vlcc', 'jurong_port', 'cafhi', 'jurong_rock'].includes(selectedTerminal) 
-                        ? ['BRANI TERMINAL', 'JURONG ISLAND VLCC TERMINAL', 'JURONG PORT', 'CAFHI (SINGAPORE AIRPORT)', 'JURONG ROCK CAVERNS'][['brani', 'jurong_vlcc', 'jurong_port', 'cafhi', 'jurong_rock'].indexOf(selectedTerminal)]
+                      ['brani', 'jurong_vlcc', 'jurong_port'].includes(selectedTerminal) 
+                        ? ['BRANI TERMINAL', 'JURONG ISLAND VLCC TERMINAL', 'JURONG PORT'][['brani', 'jurong_vlcc', 'jurong_port'].indexOf(selectedTerminal)]
                         : 'BRANI TERMINAL'
                     } />
                   </Box>
@@ -4184,12 +4185,6 @@ function Myships() {
                   { value: 'b1', label: 'BERTH NO. B1' },
                   { value: 'b2', label: 'BERTH NO. B2' },
                   { value: 'b3', label: 'BERTH NO. B3' },
-                  { value: 'b4', label: 'BERTH NO. B4' },
-                  { value: 'b5', label: 'BERTH NO. B5' },
-                  { value: 'b6', label: 'BERTH NO. B6' },
-                  { value: 'b7', label: 'BERTH NO. B7' },
-                  { value: 'b8', label: 'BERTH NO. B8' },
-                  { value: 'b9', label: 'BERTH NO. B9' },
                 ]}
                 searchable
                 rightSection={<ChevronDown style={{ width: 16, height: 16, color: '#fff' }} />}
@@ -4247,13 +4242,13 @@ function Myships() {
                       gap: 16,
                     }}
                   >
-                    <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
-                      <KeyValuePair keyName="Berth Name" value={
-                        ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9'].includes(selectedBerth)
-                          ? ['BERTH NO. B1', 'BERTH NO. B2', 'BERTH NO. B3', 'BERTH NO. B4', 'BERTH NO. B5', 'BERTH NO. B6', 'BERTH NO. B7', 'BERTH NO. B8', 'BERTH NO. B9'][['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9'].indexOf(selectedBerth)]
-                          : 'BERTH NO. B1'
-                      } />
-                    </Box>
+                  <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                    <KeyValuePair keyName="Berth Name" value={
+                      ['b1', 'b2', 'b3'].includes(selectedBerth)
+                        ? ['BERTH NO. B1', 'BERTH NO. B2', 'BERTH NO. B3'][['b1', 'b2', 'b3'].indexOf(selectedBerth)]
+                        : 'BERTH NO. B1'
+                    } />
+                  </Box>
                     <Box style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
                       <Box style={{ minWidth: 0, overflow: 'hidden' }}>
                         <KeyValuePair keyName="Berth Code" value="SGSIN0101B" />
