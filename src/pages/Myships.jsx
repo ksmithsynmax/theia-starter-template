@@ -4058,7 +4058,9 @@ function Myships() {
                 <Button
                   onClick={() => {
                     setActivePortLevel(level)
-                    if ((level === 'Terminal Details' || level === 'Berth Details') && (activePortTab === 'Ships In Port' || activePortTab === 'Notes')) {
+                    if (level === 'Terminal Details' && (activePortTab === 'Ships In Port' || activePortTab === 'Notes' || activePortTab === 'Specifications')) {
+                      setActivePortTab('Ship Handles')
+                    } else if (level === 'Berth Details' && (activePortTab === 'Ships In Port' || activePortTab === 'Notes')) {
                       setActivePortTab('Ship Handles')
                     } else if (level === 'Port Details' && !['Ships In Port', 'Ship Handles', 'Cargo Handles', 'Services', 'Notes'].includes(activePortTab)) {
                       setActivePortTab('Ships In Port')
@@ -4233,37 +4235,82 @@ function Myships() {
                 <Box
                   style={{
                     display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 16,
+                    flexDirection: 'column',
+                    gap: 24,
                     marginTop: 24,
                   }}
                 >
-                  <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
-                    <KeyValuePair keyName="Maximum Beam" value="32.00" />
+                  <Box
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 16,
+                    }}
+                  >
+                    <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                      <KeyValuePair keyName="Berth Name" value={
+                        ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9'].includes(selectedBerth)
+                          ? ['BERTH NO. B1', 'BERTH NO. B2', 'BERTH NO. B3', 'BERTH NO. B4', 'BERTH NO. B5', 'BERTH NO. B6', 'BERTH NO. B7', 'BERTH NO. B8', 'BERTH NO. B9'][['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9'].indexOf(selectedBerth)]
+                          : 'BERTH NO. B1'
+                      } />
+                    </Box>
+                    <Box style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                      <Box style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <KeyValuePair keyName="Berth Code" value="SGSIN0101B" />
+                      </Box>
+                      <Copy02 style={{ color: '#fff', width: 16, height: 16, cursor: 'pointer', marginTop: 14, flexShrink: 0 }} />
+                    </Box>
+                    <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                      <KeyValuePair keyName="Transactions" value="Container" />
+                    </Box>
+                    <Box style={{ minWidth: 0, flex: '0 0 auto' }}>
+                      <KeyValuePair keyName="Status" value="Active" />
+                    </Box>
                   </Box>
-                  <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
-                    <KeyValuePair keyName="Maximum UKC" value="0.50" />
-                  </Box>
-                  <Box style={{ minWidth: 0, flex: '0 0 auto' }}>
-                    <KeyValuePair keyName="Minimum Dead Weight" value="16.40" />
+                  <Box
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 16,
+                    }}
+                  >
+                    <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                      <KeyValuePair keyName="Associated Terminal" value="BRANI TERMINAL" />
+                    </Box>
+                    <Box style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                      <Box style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <KeyValuePair keyName="Terminal Code" value="SGSIN0001TD" />
+                      </Box>
+                      <Copy02 style={{ color: '#fff', width: 16, height: 16, cursor: 'pointer', marginTop: 14, flexShrink: 0 }} />
+                    </Box>
+                    <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                      <KeyValuePair keyName="Terminal Subtype" value="Dry" />
+                    </Box>
+                    <Box style={{ minWidth: 0, flex: '0 0 auto' }}>
+                      <KeyValuePair keyName="Status" value="Active" />
+                    </Box>
                   </Box>
                 </Box>
               )}
             </Box>
           )}
 
-          <Box
-            style={{
-              display: 'flex',
-              borderBottom: '1px solid #393C56',
-              marginLeft: -20,
-              marginRight: -20,
-              paddingLeft: 4,
-              flexShrink: 0,
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
+          {((activePortLevel === 'Port Details') || 
+            (activePortLevel === 'Terminal Details' && selectedTerminal) || 
+            (activePortLevel === 'Berth Details' && selectedBerth)) && (
+            <>
+              <Box
+                style={{
+                  display: 'flex',
+                  borderBottom: '1px solid #393C56',
+                  marginLeft: -20,
+                  marginRight: -20,
+                  paddingLeft: 4,
+                  flexShrink: 0,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
             {portTabOverflowLeft && (
               <Box
                 onClick={() =>
@@ -4319,8 +4366,10 @@ function Myships() {
                 msOverflowStyle: 'none',
               }}
             >
-              {(activePortLevel === 'Terminal Details' || activePortLevel === 'Berth Details'
-                ? ['Ship Handles', 'Cargo Handles', 'Services'] 
+              {(activePortLevel === 'Terminal Details'
+                ? ['Ship Handles', 'Cargo Handles', 'Services']
+                : activePortLevel === 'Berth Details'
+                ? ['Ship Handles', 'Cargo Handles', 'Services', 'Specifications']
                 : ['Ships In Port', 'Ship Handles', 'Cargo Handles', 'Services', 'Notes']
               ).map((tab) => (
                 <Box
@@ -4435,7 +4484,9 @@ function Myships() {
               style={{
                 flex: 1,
                 overflowY: 'auto',
-                padding: '20px 0',
+                padding: '20px',
+                marginLeft: -20,
+                marginRight: -20,
               }}
             >
               <Accordion
@@ -4545,7 +4596,9 @@ function Myships() {
               style={{
                 flex: 1,
                 overflowY: 'auto',
-                padding: '20px 0',
+                padding: '20px',
+                marginLeft: -20,
+                marginRight: -20,
               }}
             >
               <Accordion
@@ -4660,7 +4713,9 @@ function Myships() {
               style={{
                 flex: 1,
                 overflowY: 'auto',
-                padding: '20px 0',
+                padding: '20px',
+                marginLeft: -20,
+                marginRight: -20,
               }}
             >
               <Accordion
@@ -4770,12 +4825,54 @@ function Myships() {
             </Box>
           )}
 
+          {activePortTab === 'Specifications' && (
+            <Box
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px',
+                marginLeft: -20,
+                marginRight: -20,
+              }}
+            >
+              <Box
+                style={{
+                  background: '#1F2134',
+                  border: '1px solid #393C56',
+                  borderRadius: 4,
+                  padding: 20,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: 24,
+                }}
+              >
+                <KeyValuePair keyName="Length of Berth" value="201.00" />
+                <KeyValuePair keyName="Berth Flat Side" value="No info" />
+                <KeyValuePair keyName="Depth Alongside" value="4.65" />
+                
+                <KeyValuePair keyName="Max Length Overall" value="200.50" />
+                <KeyValuePair keyName="Max Draft Alongside" value="4.15" />
+                <KeyValuePair keyName="Min Alongside UKC" value="0.47" />
+                
+                <KeyValuePair keyName="Max Beam Width" value="0.00" />
+                <KeyValuePair keyName="Maximum Airdraft Alongside" value="0.00" />
+                <KeyValuePair keyName="Min PMB Forward of Ship Manifold" value="No info" />
+                
+                <KeyValuePair keyName="Min PMB" value="No info" />
+                <KeyValuePair keyName="Min PMB Aft of Ship Manifold" value="No info" />
+                <KeyValuePair keyName="Max Freeboard" value="No info" />
+              </Box>
+            </Box>
+          )}
+
           {activePortTab === 'Notes' && (
             <Box
               style={{
                 flex: 1,
                 overflowY: 'auto',
-                padding: '20px 0',
+                padding: '20px',
+                marginLeft: -20,
+                marginRight: -20,
               }}
             >
               <Accordion
@@ -4852,6 +4949,9 @@ function Myships() {
                 </Accordion.Item>
               </Accordion>
             </Box>
+          )}
+
+            </>
           )}
 
         </Box>
