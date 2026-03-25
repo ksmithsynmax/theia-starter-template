@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { Box, Text } from '@mantine/core'
@@ -99,7 +105,10 @@ const PROTOTYPE_PORTS = [
   { id: 'port-mumbai', name: 'Mumbai', lng: 72.8777, lat: 19.076 },
 ]
 
-const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref) {
+const Map = forwardRef(function Map(
+  { onDetectionClick, onPortClick, showPorts = false },
+  ref
+) {
   const {
     activeDetectionId,
     previewDetectionId,
@@ -117,13 +126,18 @@ const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref
   const markersRef = useRef({})
   const portMarkersRef = useRef({})
   const onDetectionClickRef = useRef(onDetectionClick)
+  const onPortClickRef = useRef(onPortClick)
   const detectionByIdRef = useRef(new globalThis.Map())
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
-  const [mapDimensions, setMapDimensions] = useState({ width: 1280, height: 800 })
+  const [mapDimensions, setMapDimensions] = useState({
+    width: 1280,
+    height: 800,
+  })
   const popupPositionsRef = useRef({})
   onDetectionClickRef.current = onDetectionClick
+  onPortClickRef.current = onPortClick
   const openToolPanels = openMapToolPanelsByTab['__global__'] || []
 
   useEffect(() => {
@@ -196,14 +210,14 @@ const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref
         el.style.height = '40px'
         el.style.cursor = 'pointer'
         el.style.pointerEvents = 'auto'
-        
+
         // Render the SVG exactly once to prevent any flicker
         el.innerHTML = getPortIconSvg('#393C56', 40)
 
         const onClick = (event) => {
           event.preventDefault()
           event.stopPropagation()
-          
+
           const isCurrentlySelected = el.dataset.selected === 'true'
 
           // Reset all ports to default border
@@ -219,6 +233,7 @@ const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref
             el.dataset.selected = 'true'
             const circle = el.querySelector('circle')
             if (circle) circle.setAttribute('stroke', '#0094FF')
+            if (onPortClickRef.current) onPortClickRef.current(port)
           }
         }
 
@@ -227,7 +242,7 @@ const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
           .setLngLat([port.lng, port.lat])
           .addTo(map.current)
-          
+
         portMarkersRef.current[port.id] = marker
       } else {
         marker.setLngLat([port.lng, port.lat])
@@ -341,11 +356,14 @@ const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref
       const focusedMarker = markersRef.current[String(focusDetectionId)]
       const markerType = focusedMarker?.getElement()?.dataset?.detectionType
       if (markerType && markerType !== focusDet.type) {
-        console.warn('[selection-sync] marker type mismatch for focused detection', {
-          focusDetectionId: String(focusDetectionId),
-          markerType,
-          detectionType: focusDet.type,
-        })
+        console.warn(
+          '[selection-sync] marker type mismatch for focused detection',
+          {
+            focusDetectionId: String(focusDetectionId),
+            markerType,
+            detectionType: focusDet.type,
+          }
+        )
       }
     }
     map.current.flyTo({
@@ -406,7 +424,9 @@ const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref
       const isTypeEnabled = enabledDetectionTypes.has(det.type)
       el.dataset.historical = isCurrentDate ? 'false' : 'true'
       el.style.display =
-        (isCurrentDate && isTypeEnabled) || isSelected || isPreviewed ? '' : 'none'
+        (isCurrentDate && isTypeEnabled) || isSelected || isPreviewed
+          ? ''
+          : 'none'
     })
   }, [
     mapDate,
@@ -430,7 +450,10 @@ const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref
         if (!MAP_TOOL_POPUP_LAYOUT[toolId]) return
         if (!next[toolId]) {
           const layout = MAP_TOOL_POPUP_LAYOUT[toolId]
-          const defaultPosition = getDefaultPopupPosition(layout, mapDimensions.width)
+          const defaultPosition = getDefaultPopupPosition(
+            layout,
+            mapDimensions.width
+          )
           next[toolId] = {
             x: defaultPosition.x,
             y: defaultPosition.y,
@@ -491,13 +514,19 @@ const Map = forwardRef(function Map({ onDetectionClick, showPorts = false }, ref
           .filter((toolId) => MAP_TOOL_POPUP_LAYOUT[toolId])
           .map((toolId) => {
             const layout = MAP_TOOL_POPUP_LAYOUT[toolId]
-            const defaultPosition = getDefaultPopupPosition(layout, mapDimensions.width)
+            const defaultPosition = getDefaultPopupPosition(
+              layout,
+              mapDimensions.width
+            )
             const title = MAP_TOOL_POPUP_TITLES[toolId] || 'Tool'
             const popupZIndex = MAP_TOOL_POPUP_ZINDEX[toolId] || 10
-            
+
             // Clamp the position so it doesn't go off-screen when the window shrinks
             const rawX = popupPositions[toolId]?.x ?? defaultPosition.x
-            const clampedX = Math.max(12, Math.min(rawX, mapDimensions.width - layout.width - 12))
+            const clampedX = Math.max(
+              12,
+              Math.min(rawX, mapDimensions.width - layout.width - 12)
+            )
             const clampedY = popupPositions[toolId]?.y ?? defaultPosition.y
 
             return (

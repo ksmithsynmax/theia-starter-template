@@ -9,6 +9,8 @@ import {
   Checkbox,
   Modal,
   Button,
+  Accordion,
+  Select,
 } from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
 import {
@@ -16,8 +18,10 @@ import {
   Copy02,
   XClose,
   ChevronDown,
+  ChevronRight,
   List,
   MarkerPin01,
+  Anchor,
 } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
 import AisIcon from '../custom-icons/AisIcon'
@@ -265,6 +269,45 @@ function Myships() {
   const [hoveredTopAction, setHoveredTopAction] = useState(null)
   const [detailToolsVisible, setDetailToolsVisible] = useState(true)
   const [showGoToDateModal, setShowGoToDateModal] = useState(false)
+  const [activePortLevel, setActivePortLevel] = useState('Port Details')
+  const [activePortTab, setActivePortTab] = useState('Ships In Port')
+  const [selectedTerminal, setSelectedTerminal] = useState(null)
+  const [selectedBerth, setSelectedBerth] = useState(null)
+  const [portTabOverflowLeft, setPortTabOverflowLeft] = useState(false)
+  const [portTabOverflowRight, setPortTabOverflowRight] = useState(false)
+  const portTabScrollRef = useRef(null)
+
+  const activeTab = shipTabs.find((t) => t.id === activeShipTab)
+  const isStsTab = activeTab?.type === 'sts'
+  const isPortTab = activeTab?.type === 'port'
+  const displayStsShipIds = isStsTab
+    ? [
+        activeTab.shipIds[0],
+        activeTab.stsType === 'sts' ? 'unknown' : activeTab.shipIds[1],
+      ]
+    : null
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (portTabScrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = portTabScrollRef.current
+        setPortTabOverflowLeft(scrollLeft > 0)
+        setPortTabOverflowRight(scrollLeft + clientWidth < scrollWidth - 1)
+      }
+    }
+    const currentRef = portTabScrollRef.current
+    if (currentRef) {
+      handleScroll()
+      currentRef.addEventListener('scroll', handleScroll)
+      window.addEventListener('resize', handleScroll)
+    }
+    return () => {
+      if (currentRef) {
+        currentRef.removeEventListener('scroll', handleScroll)
+      }
+      window.removeEventListener('resize', handleScroll)
+    }
+  }, [isPortTab])
   const [showCloseAllConfirmModal, setShowCloseAllConfirmModal] =
     useState(false)
   const [dontShowGoToDateAgain, setDontShowGoToDateAgain] = useState(false)
@@ -885,18 +928,11 @@ function Myships() {
     setIsTopSummaryCollapsed(true)
   }
 
-  const activeTab = shipTabs.find((t) => t.id === activeShipTab)
-  const isStsTab = activeTab?.type === 'sts'
-  const displayStsShipIds = isStsTab
-    ? [
-        activeTab.shipIds[0],
-        activeTab.stsType === 'sts' ? 'unknown' : activeTab.shipIds[1],
-      ]
-    : null
-
   const activeShipId = isStsTab
     ? displayStsShipIds[activeStsShip]
-    : activeShipTab
+    : isPortTab
+      ? null
+      : activeShipTab
   const activeShip = activeShipId ? ships[activeShipId] : null
   const isActiveShipFavorite = activeShip?.id
     ? favoriteShipIds.includes(activeShip.id)
@@ -1729,6 +1765,8 @@ function Myships() {
                 >
                   {tab.type === 'sts' ? (
                     renderStsTabIcon(tab, { width: 7, height: 16, gap: 2 })
+                  ) : tab.type === 'port' ? (
+                    <Anchor style={{ width: 16, height: 16, color: '#fff' }} />
                   ) : (
                     <ShipIcon style={{ width: 16, height: 16 }} />
                   )}
@@ -1879,7 +1917,11 @@ function Myships() {
                         setActiveShipTab(tab.id)
                       }}
                       leftSection={
-                        <ShipIcon style={{ width: 14, height: 14 }} />
+                        tab.type === 'port' ? (
+                          <Anchor style={{ width: 14, height: 14, color: '#fff' }} />
+                        ) : (
+                          <ShipIcon style={{ width: 14, height: 14 }} />
+                        )
                       }
                       styles={{
                         item: {
@@ -1997,7 +2039,7 @@ function Myships() {
         </Box>
       )}
 
-      {activeShip && !loading && (
+      {activeShip && !loading && !isPortTab && (
         <Box
           ref={panelContainerRef}
           style={{
@@ -3956,6 +3998,862 @@ function Myships() {
               </Box>
             </>
           )}
+        </Box>
+      )}
+      {isPortTab && !loading && (
+        <Box
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            overflow: 'hidden',
+            padding: '20px',
+          }}
+        >
+          <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Title order={4} style={{ color: 'white' }}>
+                {activeTab.name}
+              </Title>
+              {activeTab.flag && (
+                <Text style={{ fontSize: 18 }}>{activeTab.flag}</Text>
+              )}
+            </Box>
+          </Box>
+
+          <Box
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: 24,
+              marginBottom: 16,
+            }}
+          >
+            <KeyValuePair keyName="Harbor Type" value="Natural" />
+            <KeyValuePair keyName="Port Geography" value="Sea" />
+            <KeyValuePair keyName="Port Size" value="Major" />
+            <KeyValuePair keyName="Port Status" value="Active" />
+            <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <KeyValuePair keyName="Un/locode" value="SGSIN" />
+              <Copy02 style={{ color: '#fff', width: 16, height: 16, cursor: 'pointer', marginTop: 16 }} />
+            </Box>
+          </Box>
+
+          <Box>
+            <KeyValuePair keyName="Port Access" value="Inland waterway, rail, road, sea" />
+          </Box>
+
+          <Box
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              marginTop: 24,
+              marginBottom: 24,
+              flexShrink: 0,
+            }}
+          >
+            {['Port Details', 'Terminal Details', 'Berth Details'].map((level, i, arr) => (
+              <React.Fragment key={level}>
+                <Button
+                  onClick={() => {
+                    setActivePortLevel(level)
+                    if ((level === 'Terminal Details' || level === 'Berth Details') && (activePortTab === 'Ships In Port' || activePortTab === 'Notes')) {
+                      setActivePortTab('Ship Handles')
+                    } else if (level === 'Port Details' && !['Ships In Port', 'Ship Handles', 'Cargo Handles', 'Services', 'Notes'].includes(activePortTab)) {
+                      setActivePortTab('Ships In Port')
+                    }
+                  }}
+                  style={{
+                    background: activePortLevel === level ? 'rgba(0, 148, 255, 0.1)' : 'transparent',
+                    border: `1px solid ${activePortLevel === level ? '#0094FF' : '#393C56'}`,
+                    color: activePortLevel === level ? '#fff' : '#888F9E',
+                    fontWeight: 500,
+                    fontSize: 14,
+                    height: 36,
+                    padding: '0 16px',
+                    flexShrink: 0,
+                  }}
+                >
+                  {level}
+                </Button>
+                {i < arr.length - 1 && (
+                  <ChevronRight style={{ color: '#393C56', width: 16, height: 16, flexShrink: 0 }} />
+                )}
+              </React.Fragment>
+            ))}
+          </Box>
+
+          {activePortLevel === 'Terminal Details' && (
+            <Box style={{ marginBottom: 24 }}>
+              <Text style={{ color: '#888F9E', fontSize: 12, marginBottom: 8 }}>Terminal</Text>
+              <Select
+                placeholder="Select a terminal"
+                value={selectedTerminal}
+                onChange={setSelectedTerminal}
+                data={[
+                  { value: 'brani', label: 'BRANI TERMINAL' },
+                  { value: 'jurong_vlcc', label: 'JURONG ISLAND VLCC TERMINAL' },
+                  { value: 'jurong_port', label: 'JURONG PORT' },
+                  { value: 'cafhi', label: 'CAFHI (SINGAPORE AIRPORT)' },
+                  { value: 'jurong_rock', label: 'JURONG ROCK CAVERNS' },
+                ]}
+                searchable
+                rightSection={<ChevronDown style={{ width: 16, height: 16, color: '#fff' }} />}
+                styles={{
+                  input: {
+                    backgroundColor: '#0A0E19',
+                    borderColor: '#424750',
+                    color: '#fff',
+                    height: 40,
+                    '&:focus': {
+                      borderColor: '#0094FF',
+                    },
+                    '&::placeholder': {
+                      color: '#fff',
+                    }
+                  },
+                  dropdown: {
+                    backgroundColor: '#0A0E19',
+                    borderColor: '#424750',
+                  },
+                  option: {
+                    color: '#fff',
+                    padding: '10px 16px',
+                    fontSize: 14,
+                    backgroundColor: 'transparent',
+                    '&[data-hovered]': {
+                      backgroundColor: '#0094FF',
+                      color: '#fff',
+                    },
+                    '&:hover': {
+                      backgroundColor: '#0094FF',
+                      color: '#fff',
+                    },
+                    '&[data-selected]': {
+                      backgroundColor: 'rgba(0, 148, 255, 0.1)',
+                      color: '#0094FF',
+                    }
+                  }
+                }}
+              />
+              
+              {selectedTerminal && (
+                <Box
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                    marginTop: 24,
+                  }}
+                >
+                  <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                    <KeyValuePair keyName="Terminal Name" value={
+                      ['brani', 'jurong_vlcc', 'jurong_port', 'cafhi', 'jurong_rock'].includes(selectedTerminal) 
+                        ? ['BRANI TERMINAL', 'JURONG ISLAND VLCC TERMINAL', 'JURONG PORT', 'CAFHI (SINGAPORE AIRPORT)', 'JURONG ROCK CAVERNS'][['brani', 'jurong_vlcc', 'jurong_port', 'cafhi', 'jurong_rock'].indexOf(selectedTerminal)]
+                        : 'BRANI TERMINAL'
+                    } />
+                  </Box>
+                  <Box style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                    <Box style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <KeyValuePair keyName="Terminal Code" value="SGSIN0001TD" />
+                    </Box>
+                    <Copy02 style={{ color: '#fff', width: 16, height: 16, cursor: 'pointer', marginTop: 14, flexShrink: 0 }} />
+                  </Box>
+                  <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                    <KeyValuePair keyName="Terminal Subtype" value="Dry" />
+                  </Box>
+                  <Box style={{ minWidth: 0, flex: '0 0 auto' }}>
+                    <KeyValuePair keyName="Status" value="Active" />
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {activePortLevel === 'Berth Details' && (
+            <Box style={{ marginBottom: 24 }}>
+              <Text style={{ color: '#888F9E', fontSize: 12, marginBottom: 8 }}>Berth</Text>
+              <Select
+                placeholder="Select a berth"
+                value={selectedBerth}
+                onChange={setSelectedBerth}
+                data={[
+                  { value: 'b1', label: 'BERTH NO. B1' },
+                  { value: 'b2', label: 'BERTH NO. B2' },
+                  { value: 'b3', label: 'BERTH NO. B3' },
+                  { value: 'b4', label: 'BERTH NO. B4' },
+                  { value: 'b5', label: 'BERTH NO. B5' },
+                  { value: 'b6', label: 'BERTH NO. B6' },
+                  { value: 'b7', label: 'BERTH NO. B7' },
+                  { value: 'b8', label: 'BERTH NO. B8' },
+                  { value: 'b9', label: 'BERTH NO. B9' },
+                ]}
+                searchable
+                rightSection={<ChevronDown style={{ width: 16, height: 16, color: '#fff' }} />}
+                styles={{
+                  input: {
+                    backgroundColor: '#0A0E19',
+                    borderColor: '#424750',
+                    color: '#fff',
+                    height: 40,
+                    '&:focus': {
+                      borderColor: '#0094FF',
+                    },
+                    '&::placeholder': {
+                      color: '#fff',
+                    }
+                  },
+                  dropdown: {
+                    backgroundColor: '#0A0E19',
+                    borderColor: '#424750',
+                  },
+                  option: {
+                    color: '#fff',
+                    padding: '10px 16px',
+                    fontSize: 14,
+                    backgroundColor: 'transparent',
+                    '&[data-hovered]': {
+                      backgroundColor: '#0094FF',
+                      color: '#fff',
+                    },
+                    '&:hover': {
+                      backgroundColor: '#0094FF',
+                      color: '#fff',
+                    },
+                    '&[data-selected]': {
+                      backgroundColor: 'rgba(0, 148, 255, 0.1)',
+                      color: '#0094FF',
+                    }
+                  }
+                }}
+              />
+              
+              {selectedBerth && (
+                <Box
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                    marginTop: 24,
+                  }}
+                >
+                  <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                    <KeyValuePair keyName="Maximum Beam" value="32.00" />
+                  </Box>
+                  <Box style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                    <KeyValuePair keyName="Maximum UKC" value="0.50" />
+                  </Box>
+                  <Box style={{ minWidth: 0, flex: '0 0 auto' }}>
+                    <KeyValuePair keyName="Minimum Dead Weight" value="16.40" />
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          <Box
+            style={{
+              display: 'flex',
+              borderBottom: '1px solid #393C56',
+              marginLeft: -20,
+              marginRight: -20,
+              paddingLeft: 4,
+              flexShrink: 0,
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {portTabOverflowLeft && (
+              <Box
+                onClick={() =>
+                  portTabScrollRef.current?.scrollBy({ left: -150, behavior: 'smooth' })
+                }
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(to right, #181926 50%, rgba(24, 25, 38, 0))',
+                  cursor: 'pointer',
+                  zIndex: 2,
+                }}
+              >
+                <ChevronRight style={{ color: '#898f9d', width: 16, height: 16, transform: 'rotate(180deg)' }} />
+              </Box>
+            )}
+            {portTabOverflowRight && (
+              <Box
+                onClick={() =>
+                  portTabScrollRef.current?.scrollBy({ left: 150, behavior: 'smooth' })
+                }
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(to left, #181926 50%, rgba(24, 25, 38, 0))',
+                  cursor: 'pointer',
+                  zIndex: 2,
+                }}
+              >
+                <ChevronRight style={{ color: '#898f9d', width: 16, height: 16 }} />
+              </Box>
+            )}
+            <Box
+              ref={portTabScrollRef}
+              className="tab-scroll"
+              style={{
+                display: 'flex',
+                flex: 1,
+                overflowX: 'auto',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+              }}
+            >
+              {(activePortLevel === 'Terminal Details' || activePortLevel === 'Berth Details'
+                ? ['Ship Handles', 'Cargo Handles', 'Services'] 
+                : ['Ships In Port', 'Ship Handles', 'Cargo Handles', 'Services', 'Notes']
+              ).map((tab) => (
+                <Box
+                  key={tab}
+                  onClick={() => setActivePortTab(tab)}
+                  style={{
+                    padding: '12px 16px',
+                    cursor: 'pointer',
+                    borderBottom: activePortTab === tab ? '2px solid #fff' : '2px solid transparent',
+                    color: activePortTab === tab ? '#fff' : '#888F9E',
+                    fontWeight: activePortTab === tab ? 600 : 400,
+                    fontSize: 14,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {tab}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+
+          {activePortTab === 'Ships In Port' && (
+            <Box
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                marginLeft: -20,
+                marginRight: -20,
+              }}
+            >
+              <Box
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1.5fr) 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr)',
+                  columnGap: 10,
+                  alignItems: 'center',
+                  padding: '6px 10px',
+                  background: '#24263C',
+                  borderRadius: '4px',
+                  margin: '16px 20px 8px 20px',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 12, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Name</Text>
+                <Text style={{ color: '#fff', fontSize: 12, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Ctry</Text>
+                <Text style={{ color: '#fff', fontSize: 12, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Type</Text>
+                <Text style={{ color: '#fff', fontSize: 12, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>IMO</Text>
+                <Text style={{ color: '#fff', fontSize: 12, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MMSI</Text>
+                <Text style={{ color: '#fff', fontSize: 12, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Reported Time</Text>
+              </Box>
+              
+              {/* Using mock data to populate the table for the prototype */}
+              {Array(15).fill(0).map((_, i) => {
+                // Cycle through a few mock ships
+                const mockShips = [
+                  { name: 'Invictus', flag: '🇲🇭', type: 'Tanker', imo: '9819870', mmsi: '311000686' },
+                  { name: 'Ghinah', flag: '🇸🇦', type: 'Tanker Cr...', imo: '9819870', mmsi: '311000686' },
+                  { name: 'Emerlad Sea', flag: '🇵🇦', type: 'Tanker Pr...', imo: '9819870', mmsi: '311000686' },
+                  { name: 'Melodie V', flag: '🇵🇦', type: 'Offshore', imo: '9819870', mmsi: '311000686' },
+                  { name: 'Abouzar 1...', flag: '🇮🇷', type: 'Other', imo: '9819870', mmsi: '311000686' },
+                ]
+                const ship = mockShips[i % mockShips.length]
+                
+                return (
+                  <Box
+                    key={i}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0, 1.5fr) 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr)',
+                      columnGap: 10,
+                      alignItems: 'center',
+                      padding: '8px 10px',
+                      margin: '0 20px',
+                      borderBottom: '1px solid #393C56',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#24263C'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent'
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {ship.name}
+                    </Text>
+                    <Text style={{ fontSize: 14 }}>
+                      {ship.flag}
+                    </Text>
+                    <Text style={{ color: '#fff', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {ship.type}
+                    </Text>
+                    <Text style={{ color: '#fff', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {ship.imo}
+                    </Text>
+                    <Text style={{ color: '#fff', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {ship.mmsi}
+                    </Text>
+                    <Text style={{ color: '#fff', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Sep 19, 2025 09:53 UTC
+                    </Text>
+                  </Box>
+                )
+              })}
+            </Box>
+          )}
+
+          {activePortTab === 'Ship Handles' && (
+            <Box
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 0',
+              }}
+            >
+              <Accordion
+                variant="default"
+                defaultValue="Container"
+                styles={{
+                  root: {
+                    border: '1px solid #393C56',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                  },
+                  item: {
+                    backgroundColor: '#24263C',
+                    border: 'none',
+                    borderBottom: '1px solid #393C56',
+                    '&:last-of-type': {
+                      borderBottom: 'none',
+                    },
+                    '&[data-active]': {
+                      backgroundColor: '#24263C',
+                    },
+                  },
+                  control: {
+                    padding: '8px 16px',
+                    minHeight: 'unset',
+                    backgroundColor: '#24263C',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                    },
+                  },
+                  label: {
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 400,
+                    padding: 0,
+                  },
+                  chevron: {
+                    color: '#fff',
+                  },
+                  panel: {
+                    backgroundColor: '#181926',
+                    borderTop: '1px solid #393C56',
+                  },
+                  content: {
+                    padding: '0 16px 16px 16px',
+                  }
+                }}
+              >
+                <Accordion.Item value="Container">
+                  <Accordion.Control>Container</Accordion.Control>
+                  <Accordion.Panel>
+                    <Box style={{ paddingTop: 16 }}>
+                      <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 16 }}>
+                        <KeyValuePair keyName="Maximum Vessel" value="450.00" />
+                        <KeyValuePair keyName="Maximum Draft" value="16.40" />
+                        <KeyValuePair keyName="Maximum Air Draft" value="1.00" />
+                      </Box>
+                      <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 16 }}>
+                        <KeyValuePair keyName="Maximum Beam" value="32.00" />
+                        <KeyValuePair keyName="Maximum UKC" value="0.50" />
+                        <KeyValuePair keyName="Minimum Dead Weight" value="16.40" />
+                      </Box>
+                      <Box>
+                        <KeyValuePair keyName="Ship Size" value="Feeder, Freedemax, Panamax, Post-Panamax" />
+                      </Box>
+                    </Box>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Bulk Carrier">
+                  <Accordion.Control>Bulk Carrier</Accordion.Control>
+                  <Accordion.Panel>
+                    <Box style={{ paddingTop: 16 }}>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                    </Box>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Gas Carrier">
+                  <Accordion.Control>Gas Carrier</Accordion.Control>
+                  <Accordion.Panel>
+                    <Box style={{ paddingTop: 16 }}>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                    </Box>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Passenger">
+                  <Accordion.Control>Passenger</Accordion.Control>
+                  <Accordion.Panel>
+                    <Box style={{ paddingTop: 16 }}>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                    </Box>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Tanker">
+                  <Accordion.Control>Tanker</Accordion.Control>
+                  <Accordion.Panel>
+                    <Box style={{ paddingTop: 16 }}>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                    </Box>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion>
+            </Box>
+          )}
+
+          {activePortTab === 'Cargo Handles' && (
+            <Box
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 0',
+              }}
+            >
+              <Accordion
+                variant="default"
+                defaultValue="Chemicals"
+                styles={{
+                  root: {
+                    border: '1px solid #393C56',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                  },
+                  item: {
+                    backgroundColor: '#24263C',
+                    border: 'none',
+                    borderBottom: '1px solid #393C56',
+                    '&:last-of-type': {
+                      borderBottom: 'none',
+                    },
+                    '&[data-active]': {
+                      backgroundColor: '#24263C',
+                    },
+                  },
+                  control: {
+                    padding: '8px 16px',
+                    minHeight: 'unset',
+                    backgroundColor: '#24263C',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                    },
+                  },
+                  label: {
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 400,
+                    padding: 0,
+                  },
+                  chevron: {
+                    color: '#fff',
+                  },
+                  panel: {
+                    backgroundColor: '#181926',
+                    borderTop: '1px solid #393C56',
+                  },
+                  content: {
+                    padding: '16px',
+                  }
+                }}
+              >
+                <Accordion.Item value="Chemicals">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Chemicals</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(8 products)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#fff', fontSize: 14, lineHeight: 1.5 }}>
+                      Acetone, Benzene, Caustic Soda, Ethanol, Methanol, Styrene Monomer, Toluene, Xylene
+                    </Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Black Products">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Black Products</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(3 products)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Bulk Other">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Bulk Other</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(1 product)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Passenger">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Passenger</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(2 products)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Tanker">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Tanker</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(4 products)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion>
+            </Box>
+          )}
+
+          {activePortTab === 'Services' && (
+            <Box
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 0',
+              }}
+            >
+              <Accordion
+                variant="default"
+                defaultValue="Port Service"
+                styles={{
+                  root: {
+                    border: '1px solid #393C56',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                  },
+                  item: {
+                    backgroundColor: '#24263C',
+                    border: 'none',
+                    borderBottom: '1px solid #393C56',
+                    '&:last-of-type': {
+                      borderBottom: 'none',
+                    },
+                    '&[data-active]': {
+                      backgroundColor: '#24263C',
+                    },
+                  },
+                  control: {
+                    padding: '8px 16px',
+                    minHeight: 'unset',
+                    backgroundColor: '#24263C',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                    },
+                  },
+                  label: {
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 400,
+                    padding: 0,
+                  },
+                  chevron: {
+                    color: '#fff',
+                  },
+                  panel: {
+                    backgroundColor: '#181926',
+                    borderTop: '1px solid #393C56',
+                  },
+                  content: {
+                    padding: '16px',
+                  }
+                }}
+              >
+                <Accordion.Item value="Port Service">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Port Service</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(9 services)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#fff', fontSize: 14, lineHeight: 1.5 }}>
+                      Bunker, Fresh Water, Launch, Marpol Reception, Nitrogen Supply, Slop Disposal, Dirty Ballast Disposal, Garbage Disposal, LNG Bunker
+                    </Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Service Availability">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Service Availability</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(5 services)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Bunker Fuels">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Bunker Fuels</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(4 services)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Restrictions">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Restrictions</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(9 services)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Facilities">
+                  <Accordion.Control>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 14 }}>Facilities</Text>
+                      <Text style={{ color: '#888F9E', fontSize: 14 }}>(9 services)</Text>
+                    </Box>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion>
+            </Box>
+          )}
+
+          {activePortTab === 'Notes' && (
+            <Box
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 0',
+              }}
+            >
+              <Accordion
+                variant="default"
+                defaultValue="General"
+                styles={{
+                  root: {
+                    border: '1px solid #393C56',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                  },
+                  item: {
+                    backgroundColor: '#24263C',
+                    border: 'none',
+                    borderBottom: '1px solid #393C56',
+                    '&:last-of-type': {
+                      borderBottom: 'none',
+                    },
+                    '&[data-active]': {
+                      backgroundColor: '#24263C',
+                    },
+                  },
+                  control: {
+                    padding: '8px 16px',
+                    minHeight: 'unset',
+                    backgroundColor: '#24263C',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                    },
+                  },
+                  label: {
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 400,
+                    padding: 0,
+                  },
+                  chevron: {
+                    color: '#fff',
+                  },
+                  panel: {
+                    backgroundColor: '#181926',
+                    borderTop: '1px solid #393C56',
+                  },
+                  content: {
+                    padding: '16px',
+                  }
+                }}
+              >
+                <Accordion.Item value="General">
+                  <Accordion.Control>
+                    <Text style={{ color: '#fff', fontSize: 14 }}>General</Text>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#fff', fontSize: 14, lineHeight: 1.5 }}>
+                      Port Control Depth, Port Maximum Draft and Port Maximum Airdraft were varies depending on the location and berths. UKC refers to the underkeel clearance.
+                    </Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Operations">
+                  <Accordion.Control>
+                    <Text style={{ color: '#fff', fontSize: 14 }}>Operations</Text>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+                <Accordion.Item value="Shipping">
+                  <Accordion.Control>
+                    <Text style={{ color: '#fff', fontSize: 14 }}>Shipping</Text>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Text style={{ color: '#888F9E', fontSize: 14 }}>Data not available</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion>
+            </Box>
+          )}
+
         </Box>
       )}
       <Modal

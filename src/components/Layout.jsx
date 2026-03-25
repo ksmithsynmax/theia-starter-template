@@ -28,7 +28,7 @@ function Layout() {
   const mapRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
-  const { selectDetection, shipTabs } = useShipContext()
+  const { selectDetection, shipTabs, openPortTab } = useShipContext()
 
   useEffect(() => {
     if (shipTabs.length === 0) setPanelOpen(false)
@@ -83,6 +83,10 @@ function Layout() {
         <Map
           ref={mapRef}
           onDetectionClick={handleDetectionClick}
+          onPortClick={(port) => {
+            openPortTab(port)
+            setPanelOpen(true)
+          }}
           showPorts={portsLayerVisible}
         />
         {shipFiltersOpen && (
@@ -160,7 +164,11 @@ function Layout() {
               borderRadius: 4,
             }}
           >
-            <img src={ShipFilterIcon} alt="" style={{ width: 20, height: 20 }} />
+            <img
+              src={ShipFilterIcon}
+              alt=""
+              style={{ width: 20, height: 20 }}
+            />
           </ActionIcon>
           <ActionIcon
             className="map-layer-action-icon"
@@ -210,9 +218,7 @@ function Layout() {
             />
           )}
 
-          <Box
-            className={`slide-panel ${slidePanelClass}`}
-          >
+          <Box className={`slide-panel ${slidePanelClass}`}>
             {showPanelExpand && (
               <Box
                 onClick={() => setPanelOpen(true)}

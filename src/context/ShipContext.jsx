@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+} from 'react'
 import { ships, detections as seedDetections } from '../data/mockData'
 import {
   SHIP_FILTER_DEFAULTS,
@@ -41,29 +47,43 @@ export function ShipProvider({ children }) {
     }
   }, [])
 
-  const openStsTab = useCallback((shipId, partnerShipId, detectionType = 'sts', detectionId = null) => {
-    const ship = ships[shipId]
-    const partner = ships[partnerShipId]
-    if (!ship || !partner) return
+  const openPortTab = useCallback((port) => {
+    if (!port?.id) return
 
-    const stsTabId = `sts-${shipId}-${partnerShipId}`
     setShipTabs((prev) => {
-      if (prev.some((tab) => tab.id === stsTabId)) return prev
-      // Add STS tab but keep existing ship tabs so user can switch back
-      return [
-        ...prev,
-        {
-          id: stsTabId,
-          name: 'Ship-to-Ship',
-          type: 'sts',
-          stsType: detectionType,
-          shipIds: [shipId, partnerShipId],
-        },
-      ]
+      if (prev.some((tab) => tab.id === port.id)) return prev
+      return [...prev, { id: port.id, type: 'port', name: port.name, flag: port.flag }]
     })
-    setActiveShipTab(stsTabId)
-    if (detectionId) setSelectedDetectionId(detectionId)
+    setActiveShipTab(port.id)
+    setDetailPanelOpen(true)
   }, [])
+
+  const openStsTab = useCallback(
+    (shipId, partnerShipId, detectionType = 'sts', detectionId = null) => {
+      const ship = ships[shipId]
+      const partner = ships[partnerShipId]
+      if (!ship || !partner) return
+
+      const stsTabId = `sts-${shipId}-${partnerShipId}`
+      setShipTabs((prev) => {
+        if (prev.some((tab) => tab.id === stsTabId)) return prev
+        // Add STS tab but keep existing ship tabs so user can switch back
+        return [
+          ...prev,
+          {
+            id: stsTabId,
+            name: 'Ship-to-Ship',
+            type: 'sts',
+            stsType: detectionType,
+            shipIds: [shipId, partnerShipId],
+          },
+        ]
+      })
+      setActiveShipTab(stsTabId)
+      if (detectionId) setSelectedDetectionId(detectionId)
+    },
+    []
+  )
 
   const selectDetection = useCallback(
     (detection, options = {}) => {
@@ -100,18 +120,21 @@ export function ShipProvider({ children }) {
     [openShipTab, openStsTab]
   )
 
-  const closeShipTab = useCallback((id) => {
-    setShipTabs((prev) => {
-      const updated = prev.filter((t) => t.id !== id)
-      if (id === activeShipTab && updated.length > 0) {
-        setActiveShipTab(updated[0].id)
-      } else if (updated.length === 0) {
-        setActiveShipTab(null)
-        setDetailPanelOpen(false)
-      }
-      return updated
-    })
-  }, [activeShipTab])
+  const closeShipTab = useCallback(
+    (id) => {
+      setShipTabs((prev) => {
+        const updated = prev.filter((t) => t.id !== id)
+        if (id === activeShipTab && updated.length > 0) {
+          setActiveShipTab(updated[0].id)
+        } else if (updated.length === 0) {
+          setActiveShipTab(null)
+          setDetailPanelOpen(false)
+        }
+        return updated
+      })
+    },
+    [activeShipTab]
+  )
 
   const closeAllTabs = useCallback(() => {
     setShipTabs([])
@@ -193,6 +216,7 @@ export function ShipProvider({ children }) {
         closeMapToolPanel,
         toggleFavoriteShip,
         openShipTab,
+        openPortTab,
         openStsTab,
         selectDetection,
         closeShipTab,
