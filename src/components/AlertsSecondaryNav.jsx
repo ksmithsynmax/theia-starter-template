@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Box, Text, Radio, Button, Checkbox } from '@mantine/core'
+import { Box, Text, Radio, Button, Checkbox, Select, TextInput } from '@mantine/core'
+import { DateInput } from '@mantine/dates'
+import { Calendar, Edit02, CheckCircle } from '@untitledui/icons'
 import CollapseButton from '../custom-icons/CollapseButton'
 import ExpandButton from '../custom-icons/ExpandButton'
 
@@ -13,26 +15,63 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
   const [shipSelection, setShipSelection] = useState('any')
   const [areaSelection, setAreaSelection] = useState('global')
   const [selectedTriggers, setSelectedTriggers] = useState([])
+  const [sequentialLogic, setSequentialLogic] = useState('no')
+  
+  // Step 4 state
+  const [startDate, setStartDate] = useState(null)
+  const [endDate, setEndDate] = useState(null)
+  const [doesNotExpire, setDoesNotExpire] = useState(false)
+  const [notificationFrequency, setNotificationFrequency] = useState('Daily Report')
+  const [receiveViaEmail, setReceiveViaEmail] = useState(true)
+  const [receiveViaApp, setReceiveViaApp] = useState(false)
+  const [emailForNotifications, setEmailForNotifications] = useState('')
+  const [alertName, setAlertName] = useState('')
+  const [hasNewAlert, setHasNewAlert] = useState(false)
 
   const isNewAlert = activeTab === 'New Alert'
 
   const handleNext = () => {
     if (currentStep < 5) {
       setCurrentStep(currentStep + 1)
+    } else if (currentStep === 5) {
+      setCurrentStep(6)
+      setHasNewAlert(true)
     }
   }
 
-  const handleCancel = () => {
+  const handleReset = () => {
+    setCurrentStep(1)
+    setShipSelection('any')
+    setAreaSelection('global')
+    setSelectedTriggers([])
+    setSequentialLogic('no')
+    setStartDate(null)
+    setEndDate(null)
+    setDoesNotExpire(false)
+    setNotificationFrequency('Daily Report')
+    setReceiveViaEmail(true)
+    setReceiveViaApp(false)
+    setEmailForNotifications('')
+    setAlertName('')
+  }
+
+  const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
-    } else {
-      // Handle actual cancel logic here if needed
     }
   }
 
   const isNextDisabled = () => {
     if (currentStep === 1 && shipSelection !== 'any') return true
     if (currentStep === 2 && areaSelection !== 'global') return true
+    if (currentStep === 3 && selectedTriggers.length > 1 && sequentialLogic === 'yes') return true
+    if (currentStep === 4) {
+      if (!startDate) return true
+      if (!doesNotExpire && !endDate) return true
+      if (receiveViaEmail && !emailForNotifications.trim()) return true
+      if (!receiveViaEmail && !receiveViaApp) return true
+    }
+    if (currentStep === 5 && !alertName.trim()) return true
     return false
   }
 
@@ -55,6 +94,34 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
     { id: 'ownership_change', label: 'Ownership change' },
     { id: 'gps_manipulation', label: 'GPS manipulation' },
   ]
+
+  const triggerLabels = selectedTriggers.map(id => triggerOptions.find(t => t.id === id)?.label).join(', ')
+  const triggersValue = selectedTriggers.length > 0
+    ? `${selectedTriggers.length > 1 ? (sequentialLogic === 'yes' ? 'Sequential: ' : 'Non-sequential: ') : ''}${triggerLabels}`
+    : 'None'
+
+  const receiveViaText = [receiveViaEmail ? 'Email' : null, receiveViaApp ? 'In-App Notification' : null].filter(Boolean).join(', ')
+
+  const formatDate = (date) => {
+    if (!date) return 'N/A'
+    const d = new Date(date)
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  }
+
+  const renderSummaryRow = (label, value, stepToEdit) => (
+    <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Box>
+        <Text style={{ color: '#888F9E', fontSize: '12px', marginBottom: '4px' }}>{label}</Text>
+        <Text style={{ color: '#fff', fontSize: '14px', lineHeight: 1.4 }}>{value}</Text>
+      </Box>
+      <Edit02
+        size={16}
+        color="#888F9E"
+        style={{ cursor: 'pointer', marginTop: '4px' }}
+        onClick={() => setCurrentStep(stepToEdit)}
+      />
+    </Box>
+  )
 
   return (
     <Box
@@ -156,8 +223,19 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
               color: !isNewAlert ? '#fff' : '#888F9E',
               fontWeight: !isNewAlert ? 600 : 400,
               fontSize: 14,
+              gap: '6px',
             }}
           >
+            {hasNewAlert && (
+              <Box
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  backgroundColor: '#F75349',
+                }}
+              />
+            )}
             My Alerts
           </Box>
         </Box>
@@ -174,21 +252,23 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
           {isNewAlert ? (
             <>
               {/* Progress Bar */}
-              <Box
-                style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}
-              >
-                {[1, 2, 3, 4, 5].map((step) => (
-                  <Box
-                    key={step}
-                    style={{
-                      height: '8px',
-                      flex: 1,
-                      backgroundColor: currentStep >= step ? '#0094FF' : '#24263C',
-                      borderRadius: '4px',
-                    }}
-                  />
-                ))}
-              </Box>
+              {currentStep < 6 && (
+                <Box
+                  style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}
+                >
+                  {[1, 2, 3, 4, 5].map((step) => (
+                    <Box
+                      key={step}
+                      style={{
+                        height: '8px',
+                        flex: 1,
+                        backgroundColor: currentStep >= step ? '#0094FF' : '#24263C',
+                        borderRadius: '4px',
+                      }}
+                    />
+                  ))}
+                </Box>
+              )}
 
               {currentStep === 1 && (
                 <>
@@ -235,10 +315,6 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                             borderColor: '#fff',
                             borderWidth: 2,
                             cursor: 'pointer',
-                            '&:checked, &[data-checked]': {
-                              backgroundColor: 'transparent',
-                              borderColor: '#fff',
-                            },
                           },
                           icon: {
                             color: '#0094FF',
@@ -261,10 +337,6 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                             borderColor: '#fff',
                             borderWidth: 2,
                             cursor: 'pointer',
-                            '&:checked, &[data-checked]': {
-                              backgroundColor: 'transparent',
-                              borderColor: '#fff',
-                            },
                           },
                           icon: {
                             color: '#0094FF',
@@ -330,10 +402,6 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                             borderColor: '#fff',
                             borderWidth: 2,
                             cursor: 'pointer',
-                            '&:checked, &[data-checked]': {
-                              backgroundColor: 'transparent',
-                              borderColor: '#fff',
-                            },
                           },
                           icon: {
                             color: '#0094FF',
@@ -356,10 +424,6 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                             borderColor: '#fff',
                             borderWidth: 2,
                             cursor: 'pointer',
-                            '&:checked, &[data-checked]': {
-                              backgroundColor: 'transparent',
-                              borderColor: '#fff',
-                            },
                           },
                           icon: {
                             color: '#0094FF',
@@ -431,7 +495,359 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                       />
                     ))}
                   </Box>
+
+                  {selectedTriggers.length > 1 && (
+                    <>
+                      <Box
+                        style={{
+                          height: '1px',
+                          backgroundColor: '#393C56',
+                          margin: '24px 0',
+                        }}
+                      />
+                      <Text
+                        style={{
+                          color: '#E0E0E0',
+                          fontSize: '14px',
+                          marginBottom: '16px',
+                        }}
+                      >
+                        Multiple triggers selected. Apply sequential logic?
+                      </Text>
+                      <Radio.Group
+                        value={sequentialLogic}
+                        onChange={setSequentialLogic}
+                      >
+                        <Box
+                          style={{
+                            display: 'flex',
+                            gap: '24px',
+                          }}
+                        >
+                          <Radio
+                            value="no"
+                            label="No"
+                            size="md"
+                            styles={{
+                              radio: {
+                                backgroundColor: 'transparent',
+                                borderColor: '#fff',
+                                borderWidth: 2,
+                                cursor: 'pointer',
+                              },
+                              icon: {
+                                color: '#0094FF',
+                              },
+                              label: {
+                                color: '#fff',
+                                fontSize: '16px',
+                                cursor: 'pointer',
+                                paddingLeft: '12px',
+                              },
+                            }}
+                          />
+                          <Radio
+                            value="yes"
+                            label="Yes"
+                            size="md"
+                            styles={{
+                              radio: {
+                                backgroundColor: 'transparent',
+                                borderColor: '#fff',
+                                borderWidth: 2,
+                                cursor: 'pointer',
+                              },
+                              icon: {
+                                color: '#0094FF',
+                              },
+                              label: {
+                                color: '#fff',
+                                fontSize: '16px',
+                                cursor: 'pointer',
+                                paddingLeft: '12px',
+                              },
+                            }}
+                          />
+                        </Box>
+                      </Radio.Group>
+                    </>
+                  )}
                 </>
+              )}
+
+              {currentStep === 4 && (
+                <>
+                  <Text
+                    style={{
+                      color: '#fff',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      marginBottom: '16px',
+                    }}
+                  >
+                    Configure settings:
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: '#E0E0E0',
+                      fontSize: '14px',
+                      marginBottom: '24px',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Select the start and end dates and choose how often you'd
+                    like to receive this alert.
+                  </Text>
+
+                  <Box style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                    <Box style={{ flex: 1 }}>
+                      <Text style={{ color: '#E0E0E0', fontSize: '14px', marginBottom: '8px' }}>
+                        Start Date
+                      </Text>
+                      <DateInput
+                        value={startDate}
+                        onChange={setStartDate}
+                        placeholder="MM/DD/YYYY"
+                        valueFormat="MM/DD/YYYY"
+                        rightSection={<Calendar size={20} color="#888F9E" />}
+                        styles={{
+                          input: {
+                            backgroundColor: 'transparent',
+                            borderColor: '#393C56',
+                            color: '#fff',
+                            height: '40px',
+                          },
+                        }}
+                      />
+                    </Box>
+                    <Box style={{ flex: 1 }}>
+                      <Text style={{ color: '#E0E0E0', fontSize: '14px', marginBottom: '8px' }}>
+                        End Date
+                      </Text>
+                      <DateInput
+                        value={endDate}
+                        onChange={setEndDate}
+                        placeholder="MM/DD/YYYY"
+                        valueFormat="MM/DD/YYYY"
+                        disabled={doesNotExpire}
+                        rightSection={<Calendar size={20} color="#888F9E" />}
+                        styles={{
+                          input: {
+                            backgroundColor: 'transparent',
+                            borderColor: '#393C56',
+                            color: '#fff',
+                            height: '40px',
+                            opacity: doesNotExpire ? 0.5 : 1,
+                          },
+                        }}
+                      />
+                    </Box>
+                  </Box>
+
+                  <Box style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
+                    <Checkbox
+                      label="Does not expire"
+                      checked={doesNotExpire}
+                      onChange={(e) => {
+                        setDoesNotExpire(e.currentTarget.checked)
+                        if (e.currentTarget.checked) setEndDate(null)
+                      }}
+                      size="sm"
+                      className="ship-filter-checkbox"
+                      styles={{
+                        label: {
+                          color: '#E0E0E0',
+                          fontSize: '14px',
+                          cursor: 'pointer',
+                          paddingLeft: '8px',
+                        },
+                      }}
+                    />
+                  </Box>
+
+                  <Text style={{ color: '#E0E0E0', fontSize: '14px', marginBottom: '8px' }}>
+                    Notification Frequency
+                  </Text>
+                  <Select
+                    value={notificationFrequency}
+                    onChange={setNotificationFrequency}
+                    data={['Daily Report', 'Immediate', 'Weekly Report']}
+                    styles={{
+                      input: {
+                        backgroundColor: 'transparent',
+                        borderColor: '#393C56',
+                        color: '#fff',
+                        height: '40px',
+                      },
+                      dropdown: {
+                        backgroundColor: '#181926',
+                        borderColor: '#393C56',
+                      },
+                      item: {
+                        color: '#fff',
+                      },
+                    }}
+                  />
+
+                  <Text
+                    style={{
+                      color: '#E0E0E0',
+                      fontSize: '14px',
+                      marginTop: '16px',
+                      marginBottom: '24px',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Receives a single summary at the end of each day listing all
+                    ships that triggered alerts during that day. No report is
+                    sent if no alerts occur.
+                  </Text>
+
+                  <Text style={{ color: '#E0E0E0', fontSize: '14px', marginBottom: '12px' }}>
+                    Receive Via
+                  </Text>
+                  <Box style={{ display: 'flex', gap: '24px', marginBottom: '24px' }}>
+                    <Checkbox
+                      label="Email"
+                      checked={receiveViaEmail}
+                      onChange={(e) => setReceiveViaEmail(e.currentTarget.checked)}
+                      size="sm"
+                      className="ship-filter-checkbox"
+                      styles={{
+                        label: {
+                          color: '#E0E0E0',
+                          fontSize: '14px',
+                          cursor: 'pointer',
+                          paddingLeft: '8px',
+                        },
+                      }}
+                    />
+                    <Checkbox
+                      label="In-App Notification"
+                      checked={receiveViaApp}
+                      onChange={(e) => setReceiveViaApp(e.currentTarget.checked)}
+                      size="sm"
+                      className="ship-filter-checkbox"
+                      styles={{
+                        label: {
+                          color: '#E0E0E0',
+                          fontSize: '14px',
+                          cursor: 'pointer',
+                          paddingLeft: '8px',
+                        },
+                      }}
+                    />
+                  </Box>
+
+                  {receiveViaEmail && (
+                    <>
+                      <Text style={{ color: '#E0E0E0', fontSize: '14px', marginBottom: '8px' }}>
+                        Email for Notifications
+                      </Text>
+                      <TextInput
+                        value={emailForNotifications}
+                        onChange={(e) => setEmailForNotifications(e.currentTarget.value)}
+                        placeholder="Enter email"
+                        styles={{
+                          input: {
+                            backgroundColor: 'transparent',
+                            borderColor: '#393C56',
+                            color: '#fff',
+                            height: '40px',
+                          },
+                        }}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+
+              {currentStep === 5 && (
+                <>
+                  <Text style={{ color: '#fff', fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>
+                    Confirm alert details:
+                  </Text>
+                  <Text style={{ color: '#E0E0E0', fontSize: '14px', marginBottom: '24px', lineHeight: 1.5 }}>
+                    Review and confirm the selected ship, area, and alert triggers, along with any other related details.
+                  </Text>
+
+                  <Box style={{ backgroundColor: '#24263C', borderRadius: '4px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <Box>
+                      <Text style={{ color: '#888F9E', fontSize: '12px', marginBottom: '8px' }}>Alert Name</Text>
+                      <TextInput
+                        value={alertName}
+                        onChange={(e) => setAlertName(e.currentTarget.value)}
+                        placeholder="Enter name"
+                        styles={{
+                          input: {
+                            backgroundColor: '#181926',
+                            borderColor: '#393C56',
+                            color: '#fff',
+                            height: '40px',
+                          },
+                        }}
+                      />
+                    </Box>
+
+                    {renderSummaryRow(`Ship(s)`, shipSelection === 'any' ? 'Any ship' : 'Specific ship(s)', 1)}
+                    {renderSummaryRow(`Area(s)`, areaSelection === 'global' ? 'Global' : 'Specific area(s)', 2)}
+                    {renderSummaryRow(`Trigger(s) - ${selectedTriggers.length} trigger${selectedTriggers.length === 1 ? '' : 's'}`, triggersValue, 3)}
+
+                    <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box style={{ display: 'flex', gap: '48px' }}>
+                        <Box>
+                          <Text style={{ color: '#888F9E', fontSize: '12px', marginBottom: '4px' }}>Start Date</Text>
+                          <Text style={{ color: '#fff', fontSize: '14px' }}>{formatDate(startDate)}</Text>
+                        </Box>
+                        <Box>
+                          <Text style={{ color: '#888F9E', fontSize: '12px', marginBottom: '4px' }}>End Date</Text>
+                          <Text style={{ color: '#fff', fontSize: '14px' }}>{doesNotExpire ? 'Does not expire' : formatDate(endDate)}</Text>
+                        </Box>
+                      </Box>
+                      <Edit02 size={16} color="#888F9E" style={{ cursor: 'pointer', marginTop: '4px' }} onClick={() => setCurrentStep(4)} />
+                    </Box>
+
+                    {renderSummaryRow('Notification Frequency', notificationFrequency, 4)}
+                    {renderSummaryRow('Receive Via', receiveViaText, 4)}
+                    {receiveViaEmail && renderSummaryRow('Email for Notification', emailForNotifications || 'None provided', 4)}
+                  </Box>
+                </>
+              )}
+              {currentStep === 6 && (
+                <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '32px' }}>
+                  <CheckCircle size={48} color="#00EB6C" style={{ marginBottom: '24px' }} />
+                  <Text style={{ color: '#fff', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
+                    Alert created successfully.
+                  </Text>
+                  <Text style={{ color: '#E0E0E0', fontSize: '14px', marginBottom: '32px', textAlign: 'center' }}>
+                    Please check 'My Alerts' tab for the latest status.
+                  </Text>
+                  <Box style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveTab('My Alerts')}
+                      style={{
+                        flex: 1,
+                        borderColor: '#393C56',
+                        color: '#fff',
+                        backgroundColor: 'transparent',
+                      }}
+                    >
+                      Go To My Alerts
+                    </Button>
+                    <Button
+                      onClick={handleReset}
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#0094FF',
+                        color: '#fff',
+                      }}
+                    >
+                      Create New Alert
+                    </Button>
+                  </Box>
+                </Box>
               )}
             </>
           ) : (
@@ -451,7 +867,7 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
         </Box>
 
         {/* Footer Buttons */}
-        {isNewAlert && (
+        {isNewAlert && currentStep < 6 && (
           <Box
             style={{
               padding: '16px 24px',
@@ -465,13 +881,17 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
           >
             <Button
               variant="outline"
-              onClick={handleCancel}
+              onClick={() => {
+                // Handle actual cancel logic here
+              }}
               style={{
                 flex: currentStep === 1 ? 1 : 0,
                 width: currentStep === 1 ? 'auto' : '100px',
+                minWidth: currentStep === 1 ? 'auto' : '100px',
                 borderColor: '#393C56',
                 color: '#fff',
                 backgroundColor: 'transparent',
+                padding: 0,
               }}
             >
               Cancel
@@ -479,13 +899,15 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
             {currentStep > 1 && (
               <Button
                 variant="outline"
-                onClick={handleCancel}
+                onClick={handleBack}
                 style={{
                   flex: 0,
                   width: '100px',
+                  minWidth: '100px',
                   borderColor: '#393C56',
                   color: '#fff',
                   backgroundColor: 'transparent',
+                  padding: 0,
                 }}
               >
                 Back
@@ -501,7 +923,7 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                 cursor: isNextDisabled() ? 'not-allowed' : 'pointer',
               }}
             >
-              Next
+              {currentStep === 5 ? 'Confirm & Create' : 'Next'}
             </Button>
           </Box>
         )}
