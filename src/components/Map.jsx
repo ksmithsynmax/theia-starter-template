@@ -679,29 +679,6 @@ const Map = forwardRef(function Map(
     runtimeDetections,
   ])
 
-  // Show halo on markers whose ship has an open tab
-  useEffect(() => {
-    if (!map.current) return
-    const openShipIds = new Set()
-    shipTabs.forEach((tab) => {
-      if (tab.type === 'sts' && tab.shipIds) {
-        tab.shipIds.forEach((id) => openShipIds.add(id))
-      } else {
-        openShipIds.add(tab.id)
-      }
-    })
-    runtimeDetections.forEach((det) => {
-      const marker = markersRef.current[det.id]
-      if (!marker) return
-      const el = marker.getElement()
-      if (openShipIds.has(det.shipId) && !el.classList.contains('active')) {
-        el.classList.add('opened')
-      } else {
-        el.classList.remove('opened')
-      }
-    })
-  }, [shipTabs, activeDetectionId, previewDetectionId, runtimeDetections])
-
   // Filter markers by date, but keep selected/preview detection visible
   useEffect(() => {
     if (!map.current) return

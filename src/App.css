@@ -178,16 +178,6 @@
   opacity: 1;
 }
 
-.mapboxgl-marker.opened::before {
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  opacity: 1;
-}
-
-.mapboxgl-marker.opened:hover::before {
-  background: rgba(255, 255, 255, 0.25);
-}
-
 .mapboxgl-marker.active::before {
   background: rgba(255, 255, 255, 0.2);
   border: 2px solid white;
