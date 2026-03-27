@@ -1694,36 +1694,6 @@ function Myships() {
           </Box>
         )}
         <Box style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {overflowLeft && (
-            <Box
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: 40,
-                background:
-                  'linear-gradient(to right, #24263C, rgba(36, 38, 60, 0))',
-                zIndex: 2,
-                pointerEvents: 'none',
-              }}
-            />
-          )}
-          {overflowRight && (
-            <Box
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: 40,
-                background:
-                  'linear-gradient(to left, #24263C, rgba(36, 38, 60, 0))',
-                zIndex: 2,
-                pointerEvents: 'none',
-              }}
-            />
-          )}
           <Box
             ref={tabScrollRef}
             className="tab-scroll"
@@ -1732,7 +1702,7 @@ function Myships() {
               flex: 1,
             }}
           >
-            {shipTabs.map((tab) => {
+            {shipTabs.map((tab, index) => {
               const isActive = activeShipTab === tab.id
               return (
                 <Box
@@ -1756,7 +1726,10 @@ function Myships() {
                     height: 50,
                     padding: '0 12px',
                     cursor: 'pointer',
-                    borderRight: '1px solid #393C56',
+                    borderRight:
+                      index === shipTabs.length - 1
+                        ? 'none'
+                        : '1px solid #393C56',
                     borderBottom: isActive ? 'none' : '1px solid #393C56',
                     background: isActive ? '#181926' : '#24263C',
                     position: 'relative',
@@ -2859,36 +2832,6 @@ function Myships() {
                 <Box
                   style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
                 >
-                  {detailTabsOverflowLeft && (
-                    <Box
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: 36,
-                        background:
-                          'linear-gradient(to right, #181926, rgba(24, 25, 38, 0))',
-                        zIndex: 2,
-                        pointerEvents: 'none',
-                      }}
-                    />
-                  )}
-                  {detailTabsOverflowRight && (
-                    <Box
-                      style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: 36,
-                        background:
-                          'linear-gradient(to left, #181926, rgba(24, 25, 38, 0))',
-                        zIndex: 2,
-                        pointerEvents: 'none',
-                      }}
-                    />
-                  )}
                   <Box
                     ref={detailTabScrollRef}
                     className="tab-row-scroll"
