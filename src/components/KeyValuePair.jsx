@@ -7,19 +7,12 @@ const KeyValuePair = ({ keyName, value }) => {
 
   return (
     <Box>
-      <Text style={{ 
-        color: '#888F9E', 
-        fontSize: '12px', 
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        marginBottom: '2px'
-      }}>
+      <Text style={{ color: '#888F9E', fontSize: '10px', whiteSpace: 'nowrap' }}>
         {keyName}
       </Text>
       {isPrimitiveValue ? (
         <Text
-          size="sm"
+          size="xs"
           style={{
             color: 'white',
             whiteSpace: 'nowrap',
