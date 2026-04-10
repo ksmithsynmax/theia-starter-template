@@ -85,7 +85,6 @@ const DEFAULT_EVENTS = [
     id: 'sanction-b-6',
     effectiveDate: '2024-11-03',
     eventType: 'name_change',
-    code: 'EU_9247883',
     beforeValue: 'CAPE HORN',
     afterValue: 'SAPNA',
     chips: [{ tone: 'name', label: 'Name Change' }],
@@ -108,6 +107,30 @@ const DEFAULT_EVENTS = [
   },
 ]
 
+const formatTimelineDate = (dateValue) => {
+  if (!dateValue) return 'No info'
+
+  const normalizedValue =
+    typeof dateValue === 'string' ? dateValue.trim() : dateValue
+  const isIsoDateString =
+    typeof normalizedValue === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)
+  const parsedDate =
+    normalizedValue instanceof Date
+      ? normalizedValue
+      : isIsoDateString
+        ? new Date(`${normalizedValue}T00:00:00`)
+        : new Date(normalizedValue)
+
+  if (Number.isNaN(parsedDate.getTime())) return String(dateValue)
+
+  return parsedDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
 const SanctionDetailsVersionB = ({
   versionData,
   events,
@@ -117,6 +140,7 @@ const SanctionDetailsVersionB = ({
   countryFlags,
 }) => {
   const [localExpandedEventId, setLocalExpandedEventId] = React.useState(null)
+  const [dateSortOrder, setDateSortOrder] = React.useState('desc')
   const safeVersionData = versionData || {}
   const safeOverview = {
     ...DEFAULT_OVERVIEW,
@@ -129,8 +153,40 @@ const SanctionDetailsVersionB = ({
   const sanctionDates = safeEvents
     .filter((event) => event.eventType === 'sanctions' && event.effectiveDate)
     .map((event) => event.effectiveDate)
-  const sanctionDateLabel =
-    safeOverview.sanctionDate || sanctionDates[0] || 'No info'
+  const sanctionDateLabel = formatTimelineDate(
+    safeOverview.sanctionDate || sanctionDates[0]
+  )
+  const sortedEvents = React.useMemo(() => {
+    const direction = dateSortOrder === 'asc' ? 1 : -1
+
+    return safeEvents
+      .map((event, index) => {
+        const parsedDate = event.effectiveDate
+          ? new Date(event.effectiveDate)
+          : null
+
+        return {
+          event,
+          index,
+          sortTs:
+            parsedDate && !Number.isNaN(parsedDate.getTime())
+              ? parsedDate.getTime()
+              : null,
+        }
+      })
+      .sort((a, b) => {
+        const aHasDate = a.sortTs !== null
+        const bHasDate = b.sortTs !== null
+
+        if (aHasDate && bHasDate) {
+          return (a.sortTs - b.sortTs) * direction
+        }
+        if (aHasDate) return -1
+        if (bHasDate) return 1
+        return a.index - b.index
+      })
+      .map((item) => item.event)
+  }, [safeEvents, dateSortOrder])
   const hasExternalExpandedState = typeof setExpandedEventId === 'function'
   const resolvedExpandedEventId = hasExternalExpandedState
     ? expandedEventId
@@ -160,13 +216,41 @@ const SanctionDetailsVersionB = ({
           gap: 14,
         }}
       >
-        <Box>
-          <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
-            Date of sanction
-          </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
-            {sanctionDateLabel}
-          </Text>
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <Box>
+            <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
+              Date of sanction
+            </Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
+              {sanctionDateLabel}
+            </Text>
+          </Box>
+          <Box
+            onClick={() =>
+              setDateSortOrder((current) => (current === 'asc' ? 'desc' : 'asc'))
+            }
+            style={{
+              border: '1px solid #FFFFFF',
+              borderRadius: 4,
+              padding: '4px 8px',
+              cursor: 'pointer',
+              userSelect: 'none',
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 600 }}>
+              Sort: {dateSortOrder === 'desc' ? 'Newest' : 'Oldest'}
+            </Text>
+          </Box>
         </Box>
         <Box>
           <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
@@ -259,7 +343,7 @@ const SanctionDetailsVersionB = ({
             display: 'block',
           }}
         />
-        {safeEvents.map((event, index) => {
+        {sortedEvents.map((event, index) => {
           const isExpanded = resolvedExpandedEventId === event.id
           const hasDetails = (event.detailFields || []).length > 0
           const canExpand = hasDetails && event.eventType === 'scrapped'
@@ -281,7 +365,7 @@ const SanctionDetailsVersionB = ({
               style={{
                 display: 'flex',
                 gap: 14,
-                paddingBottom: index < safeEvents.length - 1 ? 10 : 0,
+                paddingBottom: index < sortedEvents.length - 1 ? 10 : 0,
               }}
             >
               <Box
@@ -332,7 +416,7 @@ const SanctionDetailsVersionB = ({
                           lineHeight: '22px',
                         }}
                       >
-                        {event.effectiveDate}
+                        {formatTimelineDate(event.effectiveDate)}
                       </Text>
                       {event.chips?.map((chip) => {
                         const labelOverride =
