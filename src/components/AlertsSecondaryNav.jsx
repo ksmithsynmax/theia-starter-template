@@ -1,13 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Text, Radio, Button, Checkbox, Select, TextInput } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
-import { Calendar, Edit02, CheckCircle } from '@untitledui/icons'
+import { Calendar, Edit02, CheckCircle, ChevronDown } from '@untitledui/icons'
 import CollapseButton from '../custom-icons/CollapseButton'
 import ExpandButton from '../custom-icons/ExpandButton'
+import { useShipContext } from '../context/ShipContext'
 
 const ALERTS_SECONDARY_NAV_DEFAULT_WIDTH = 386
+const IMPORT_SHIP_OPTIONS = [
+  { id: 'invictus', name: 'INVICTUS', flag: '🇺🇸', imo: '9381653', mmsi: '338070829' },
+  { id: 'ocean-moon', name: 'OCEAN MOON', flag: '🇲🇭', imo: '9381653', mmsi: '338070829' },
+  { id: 'ubc-stockholm', name: 'UBC STOCKHOLM', flag: '🇨🇾', imo: '9381653', mmsi: '338070829' },
+  { id: 'virgen-de-coromoto', name: 'VIRGEN DE COROMOTO', flag: '🇨🇴', imo: '9381653', mmsi: '338070829' },
+  { id: 'kerkyra', name: 'KERKYRA', flag: '🇵🇦', imo: '9381653', mmsi: '338070829' },
+]
+const IMPORT_SHAPE_OPTIONS = [
+  {
+    id: 'shape-1',
+    name: 'Shape 1',
+    previewArea: 'Red Sea',
+    length: '372.57km',
+    area: '80km²',
+    glyph: 'poly',
+  },
+]
 
 function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
+  const { setAlertPreviewAreas } = useShipContext()
+  const shipUploadInputRef = useRef(null)
   const [activeTab, setActiveTab] = useState('New Alert')
   const [collapseHovered, setCollapseHovered] = useState(false)
   const [expandHovered, setExpandHovered] = useState(false)
@@ -27,8 +47,37 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
   const [emailForNotifications, setEmailForNotifications] = useState('')
   const [alertName, setAlertName] = useState('')
   const [hasNewAlert, setHasNewAlert] = useState(false)
+  const [specificShipDraft, setSpecificShipDraft] = useState('')
+  const [selectedSpecificShips, setSelectedSpecificShips] = useState([])
+  const [importDropdownOpen, setImportDropdownOpen] = useState(false)
+  const [selectedImportShipIds, setSelectedImportShipIds] = useState([])
+  const [uploadedShipFileName, setUploadedShipFileName] = useState('')
+  const [specificAreaSearch, setSpecificAreaSearch] = useState('')
+  const [specificAreaDraft, setSpecificAreaDraft] = useState('')
+  const [selectedSpecificAreas, setSelectedSpecificAreas] = useState([])
+  const [importShapesDropdownOpen, setImportShapesDropdownOpen] = useState(false)
+  const [selectedImportShapeIds, setSelectedImportShapeIds] = useState([])
+  const [drawnAreaCount, setDrawnAreaCount] = useState(0)
+  const [uploadedAreaFileName, setUploadedAreaFileName] = useState('')
 
   const isNewAlert = activeTab === 'New Alert'
+
+  const normalizePreviewAreaLabel = (value) =>
+    String(value || '')
+      .replace(/\s+AOI$/i, '')
+      .trim()
+  const arePreviewAreasEqual = (left, right) => {
+    if (!Array.isArray(left) || !Array.isArray(right)) return false
+    if (left.length !== right.length) return false
+    return left.every((item, index) => {
+      const other = right[index]
+      return (
+        item?.id === other?.id &&
+        item?.label === other?.label &&
+        item?.area === other?.area
+      )
+    })
+  }
 
   const handleNext = () => {
     if (currentStep < 5) {
@@ -53,6 +102,19 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
     setReceiveViaApp(false)
     setEmailForNotifications('')
     setAlertName('')
+    setSpecificShipDraft('')
+    setSelectedSpecificShips([])
+    setImportDropdownOpen(false)
+    setSelectedImportShipIds([])
+    setUploadedShipFileName('')
+    setSpecificAreaSearch('')
+    setSpecificAreaDraft('')
+    setSelectedSpecificAreas([])
+    setImportShapesDropdownOpen(false)
+    setSelectedImportShapeIds([])
+    setDrawnAreaCount(0)
+    setUploadedAreaFileName('')
+    setAlertPreviewAreas([])
   }
 
   const handleBack = () => {
@@ -62,8 +124,24 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
   }
 
   const isNextDisabled = () => {
-    if (currentStep === 1 && shipSelection !== 'any') return true
-    if (currentStep === 2 && areaSelection !== 'global') return true
+    if (currentStep === 1) {
+      if (shipSelection === 'any') return false
+      const hasSpecificShipInput =
+        selectedSpecificShips.length > 0 ||
+        selectedImportShipIds.length > 0 ||
+        Boolean(uploadedShipFileName)
+      return !hasSpecificShipInput
+    }
+    if (currentStep === 2) {
+      if (areaSelection === 'global') return false
+      const hasSpecificAreaInput =
+        selectedSpecificAreas.length > 0 ||
+        specificAreaSearch.trim().length > 0 ||
+        selectedImportShapeIds.length > 0 ||
+        drawnAreaCount > 0 ||
+        Boolean(uploadedAreaFileName)
+      return !hasSpecificAreaInput
+    }
     if (currentStep === 3 && selectedTriggers.length > 1 && sequentialLogic === 'yes') return true
     if (currentStep === 4) {
       if (!startDate) return true
@@ -94,6 +172,12 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
     { id: 'ownership_change', label: 'Ownership change' },
     { id: 'gps_manipulation', label: 'GPS manipulation' },
   ]
+  const shapeRouteTriggerOptions = [
+    { id: 'enters_selected_area', label: 'Enters selected area' },
+    { id: 'leaves_selected_area', label: 'Leaves selected area' },
+  ]
+  const isShapeRouteFlow =
+    areaSelection === 'specific' && selectedImportShapeIds.length > 0
 
   const triggerLabels = selectedTriggers.map(id => triggerOptions.find(t => t.id === id)?.label).join(', ')
   const triggersValue = selectedTriggers.length > 0
@@ -101,6 +185,174 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
     : 'None'
 
   const receiveViaText = [receiveViaEmail ? 'Email' : null, receiveViaApp ? 'In-App Notification' : null].filter(Boolean).join(', ')
+  const uploadedFileDisplay = uploadedShipFileName || 'None'
+  const selectedImportShips = useMemo(
+    () =>
+      IMPORT_SHIP_OPTIONS.filter((ship) => selectedImportShipIds.includes(ship.id)),
+    [selectedImportShipIds]
+  )
+  const selectedImportShapes = useMemo(
+    () =>
+      IMPORT_SHAPE_OPTIONS.filter((shape) =>
+        selectedImportShapeIds.includes(shape.id)
+      ),
+    [selectedImportShapeIds]
+  )
+  const importFromMyShipsSummary = selectedImportShips.length
+    ? selectedImportShips.map((ship) => `${ship.name} ${ship.flag}`).join(', ')
+    : 'None'
+  const importFromMyShapesSummary = selectedImportShapes.length
+    ? selectedImportShapes.map((shape) => shape.name).join(', ')
+    : 'None'
+
+  const addSpecificShip = (shipLabel) => {
+    const cleaned = shipLabel.trim()
+    if (!cleaned) return
+    setSelectedSpecificShips((prev) => {
+      if (prev.some((ship) => ship.toLowerCase() === cleaned.toLowerCase())) {
+        return prev
+      }
+      return [...prev, cleaned]
+    })
+    setSpecificShipDraft('')
+  }
+
+  const removeSpecificShip = (shipLabel) => {
+    setSelectedSpecificShips((prev) => prev.filter((ship) => ship !== shipLabel))
+  }
+
+  const addSpecificArea = (areaLabel) => {
+    const cleaned = areaLabel.trim()
+    if (!cleaned) return
+    setSelectedSpecificAreas((prev) => {
+      if (prev.some((area) => area.toLowerCase() === cleaned.toLowerCase())) {
+        return prev
+      }
+      return [...prev, cleaned]
+    })
+    setSpecificAreaDraft('')
+    setSpecificAreaSearch('')
+  }
+
+  const removeSpecificArea = (areaLabel) => {
+    setSelectedSpecificAreas((prev) => prev.filter((area) => area !== areaLabel))
+  }
+
+  const toggleImportShape = (shapeId) => {
+    setSelectedImportShapeIds((prev) =>
+      prev.includes(shapeId)
+        ? prev.filter((id) => id !== shapeId)
+        : [...prev, shapeId]
+    )
+  }
+
+  const renderShapeGlyph = (glyph) => {
+    const baseStyle = {
+      width: 14,
+      height: 14,
+      border: '1px solid #00B8FF',
+      background: 'rgba(0, 184, 255, 0.15)',
+      display: 'inline-block',
+    }
+    if (glyph === 'line') {
+      return <span style={{ ...baseStyle, height: 4, marginTop: 5 }} />
+    }
+    if (glyph === 'circle') {
+      return <span style={{ ...baseStyle, borderRadius: '50%' }} />
+    }
+    if (glyph === 'rect') {
+      return <span style={{ ...baseStyle, transform: 'skew(12deg)' }} />
+    }
+    if (glyph === 'poly-alt') {
+      return (
+        <span
+          style={{
+            ...baseStyle,
+            clipPath: 'polygon(10% 0%, 75% 0%, 100% 40%, 70% 100%, 0% 100%, 25% 45%)',
+          }}
+        />
+      )
+    }
+    return (
+      <span
+        style={{
+          ...baseStyle,
+          clipPath: 'polygon(0% 20%, 35% 0%, 100% 0%, 75% 45%, 100% 100%, 25% 100%)',
+        }}
+      />
+    )
+  }
+
+  useEffect(() => {
+    if (!isNewAlert || currentStep !== 2 || areaSelection !== 'specific') {
+      setAlertPreviewAreas((prev) => (prev.length === 0 ? prev : []))
+      return
+    }
+    const selectedArea = selectedSpecificAreas[0]
+    const selectedShapeArea = selectedImportShapes[0]?.previewArea
+    const areaCandidate =
+      selectedArea ||
+      selectedShapeArea ||
+      specificAreaDraft ||
+      specificAreaSearch
+
+    const previewCandidates = []
+    if (areaCandidate) {
+      previewCandidates.push({
+        id: `search-${normalizePreviewAreaLabel(areaCandidate).toLowerCase()}`,
+        label: normalizePreviewAreaLabel(areaCandidate),
+        area: normalizePreviewAreaLabel(areaCandidate),
+      })
+    }
+    selectedImportShapes.forEach((shape) => {
+      const normalized = normalizePreviewAreaLabel(shape.previewArea)
+      if (!normalized) return
+      previewCandidates.push({
+        id: `shape-${shape.id}`,
+        label: shape.name,
+        area: normalized,
+      })
+    })
+
+    const dedupedPreviewAreas = previewCandidates.filter(
+      (candidate, index, arr) =>
+        arr.findIndex((item) => item.id === candidate.id) === index
+    )
+    setAlertPreviewAreas((prev) =>
+      arePreviewAreasEqual(prev, dedupedPreviewAreas)
+        ? prev
+        : dedupedPreviewAreas
+    )
+  }, [
+    isNewAlert,
+    currentStep,
+    areaSelection,
+    selectedSpecificAreas,
+    selectedImportShapes,
+    specificAreaDraft,
+    specificAreaSearch,
+    setAlertPreviewAreas,
+  ])
+
+  useEffect(() => {
+    if (isShapeRouteFlow) return
+    setSelectedTriggers((prev) =>
+      prev.filter(
+        (triggerId) =>
+          !shapeRouteTriggerOptions.some((option) => option.id === triggerId)
+      )
+    )
+  }, [isShapeRouteFlow])
+
+  const toggleImportShip = (ship) => {
+    setSelectedImportShipIds((prev) => {
+      const isSelected = prev.includes(ship.id)
+      if (isSelected) {
+        return prev.filter((id) => id !== ship.id)
+      }
+      return [...prev, ship.id]
+    })
+  }
 
   const formatDate = (date) => {
     if (!date) return 'N/A'
@@ -351,6 +603,350 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                       />
                     </Box>
                   </Radio.Group>
+                  {shipSelection === 'specific' && (
+                    <>
+                      <Box
+                        style={{
+                          height: '1px',
+                          backgroundColor: '#393C56',
+                          margin: '22px 0 18px',
+                        }}
+                      />
+                      <Text
+                        style={{
+                          color: '#E0E0E0',
+                          fontSize: '14px',
+                          marginBottom: '14px',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        Add ship(s) using any of below methods:
+                      </Text>
+
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        <Text style={{ color: '#E0E0E0', fontSize: '14px' }}>
+                          Search For Ship(s)
+                        </Text>
+                        <Text style={{ color: '#E0E0E0', fontSize: '14px' }}>
+                          {selectedSpecificShips.length} Ship
+                          {selectedSpecificShips.length === 1 ? '' : 's'}
+                        </Text>
+                      </Box>
+                      <Box
+                        style={{
+                          minHeight: 40,
+                          border: '1px solid #393C56',
+                          borderRadius: 4,
+                          background: 'transparent',
+                          padding: '4px 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: 6,
+                        }}
+                      >
+                        {selectedSpecificShips.map((ship) => (
+                          <Box
+                            key={ship}
+                            style={{
+                              height: 22,
+                              borderRadius: 4,
+                              background: '#3A3F58',
+                              padding: '0 6px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <Text style={{ color: '#fff', fontSize: 12 }}>{ship}</Text>
+                            <Text
+                              onClick={() => removeSpecificShip(ship)}
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                cursor: 'pointer',
+                                lineHeight: 1,
+                              }}
+                            >
+                              ×
+                            </Text>
+                          </Box>
+                        ))}
+                        <input
+                          value={specificShipDraft}
+                          onChange={(event) => setSpecificShipDraft(event.currentTarget.value)}
+                          onBlur={() => addSpecificShip(specificShipDraft)}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key === 'Enter' ||
+                              event.key === ',' ||
+                              event.key === 'Tab'
+                            ) {
+                              event.preventDefault()
+                              addSpecificShip(specificShipDraft)
+                            }
+                          }}
+                          placeholder={
+                            selectedSpecificShips.length === 0
+                              ? 'Search by name, SynMax ship ID, IMO, or MMSI'
+                              : ''
+                          }
+                          style={{
+                            flex: 1,
+                            minWidth: 120,
+                            height: 28,
+                            background: 'transparent',
+                            color: '#fff',
+                            border: 'none',
+                            outline: 'none',
+                            fontSize: 13,
+                          }}
+                        />
+                      </Box>
+
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginTop: '14px',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        <Text style={{ color: '#E0E0E0', fontSize: '14px' }}>
+                          Import From My Ships
+                        </Text>
+                        <Text style={{ color: '#E0E0E0', fontSize: '12px' }}>
+                          {selectedImportShipIds.length} Ship
+                          {selectedImportShipIds.length === 1 ? '' : 's'}
+                        </Text>
+                      </Box>
+                      <Box style={{ position: 'relative' }}>
+                        <Box
+                          onClick={() => setImportDropdownOpen((prev) => !prev)}
+                          style={{
+                            height: 40,
+                            border: '1px solid #393C56',
+                            borderRadius: 4,
+                            padding: '0 10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            gap: 8,
+                          }}
+                        >
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              minWidth: 0,
+                              flex: 1,
+                              overflowX: 'auto',
+                            }}
+                          >
+                            {selectedImportShips.length === 0 ? (
+                              <Text style={{ color: '#A4ABBE', fontSize: 14 }}>
+                                Select
+                              </Text>
+                            ) : (
+                              selectedImportShips.map((ship) => (
+                                <Box
+                                  key={ship.id}
+                                  style={{
+                                    height: 20,
+                                    borderRadius: 4,
+                                    background: '#2F3852',
+                                    border: '1px solid #3B4A6E',
+                                    padding: '0 6px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <Text style={{ color: '#fff', fontSize: 11 }}>
+                                    {ship.name} {ship.flag}
+                                  </Text>
+                                  <Text
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      toggleImportShip(ship)
+                                    }}
+                                    style={{
+                                      color: '#fff',
+                                      fontSize: 11,
+                                      cursor: 'pointer',
+                                      lineHeight: 1,
+                                    }}
+                                  >
+                                    ×
+                                  </Text>
+                                </Box>
+                              ))
+                            )}
+                          </Box>
+                          <ChevronDown
+                            size={16}
+                            color="#FFFFFF"
+                            style={{
+                              transform: importDropdownOpen
+                                ? 'rotate(180deg)'
+                                : 'rotate(0deg)',
+                              transition: 'transform 120ms ease',
+                            }}
+                          />
+                        </Box>
+
+                        {importDropdownOpen && (
+                          <Box
+                            style={{
+                              position: 'absolute',
+                              top: 44,
+                              left: 0,
+                              right: 0,
+                              border: '1px solid #393C56',
+                              borderRadius: 4,
+                              background: '#111326',
+                              zIndex: 20,
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {IMPORT_SHIP_OPTIONS.map((ship, index) => (
+                              <Box
+                                key={ship.id}
+                                style={{
+                                  padding: '10px 12px',
+                                  borderBottom:
+                                    index < IMPORT_SHIP_OPTIONS.length - 1
+                                      ? '1px solid #2D314A'
+                                      : 'none',
+                                  display: 'grid',
+                                  gridTemplateColumns: '1fr auto auto',
+                                  gap: 12,
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <Box
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 10,
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  <Checkbox
+                                    checked={selectedImportShipIds.includes(ship.id)}
+                                    onChange={() => toggleImportShip(ship)}
+                                    size="sm"
+                                    className="ship-filter-checkbox"
+                                  />
+                                  <Text
+                                    style={{
+                                      color: '#fff',
+                                      fontSize: 13,
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      maxWidth: 145,
+                                    }}
+                                  >
+                                    {ship.name} {ship.flag}
+                                  </Text>
+                                </Box>
+                                <Box>
+                                  <Text
+                                    style={{ color: '#8C93A5', fontSize: 10, marginBottom: 2 }}
+                                  >
+                                    IMO
+                                  </Text>
+                                  <Text style={{ color: '#E0E0E0', fontSize: 12 }}>
+                                    {ship.imo}
+                                  </Text>
+                                </Box>
+                                <Box>
+                                  <Text
+                                    style={{ color: '#8C93A5', fontSize: 10, marginBottom: 2 }}
+                                  >
+                                    MMSI
+                                  </Text>
+                                  <Text style={{ color: '#E0E0E0', fontSize: 12 }}>
+                                    {ship.mmsi}
+                                  </Text>
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
+
+                      <Text style={{ color: '#E0E0E0', fontSize: '14px', marginTop: '14px', marginBottom: '8px' }}>
+                        Upload File
+                      </Text>
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#8C93A5',
+                            fontSize: '12px',
+                            lineHeight: 1.35,
+                            maxWidth: '200px',
+                          }}
+                        >
+                          Accepted file types: .csv, .xls, .xlsx
+                        </Text>
+                        <Button
+                          variant="outline"
+                          onClick={() => shipUploadInputRef.current?.click()}
+                          style={{
+                            minWidth: '120px',
+                            borderColor: '#5B6175',
+                            color: '#E0E0E0',
+                            backgroundColor: 'transparent',
+                          }}
+                        >
+                          Upload
+                        </Button>
+                      </Box>
+                      <input
+                        ref={shipUploadInputRef}
+                        type="file"
+                        accept=".csv,.xls,.xlsx"
+                        onChange={(event) =>
+                          setUploadedShipFileName(
+                            event.target.files?.[0]?.name || ''
+                          )
+                        }
+                        style={{ display: 'none' }}
+                      />
+                      {!!uploadedShipFileName && (
+                        <Text
+                          style={{
+                            color: '#A4ABBE',
+                            fontSize: '12px',
+                            marginTop: '8px',
+                          }}
+                        >
+                          Uploaded: {uploadedShipFileName}
+                        </Text>
+                      )}
+                    </>
+                  )}
                 </>
               )}
 
@@ -377,7 +973,8 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                   >
                     Select the area(s) you'd like to be alerted with. If you
                     don't have a specific area in mind, select "Global" and
-                    you'll be notified when the alert is triggered anywhere in the world.
+                    you'll be notified when the alert is triggered anywhere in
+                    the world.
                   </Text>
 
                   <Radio.Group
@@ -438,6 +1035,408 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                       />
                     </Box>
                   </Radio.Group>
+                  {areaSelection === 'specific' && (
+                    <>
+                      <Box
+                        style={{
+                          height: '1px',
+                          backgroundColor: '#393C56',
+                          margin: '22px 0 18px',
+                        }}
+                      />
+                      <Text
+                        style={{
+                          color: '#E0E0E0',
+                          fontSize: '14px',
+                          marginBottom: '14px',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        Add area(s) using any of below methods:
+                      </Text>
+
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#E0E0E0',
+                            fontSize: '14px',
+                          }}
+                        >
+                          Search For Area(s)
+                        </Text>
+                        <Text style={{ color: '#E0E0E0', fontSize: '12px' }}>
+                          {selectedSpecificAreas.length} Area
+                          {selectedSpecificAreas.length === 1 ? '' : 's'}
+                        </Text>
+                      </Box>
+                      <Box
+                        style={{
+                          minHeight: 40,
+                          border: '1px solid #393C56',
+                          borderRadius: 4,
+                          background: 'transparent',
+                          padding: '4px 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: 6,
+                        }}
+                      >
+                        {selectedSpecificAreas.map((area) => (
+                          <Box
+                            key={area}
+                            style={{
+                              height: 22,
+                              borderRadius: 4,
+                              background: '#3A3F58',
+                              padding: '0 6px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <Text style={{ color: '#fff', fontSize: 12 }}>{area}</Text>
+                            <Text
+                              onClick={() => removeSpecificArea(area)}
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                cursor: 'pointer',
+                                lineHeight: 1,
+                              }}
+                            >
+                              ×
+                            </Text>
+                          </Box>
+                        ))}
+                        <input
+                          value={specificAreaDraft}
+                          onChange={(event) => {
+                            setSpecificAreaDraft(event.currentTarget.value)
+                            setSpecificAreaSearch(event.currentTarget.value)
+                          }}
+                          onBlur={() => addSpecificArea(specificAreaDraft)}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key === 'Enter' ||
+                              event.key === ',' ||
+                              event.key === 'Tab'
+                            ) {
+                              event.preventDefault()
+                              addSpecificArea(specificAreaDraft)
+                            }
+                          }}
+                          placeholder={
+                            selectedSpecificAreas.length === 0
+                              ? 'Search ports, oceans, countries'
+                              : ''
+                          }
+                          style={{
+                            flex: 1,
+                            minWidth: 120,
+                            height: 28,
+                            background: 'transparent',
+                            color: '#fff',
+                            border: 'none',
+                            outline: 'none',
+                            fontSize: 13,
+                          }}
+                        />
+                      </Box>
+
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginTop: '14px',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        <Text style={{ color: '#E0E0E0', fontSize: '14px' }}>
+                          Import From My Shapes
+                        </Text>
+                        <Text style={{ color: '#E0E0E0', fontSize: '12px' }}>
+                          {selectedImportShapeIds.length} Shape
+                          {selectedImportShapeIds.length === 1 ? '' : 's'}
+                        </Text>
+                      </Box>
+                      <Box style={{ position: 'relative' }}>
+                        <Box
+                          onClick={() => setImportShapesDropdownOpen((prev) => !prev)}
+                          style={{
+                            height: 40,
+                            border: '1px solid #393C56',
+                            borderRadius: 4,
+                            padding: '0 10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            gap: 8,
+                          }}
+                        >
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              minWidth: 0,
+                              flex: 1,
+                              overflowX: 'auto',
+                            }}
+                          >
+                            {selectedImportShapes.length === 0 ? (
+                              <Text style={{ color: '#A4ABBE', fontSize: 14 }}>
+                                Select shape
+                              </Text>
+                            ) : (
+                              selectedImportShapes.map((shape) => (
+                                <Box
+                                  key={shape.id}
+                                  style={{
+                                    height: 20,
+                                    borderRadius: 4,
+                                    background: '#2F3852',
+                                    border: '1px solid #3B4A6E',
+                                    padding: '0 6px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <Text style={{ color: '#fff', fontSize: 11 }}>
+                                    {shape.name}
+                                  </Text>
+                                  <Text
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      toggleImportShape(shape.id)
+                                    }}
+                                    style={{
+                                      color: '#fff',
+                                      fontSize: 11,
+                                      cursor: 'pointer',
+                                      lineHeight: 1,
+                                    }}
+                                  >
+                                    ×
+                                  </Text>
+                                </Box>
+                              ))
+                            )}
+                          </Box>
+                          <ChevronDown
+                            size={16}
+                            color="#FFFFFF"
+                            style={{
+                              transform: importShapesDropdownOpen
+                                ? 'rotate(180deg)'
+                                : 'rotate(0deg)',
+                              transition: 'transform 120ms ease',
+                            }}
+                          />
+                        </Box>
+                        {importShapesDropdownOpen && (
+                          <Box
+                            style={{
+                              position: 'absolute',
+                              top: 44,
+                              left: 0,
+                              right: 0,
+                              border: '1px solid #393C56',
+                              borderRadius: 4,
+                              background: '#111326',
+                              zIndex: 20,
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {IMPORT_SHAPE_OPTIONS.map((shape, index) => (
+                              <Box
+                                key={shape.id}
+                                style={{
+                                  padding: '10px 12px',
+                                  borderBottom:
+                                    index < IMPORT_SHAPE_OPTIONS.length - 1
+                                      ? '1px solid #2D314A'
+                                      : 'none',
+                                  display: 'grid',
+                                  gridTemplateColumns: '1fr auto auto',
+                                  gap: 10,
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <Box
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 10,
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  <Checkbox
+                                    checked={selectedImportShapeIds.includes(shape.id)}
+                                    onChange={() => toggleImportShape(shape.id)}
+                                    size="sm"
+                                    className="ship-filter-checkbox"
+                                  />
+                                  <Text
+                                    style={{
+                                      color: '#fff',
+                                      fontSize: 12,
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      maxWidth: 95,
+                                    }}
+                                  >
+                                    {shape.name}
+                                  </Text>
+                                  <Box
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      width: 16,
+                                      height: 16,
+                                    }}
+                                  >
+                                    {renderShapeGlyph(shape.glyph)}
+                                  </Box>
+                                </Box>
+                                <Box>
+                                  <Text
+                                    style={{ color: '#8C93A5', fontSize: 10, marginBottom: 2 }}
+                                  >
+                                    Length
+                                  </Text>
+                                  <Text style={{ color: '#E0E0E0', fontSize: 12 }}>
+                                    {shape.length}
+                                  </Text>
+                                </Box>
+                                <Box>
+                                  <Text
+                                    style={{ color: '#8C93A5', fontSize: 10, marginBottom: 2 }}
+                                  >
+                                    Area
+                                  </Text>
+                                  <Text style={{ color: '#E0E0E0', fontSize: 12 }}>
+                                    {shape.area}
+                                  </Text>
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
+
+                      <Text
+                        style={{
+                          color: '#E0E0E0',
+                          fontSize: '14px',
+                          marginTop: '14px',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        Draw Polygon
+                      </Text>
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#8C93A5',
+                            fontSize: '12px',
+                            lineHeight: 1.35,
+                            maxWidth: '200px',
+                          }}
+                        >
+                          Draw polygon on map and use as area
+                        </Text>
+                        <Button
+                          variant="outline"
+                          onClick={() => setDrawnAreaCount((prev) => prev + 1)}
+                          style={{
+                            minWidth: '120px',
+                            borderColor: '#5B6175',
+                            color: '#E0E0E0',
+                            backgroundColor: 'transparent',
+                          }}
+                        >
+                          Draw
+                        </Button>
+                      </Box>
+                      {drawnAreaCount > 0 && (
+                        <Text
+                          style={{
+                            color: '#A4ABBE',
+                            fontSize: '12px',
+                            marginTop: '8px',
+                          }}
+                        >
+                          {drawnAreaCount} drawn area
+                          {drawnAreaCount === 1 ? '' : 's'}
+                        </Text>
+                      )}
+
+                      <Text
+                        style={{
+                          color: '#E0E0E0',
+                          fontSize: '14px',
+                          marginTop: '14px',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        Upload File
+                      </Text>
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#8C93A5',
+                            fontSize: '12px',
+                            lineHeight: 1.35,
+                            maxWidth: '200px',
+                          }}
+                        >
+                          Accepted file types: .json, .geojson
+                        </Text>
+                        <Button
+                          variant="outline"
+                          disabled
+                          style={{
+                            minWidth: '120px',
+                            borderColor: '#5B6175',
+                            color: '#A4ABBE',
+                            backgroundColor: 'transparent',
+                            opacity: 0.9,
+                          }}
+                        >
+                          Upload
+                        </Button>
+                      </Box>
+                    </>
+                  )}
                 </>
               )}
               {currentStep === 3 && (
@@ -475,6 +1474,26 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                       marginTop: '8px',
                     }}
                   >
+                    {isShapeRouteFlow &&
+                      shapeRouteTriggerOptions.map((option) => (
+                        <Checkbox
+                          key={option.id}
+                          label={option.label}
+                          checked={selectedTriggers.includes(option.id)}
+                          onChange={() => toggleTrigger(option.id)}
+                          size="sm"
+                          className="ship-filter-checkbox"
+                          styles={{
+                            label: {
+                              color: '#fff',
+                              fontSize: '14px',
+                              cursor: 'pointer',
+                              paddingLeft: '12px',
+                              lineHeight: '1.2',
+                            },
+                          }}
+                        />
+                      ))}
                     {triggerOptions.map((option) => (
                       <Checkbox
                         key={option.id}
@@ -790,8 +1809,30 @@ function AlertsSecondaryNav({ isOpen, onOpen, onClose }) {
                       />
                     </Box>
 
-                    {renderSummaryRow(`Ship(s)`, shipSelection === 'any' ? 'Any ship' : 'Specific ship(s)', 1)}
-                    {renderSummaryRow(`Area(s)`, areaSelection === 'global' ? 'Global' : 'Specific area(s)', 2)}
+                    {renderSummaryRow(
+                      `Ship(s)`,
+                      shipSelection === 'any'
+                        ? 'Any ship'
+                        : `Specific ship(s) • Search: ${
+                            selectedSpecificShips.length
+                              ? selectedSpecificShips.join(', ')
+                              : 'None'
+                          } • Import: ${importFromMyShipsSummary} • File: ${uploadedFileDisplay}`,
+                      1
+                    )}
+                    {renderSummaryRow(
+                      `Area(s)`,
+                      areaSelection === 'global'
+                        ? 'Global'
+                        : `Specific area(s) • Search: ${
+                            selectedSpecificAreas.length
+                              ? selectedSpecificAreas.join(', ')
+                              : 'None'
+                          } • Shape: ${importFromMyShapesSummary} • Drawn: ${drawnAreaCount} • File: ${
+                            uploadedAreaFileName || 'None'
+                          }`,
+                      2
+                    )}
                     {renderSummaryRow(`Trigger(s) - ${selectedTriggers.length} trigger${selectedTriggers.length === 1 ? '' : 's'}`, triggersValue, 3)}
 
                     <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

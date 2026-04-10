@@ -107,6 +107,75 @@ const PROTOTYPE_PORTS = [
   { id: 'port-bar-harbor', name: 'Bar Harbor', lng: 103.78, lat: 1.25, flag: '🇺🇸' },
 ]
 
+const ALERT_PREVIEW_AREAS = {
+  persian_gulf: {
+    label: 'Persian Gulf',
+    length: '372.57km',
+    area: '100km²',
+    center: [53.5, 26.5],
+    polygon: [
+      [50.8, 29.4],
+      [52.8, 29.2],
+      [55.4, 28.6],
+      [57.2, 26.9],
+      [56.6, 25.2],
+      [54.4, 25.0],
+      [52.3, 25.6],
+      [51.0, 27.0],
+      [50.8, 29.4],
+    ],
+  },
+  red_sea: {
+    label: 'Red Sea',
+    length: '2250km',
+    area: '438000km²',
+    center: [38.2, 20.8],
+    polygon: [
+      [33.2, 28.9],
+      [35.1, 26.7],
+      [37.0, 24.2],
+      [39.0, 21.1],
+      [41.5, 17.8],
+      [43.1, 14.7],
+      [42.0, 12.7],
+      [39.4, 14.8],
+      [36.8, 18.8],
+      [34.9, 22.2],
+      [33.2, 28.9],
+    ],
+  },
+  south_china_sea: {
+    label: 'South China Sea',
+    length: '3500km',
+    area: '3500000km²',
+    center: [114.0, 14.0],
+    polygon: [
+      [106.0, 20.0],
+      [111.0, 22.5],
+      [117.5, 21.0],
+      [121.8, 17.2],
+      [121.2, 11.5],
+      [117.4, 7.8],
+      [112.0, 6.5],
+      [107.5, 9.4],
+      [105.2, 14.8],
+      [106.0, 20.0],
+    ],
+  },
+}
+
+const getAlertPreviewAreaKey = (areaLabel) => {
+  const normalized = String(areaLabel || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!normalized) return null
+  if (normalized.includes('persian gulf')) return 'persian_gulf'
+  if (normalized.includes('red sea')) return 'red_sea'
+  if (normalized.includes('south china sea')) return 'south_china_sea'
+  return null
+}
+
 const Map = forwardRef(function Map(
   { onDetectionClick, onPortClick, showPorts = false },
   ref
@@ -125,6 +194,7 @@ const Map = forwardRef(function Map(
     activePortLevel,
     selectedTerminal,
     selectedBerth,
+    alertPreviewAreas,
   } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -132,7 +202,9 @@ const Map = forwardRef(function Map(
   const portMarkersRef = useRef({})
   const onDetectionClickRef = useRef(onDetectionClick)
   const onPortClickRef = useRef(onPortClick)
+  const alertPreviewMarkersRef = useRef({})
   const detectionByIdRef = useRef(new globalThis.Map())
+  const lastPreviewAreaSignatureRef = useRef('')
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
@@ -188,6 +260,10 @@ const Map = forwardRef(function Map(
     return () => {
       setMapReady(false)
       observer.disconnect()
+      Object.values(alertPreviewMarkersRef.current).forEach((marker) => {
+        marker.remove()
+      })
+      alertPreviewMarkersRef.current = {}
       Object.values(portMarkersRef.current).forEach((marker) => {
         marker.__cleanupListeners?.()
         marker.remove()
@@ -550,6 +626,159 @@ const Map = forwardRef(function Map(
       }
     })
   }, [showPorts, mapReady])
+
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+
+    const previewEntries = Array.isArray(alertPreviewAreas) ? alertPreviewAreas : []
+    const normalizedPreviewEntries = previewEntries
+      .map((entry, index) => {
+        if (typeof entry === 'string') {
+          return {
+            entryId: `legacy-${index}-${entry}`,
+            label: entry,
+            area: entry,
+          }
+        }
+        return {
+          entryId: entry?.id || `entry-${index}`,
+          label: entry?.label || entry?.area || 'Area',
+          area: entry?.area || '',
+        }
+      })
+      .filter((entry) => Boolean(entry.area))
+
+    const selectedAreaConfigs = normalizedPreviewEntries
+      .map((entry) => {
+        const key = getAlertPreviewAreaKey(entry.area)
+        const config = key ? ALERT_PREVIEW_AREAS[key] : null
+        if (!config) return null
+        return {
+          entryId: entry.entryId,
+          areaKey: key,
+          displayLabel: entry.label,
+          config,
+        }
+      })
+      .filter((item) => Boolean(item.config))
+    const sourceId = 'alert-preview-area'
+    const fillLayerId = 'alert-preview-area-fill'
+    const lineLayerId = 'alert-preview-area-line'
+
+    if (!map.current.getSource(sourceId)) {
+      map.current.addSource(sourceId, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      })
+      map.current.addLayer({
+        id: fillLayerId,
+        type: 'fill',
+        source: sourceId,
+        paint: {
+          'fill-color': '#05B4FF',
+          'fill-opacity': 0.2,
+        },
+      })
+      map.current.addLayer({
+        id: lineLayerId,
+        type: 'line',
+        source: sourceId,
+        paint: {
+          'line-color': '#00B8FF',
+          'line-width': 2,
+        },
+      })
+    }
+
+    const source = map.current.getSource(sourceId)
+    if (!source) return
+
+    if (selectedAreaConfigs.length === 0) {
+      source.setData({ type: 'FeatureCollection', features: [] })
+      Object.values(alertPreviewMarkersRef.current).forEach((marker) => {
+        marker.remove()
+      })
+      alertPreviewMarkersRef.current = {}
+      lastPreviewAreaSignatureRef.current = ''
+      return
+    }
+
+    source.setData({
+      type: 'FeatureCollection',
+      features: selectedAreaConfigs.map(({ key, config }) => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [config.polygon],
+        },
+        properties: {
+          key,
+          name: config.label,
+        },
+      })),
+    })
+
+    const nextMarkerIds = new Set(selectedAreaConfigs.map((item) => item.entryId))
+    Object.entries(alertPreviewMarkersRef.current).forEach(([key, marker]) => {
+      if (nextMarkerIds.has(key)) return
+      marker.remove()
+      delete alertPreviewMarkersRef.current[key]
+    })
+
+    selectedAreaConfigs.forEach(({ entryId, displayLabel, config }) => {
+      if (alertPreviewMarkersRef.current[entryId]) return
+      const popupElement = document.createElement('div')
+      popupElement.style.background = '#24263C'
+      popupElement.style.border = '1px solid #393C56'
+      popupElement.style.borderRadius = '8px'
+      popupElement.style.padding = '10px 12px'
+      popupElement.style.minWidth = '195px'
+      popupElement.style.color = '#FFFFFF'
+      popupElement.style.boxShadow = '0 10px 24px rgba(0,0,0,0.35)'
+      popupElement.style.fontFamily = 'inherit'
+      popupElement.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+          <span style="font-size:14px;font-weight:600;line-height:1;">${displayLabel}</span>
+          <span style="display:flex;align-items:center;gap:10px;color:#D5DBEA;font-size:14px;">
+            <span style="cursor:pointer;">•••</span>
+            <span style="cursor:pointer;">🗑</span>
+          </span>
+        </div>
+        <div style="font-size:11px;color:#A8B0C2;display:flex;gap:12px;">
+          <span>Length: ${config.length}</span>
+          <span>Area: ${config.area}</span>
+        </div>
+      `
+      const marker = new mapboxgl.Marker({
+        element: popupElement,
+        anchor: 'bottom-left',
+      })
+        .setLngLat(config.center)
+        .addTo(map.current)
+      marker.getElement().classList.add('alert-preview-marker')
+      alertPreviewMarkersRef.current[entryId] = marker
+    })
+
+    // Move map to selected AOI once when the selected area changes.
+    const previewSignature = selectedAreaConfigs
+      .map((item) => `${item.entryId}:${item.areaKey}`)
+      .join('|')
+    if (lastPreviewAreaSignatureRef.current !== previewSignature) {
+      const allCoordinates = selectedAreaConfigs.flatMap(
+        ({ config }) => config.polygon
+      )
+      const bounds = allCoordinates.reduce(
+        (acc, coordinate) => acc.extend(coordinate),
+        new mapboxgl.LngLatBounds(allCoordinates[0], allCoordinates[0])
+      )
+      map.current.fitBounds(bounds, {
+        padding: { top: 120, right: 220, bottom: 100, left: 160 },
+        maxZoom: 6.8,
+        duration: 1200,
+      })
+      lastPreviewAreaSignatureRef.current = previewSignature
+    }
+  }, [mapReady, alertPreviewAreas])
 
   // Create markers for all detections (including newly added prototype detections).
   useEffect(() => {

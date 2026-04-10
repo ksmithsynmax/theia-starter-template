@@ -190,6 +190,13 @@
   opacity: 1;
 }
 
+.mapboxgl-marker.alert-preview-marker::before,
+.mapboxgl-marker.alert-preview-marker::after,
+.mapboxgl-marker.alert-preview-marker:hover::before {
+  display: none !important;
+  opacity: 0 !important;
+}
+
 /* Hide Mapbox logo */
 .mapboxgl-ctrl-logo {
   display: none !important;

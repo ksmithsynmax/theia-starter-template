@@ -31,6 +31,7 @@ export function ShipProvider({ children }) {
   const [runtimeDetections, setRuntimeDetections] = useState(seedDetections)
   const [shipFilters, setShipFilters] = useState(SHIP_FILTER_DEFAULTS)
   const [showLegendOnMap, setShowLegendOnMap] = useState(false)
+  const [alertPreviewAreas, setAlertPreviewAreas] = useState([])
 
   // Port specific state
   const [activePortLevel, setActivePortLevel] = useState('Port Details')
@@ -249,6 +250,8 @@ export function ShipProvider({ children }) {
         resetShipFilters,
         showLegendOnMap,
         setShowLegendOnMap,
+        alertPreviewAreas,
+        setAlertPreviewAreas,
         enabledDetectionTypes,
         filteredRuntimeDetections,
         activePortLevel,
