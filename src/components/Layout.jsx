@@ -1,7 +1,16 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Box, ActionIcon } from '@mantine/core'
-import { Plus, Minus, LayersThree01 } from '@untitledui/icons'
+import {
+  Plus,
+  Minus,
+  LayersThree01,
+  XCircle,
+  Pin02,
+  BezierCurve03,
+  Ruler,
+  Target05,
+} from '@untitledui/icons'
 import TopNav from './TopNav'
 import LeftNav from './LeftNav'
 import Map from './Map'
@@ -15,7 +24,16 @@ import SecondaryNav from './SecondaryNav'
 import RouteSecondaryNav from './RouteSecondaryNav'
 import EventsSecondaryNav from './EventsSecondaryNav'
 import AlertsSecondaryNav from './AlertsSecondaryNav'
+import AOIAttentionPanel from './AOIAttentionPanel'
 import Myships from '../pages/Myships'
+
+const mapTopRightButtonStyle = {
+  width: 46,
+  height: 46,
+  backgroundColor: '#24263c',
+  border: '1px solid #393C56',
+  borderRadius: 4,
+}
 
 function Layout() {
   const [panelOpen, setPanelOpen] = useState(false)
@@ -29,7 +47,14 @@ function Layout() {
   const mapRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
-  const { selectDetection, shipTabs, openPortTab } = useShipContext()
+  const {
+    selectDetection,
+    shipTabs,
+    openPortTab,
+    attentionPanelOpen,
+    setAttentionPanelOpen,
+    attentionFeedItems,
+  } = useShipContext()
 
   useEffect(() => {
     if (shipTabs.length === 0) setPanelOpen(false)
@@ -90,6 +115,7 @@ function Layout() {
           }}
           showPorts={portsLayerVisible}
         />
+        <AOIAttentionPanel />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
         )}
@@ -100,6 +126,80 @@ function Layout() {
             onPortsCheckedChange={setPortsLayerVisible}
           />
         )}
+        <Box
+          style={{
+            position: 'absolute',
+            right: 24,
+            top: 24,
+            zIndex: 2,
+            pointerEvents: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          {!attentionPanelOpen && (
+            <Box style={{ position: 'relative' }}>
+              <ActionIcon
+                variant="filled"
+                aria-label="Open AOI attention feed"
+                onClick={() => setAttentionPanelOpen(true)}
+                style={mapTopRightButtonStyle}
+              >
+                <Target05 size={20} color="white" />
+              </ActionIcon>
+              <Box
+                style={{
+                  position: 'absolute',
+                  top: -6,
+                  right: -6,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 999,
+                  background: '#F75349',
+                  color: '#fff',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4px',
+                  border: '1px solid #181926',
+                }}
+              >
+                {attentionFeedItems.length}
+              </Box>
+            </Box>
+          )}
+          <ActionIcon
+            variant="filled"
+            aria-label="Close tools"
+            style={mapTopRightButtonStyle}
+          >
+            <XCircle size={20} color="white" />
+          </ActionIcon>
+          <ActionIcon
+            variant="filled"
+            aria-label="Pin off"
+            style={mapTopRightButtonStyle}
+          >
+            <Pin02 size={20} color="white" />
+          </ActionIcon>
+          <ActionIcon
+            variant="filled"
+            aria-label="Polygon tool"
+            style={mapTopRightButtonStyle}
+          >
+            <BezierCurve03 size={20} color="white" />
+          </ActionIcon>
+          <ActionIcon
+            variant="filled"
+            aria-label="Measure tool"
+            style={mapTopRightButtonStyle}
+          >
+            <Ruler size={20} color="white" />
+          </ActionIcon>
+        </Box>
         <Box
           style={{
             position: 'absolute',

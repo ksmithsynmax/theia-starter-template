@@ -13,6 +13,28 @@ import {
 } from '../constants/shipFilters'
 
 const ShipContext = createContext()
+const DAY_IN_MS = 24 * 60 * 60 * 1000
+
+const ATTENTION_SIGNAL_TYPE_MAP = {
+  dark: ['dark'],
+  spoofing: ['spoofing'],
+  sts: ['sts', 'sts-ais'],
+  light: ['light'],
+}
+
+const ATTENTION_SIGNAL_LABELS = {
+  dark: 'Dark',
+  spoofing: 'Spoofing',
+  sts: 'STS',
+  light: 'Light',
+}
+
+const getAttentionSeverity = (events) => {
+  const types = new Set(events.map((event) => event.type))
+  if (types.has('spoofing')) return 'high'
+  if (types.has('dark') || types.has('sts') || types.has('sts-ais')) return 'medium'
+  return 'low'
+}
 
 export function ShipProvider({ children }) {
   const [shipTabs, setShipTabs] = useState([])
@@ -32,6 +54,22 @@ export function ShipProvider({ children }) {
   const [shipFilters, setShipFilters] = useState(SHIP_FILTER_DEFAULTS)
   const [showLegendOnMap, setShowLegendOnMap] = useState(false)
   const [alertPreviewAreas, setAlertPreviewAreas] = useState([])
+  const [attentionSetupOpen, setAttentionSetupOpen] = useState(false)
+  const [attentionConfigured, setAttentionConfigured] = useState(false)
+  const [attentionDismissed, setAttentionDismissed] = useState(false)
+  const [attentionAois, setAttentionAois] = useState([])
+  const [attentionSignals, setAttentionSignals] = useState({
+    dark: true,
+    spoofing: true,
+    sts: false,
+    light: false,
+  })
+  const [attentionSensitivity, setAttentionSensitivity] = useState('medium_high')
+  const [attentionLookbackDays, setAttentionLookbackDays] = useState(14)
+  const [attentionPinOnMap, setAttentionPinOnMap] = useState(true)
+  const [attentionShowOnLogin, setAttentionShowOnLogin] = useState(true)
+  const [attentionLinkAlerts, setAttentionLinkAlerts] = useState(false)
+  const [attentionPanelOpen, setAttentionPanelOpen] = useState(true)
 
   // Port specific state
   const [activePortLevel, setActivePortLevel] = useState('Port Details')
@@ -196,6 +234,25 @@ export function ShipProvider({ children }) {
     setShowLegendOnMap(false)
   }, [])
 
+  const openAttentionSetup = useCallback(() => {
+    setAttentionSetupOpen(true)
+  }, [])
+
+  const closeAttentionSetup = useCallback(() => {
+    setAttentionSetupOpen(false)
+  }, [])
+
+  const saveAttentionSetup = useCallback(() => {
+    setAttentionConfigured(true)
+    setAttentionDismissed(false)
+    setAttentionSetupOpen(false)
+  }, [])
+
+  const skipAttentionSetup = useCallback(() => {
+    setAttentionDismissed(true)
+    setAttentionSetupOpen(false)
+  }, [])
+
   const enabledDetectionTypes = useMemo(() => {
     const enabled = new Set()
     SHIP_FILTERED_TYPE_IDS.forEach((filterId) => {
@@ -212,6 +269,93 @@ export function ShipProvider({ children }) {
       enabledDetectionTypes.has(detection.type)
     )
   }, [runtimeDetections, enabledDetectionTypes])
+
+  const attentionFeedItems = useMemo(() => {
+    const activeSignalKeys = Object.entries(attentionSignals)
+      .filter(([, enabled]) => enabled)
+      .map(([key]) => key)
+    if (!activeSignalKeys.length) return []
+
+    const activeTypes = new Set(
+      activeSignalKeys.flatMap((key) => ATTENTION_SIGNAL_TYPE_MAP[key] || [])
+    )
+    const latestDetectionTs = runtimeDetections.reduce((latestTs, detection) => {
+      const ts = new Date(detection.date).getTime()
+      if (!Number.isFinite(ts)) return latestTs
+      return Math.max(latestTs, ts)
+    }, 0)
+    const lookbackWindowMs =
+      Math.max(1, Number(attentionLookbackDays) || 14) * DAY_IN_MS
+
+    const qualifyingDetections = runtimeDetections.filter((detection) => {
+      if (!activeTypes.has(detection.type)) return false
+      const ts = new Date(detection.date).getTime()
+      if (!Number.isFinite(ts)) return false
+      return latestDetectionTs - ts <= lookbackWindowMs
+    })
+
+    const byShip = qualifyingDetections.reduce((acc, detection) => {
+      if (!detection.shipId || !ships[detection.shipId]) return acc
+      const shipId = detection.shipId
+      const current = acc[shipId] || {
+        shipId,
+        shipName: ships[shipId].name,
+        events: [],
+      }
+      current.events.push(detection)
+      acc[shipId] = current
+      return acc
+    }, {})
+
+    return Object.values(byShip)
+      .map((entry) => {
+        const events = [...entry.events].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        )
+        const severity = getAttentionSeverity(events)
+        const signalLabels = Array.from(
+          new Set(
+            events.map((event) => {
+              const matchedSignal = Object.keys(ATTENTION_SIGNAL_TYPE_MAP).find(
+                (signalKey) =>
+                  ATTENTION_SIGNAL_TYPE_MAP[signalKey].includes(event.type)
+              )
+              return ATTENTION_SIGNAL_LABELS[matchedSignal] || event.type
+            })
+          )
+        )
+        const severityRank =
+          severity === 'high' ? 3 : severity === 'medium' ? 2 : 1
+        return {
+          shipId: entry.shipId,
+          shipName: entry.shipName,
+          events,
+          latestDetection: events[0],
+          severity,
+          severityRank,
+          signalLabels,
+          eventCount: events.length,
+        }
+      })
+      .sort((a, b) => {
+        if (a.severityRank !== b.severityRank) {
+          return b.severityRank - a.severityRank
+        }
+        return (
+          new Date(b.latestDetection?.date || 0).getTime() -
+          new Date(a.latestDetection?.date || 0).getTime()
+        )
+      })
+  }, [attentionSignals, runtimeDetections, attentionLookbackDays])
+
+  const attentionReasonCounts = useMemo(() => {
+    return attentionFeedItems.reduce((acc, item) => {
+      item.signalLabels.forEach((label) => {
+        acc[label] = (acc[label] || 0) + 1
+      })
+      return acc
+    }, {})
+  }, [attentionFeedItems])
 
   return (
     <ShipContext.Provider
@@ -252,6 +396,31 @@ export function ShipProvider({ children }) {
         setShowLegendOnMap,
         alertPreviewAreas,
         setAlertPreviewAreas,
+        attentionSetupOpen,
+        attentionConfigured,
+        attentionDismissed,
+        attentionAois,
+        setAttentionAois,
+        attentionSignals,
+        setAttentionSignals,
+        attentionSensitivity,
+        setAttentionSensitivity,
+        attentionLookbackDays,
+        setAttentionLookbackDays,
+        attentionPinOnMap,
+        setAttentionPinOnMap,
+        attentionShowOnLogin,
+        setAttentionShowOnLogin,
+        attentionLinkAlerts,
+        setAttentionLinkAlerts,
+        attentionPanelOpen,
+        setAttentionPanelOpen,
+        openAttentionSetup,
+        closeAttentionSetup,
+        saveAttentionSetup,
+        skipAttentionSetup,
+        attentionFeedItems,
+        attentionReasonCounts,
         enabledDetectionTypes,
         filteredRuntimeDetections,
         activePortLevel,
