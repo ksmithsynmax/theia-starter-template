@@ -3,13 +3,11 @@ import { Box, Text, Checkbox, Radio, Group } from '@mantine/core'
 import { ChevronUp, ChevronDown } from '@untitledui/icons'
 import ShipPathPanelButton from './ShipPathPanelButton'
 import ViewExtendedPathIcon from '../../custom-icons/ViewExtendedPathIcon'
-import ViewPathPlaybackIcon from '../../custom-icons/ViewPathPlaybackIcon'
 import FuturePathPredictionIcon from '../../custom-icons/FuturePathPredictionIcon'
 import ViewEstimatedLocationIcon from '../../custom-icons/ViewEstimatedLocationIcon'
 import SatelliteIcon from '../../custom-icons/SatelliteIcon'
 import SimilarSearchIcon from '../../custom-icons/SimilarSearchIcon'
 import AlertIcon from '../../custom-icons/AlertIcon'
-import DownloadPathXLS from '../../custom-icons/DownloadPathXLS'
 import AisIcon from '../../custom-icons/AisIcon'
 import LightShipIcon from '../../custom-icons/LighShipIcon'
 import DarkShipIcon from '../../custom-icons/DarkShipIcon'
@@ -206,20 +204,21 @@ const ShipDetailsPanel = ({
                   </Radio.Group>
                 </Box>
               )}
-              <Box style={{ marginTop: unattributed ? 0 : 8 }}>
-                <Box style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+              <Box style={{ marginTop: unattributed ? 0 : 8, width: '100%' }}>
+                <Box
+                  style={{
+                    display: 'flex',
+                    gap: 6,
+                    marginBottom: 6,
+                    width: '100%',
+                  }}
+                >
                   <ShipPathPanelButton
                     label="View Extended Path"
                     icon={<ViewExtendedPathIcon />}
                     disabled={unattributed}
                     active={activeToolIds.includes('extended-path')}
                     onClick={() => handleToolButtonClick('extended-path')}
-                  />
-                  <ShipPathPanelButton
-                    label="View Path Playback"
-                    icon={<ViewPathPlaybackIcon />}
-                    disabled={unattributed}
-                    onClick={() => handleToolButtonClick('path-playback')}
                   />
                   <ShipPathPanelButton
                     label="Future Path Prediction"
@@ -237,7 +236,7 @@ const ShipDetailsPanel = ({
                     onClick={() => handleToolButtonClick('estimated-location')}
                   />
                 </Box>
-                <Box style={{ display: 'flex', gap: 6 }}>
+                <Box style={{ display: 'flex', gap: 6, width: '100%' }}>
                   <ShipPathPanelButton
                     label="Task Satellite Imagery"
                     icon={<SatelliteIcon />}
@@ -255,12 +254,6 @@ const ShipDetailsPanel = ({
                     icon={<AlertIcon />}
                     disabled={unattributed}
                     onClick={() => handleToolButtonClick('create-ship-alert')}
-                  />
-                  <ShipPathPanelButton
-                    label="Download Path in XLS"
-                    icon={<DownloadPathXLS />}
-                    disabled={unattributed}
-                    onClick={() => handleToolButtonClick('download-path-xls')}
                   />
                 </Box>
               </Box>

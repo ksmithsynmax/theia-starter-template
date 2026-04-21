@@ -3321,9 +3321,7 @@ function Myships() {
                                 : undefined
                             }
                             synMaxInfo={
-                              det.type === 'light' ||
-                              det.type === 'dark' ||
-                              det.type === 'spoofing'
+                              det.type === 'light' || det.type === 'dark'
                                 ? activeShip.synMaxInfo
                                 : undefined
                             }

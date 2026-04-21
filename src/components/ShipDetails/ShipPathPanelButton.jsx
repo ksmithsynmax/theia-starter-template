@@ -25,10 +25,14 @@ const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick })
       onMouseUp={() => setPressed(false)}
       style={{
         display: 'flex',
-        alignItems: 'center',
+        flexDirection: 'column',
+        alignItems: 'stretch',
         justifyContent: 'center',
-        width: 102,
-        height: 72,
+        flex: '1 1 0',
+        minWidth: 0,
+        minHeight: 72,
+        boxSizing: 'border-box',
+        padding: '8px 6px',
         border: active ? '1px solid #8ED2FF' : '1px solid transparent',
         borderRadius: 4,
         background: disabled
@@ -61,16 +65,21 @@ const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick })
             background: active ? 'rgba(0, 148, 255, 0.24)' : 'rgba(0, 148, 255, 0.15)',
             borderRadius: 4,
             pointerEvents: 'none',
+            zIndex: 0,
           }}
         />
       )}
       <Box
         style={{
+          position: 'relative',
+          zIndex: 1,
           display: 'flex',
           flexDirection: 'column',
+          flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 8,
+          width: '100%',
+          minHeight: 0,
           color: '#fff',
           opacity: disabled ? 0.3 : 1,
         }}
@@ -80,6 +89,9 @@ const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick })
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            flexShrink: 0,
+            width: '100%',
+            height: 30,
           }}
         >
           {icon}
@@ -91,12 +103,15 @@ const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick })
             fontWeight: active ? 700 : 500,
             textAlign: 'center',
             lineHeight: '12px',
-            minHeight: 24,
-            maxWidth: 84,
+            width: '100%',
+            maxWidth: '100%',
+            margin: 0,
+            padding: '0 2px',
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
+            wordBreak: 'break-word',
           }}
         >
           {label}

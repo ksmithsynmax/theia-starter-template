@@ -243,6 +243,7 @@ function ShipDetailPanel() {
                       setSelectedCard(selectedCard === det.id ? null : det.id)
                     }
                     aisInfo={activeShip.aisInfo}
+                    detectionType={det.type}
                   />
                 )
               })}

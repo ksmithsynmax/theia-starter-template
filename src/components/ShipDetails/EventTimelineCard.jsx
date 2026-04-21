@@ -9,6 +9,32 @@ import shipIllustration from '../../assets/ShipIllustration.png'
 
 const shipImages = [shipSatImage, shipSatImage2]
 
+const pickAisField = (info, keys, fallback = 'No info') => {
+  if (!info || typeof info !== 'object') return fallback
+  for (const k of keys) {
+    const v = info[k]
+    if (v !== undefined && v !== null && v !== '') return v
+  }
+  return fallback
+}
+
+/** Resolves AIS vs SynMax-style keys so labels match real values (e.g. length vs shipLength). */
+const aisInfoForDisplay = (info = {}) => ({
+  latitude: pickAisField(info, ['latitude', 'lat']),
+  longitude: pickAisField(info, ['longitude', 'lng', 'lon']),
+  width: pickAisField(info, ['width', 'shipWidth', 'beam']),
+  length: pickAisField(info, ['length', 'shipLength', 'loa']),
+  shipType: pickAisField(info, ['shipType', 'vesselType', 'type']),
+  buildYear: pickAisField(info, ['buildYear', 'yearBuilt']),
+  heading: pickAisField(info, ['heading', 'course', 'cog']),
+  draft: pickAisField(info, ['draft', 'draught']),
+  avgSpeed: pickAisField(info, ['avgSpeed', 'averageSpeed']),
+  maxSpeed: pickAisField(info, ['maxSpeed', 'maximumSpeed']),
+  latestSpeed: pickAisField(info, ['latestSpeed']),
+  destination: pickAisField(info, ['destination', 'destinationPort', 'dest']),
+  eta: pickAisField(info, ['eta', 'etaUtc'], 'No info'),
+})
+
 const formatEta = (raw) => {
   if (!raw || raw === 'No info') return 'No info'
   try {
@@ -87,6 +113,7 @@ const EventTimelineCard = ({
   const [viewLocationHovered, setViewLocationHovered] = useState(false)
   const expanded = Boolean(isPreviewed || (selected && !isSelectedCollapsed))
   const cardRef = useRef(null)
+  const ais = aisInfoForDisplay(aisInfo)
 
   const handlePreviewToggle = () => {
     if (selected && !isPreviewed) {
@@ -663,16 +690,16 @@ const EventTimelineCard = ({
                           gap: '12px 16px',
                         }}
                       >
-                        <KeyValuePair keyName="Latitude" value={aisInfo.latitude || 'No info'} />
-                        <KeyValuePair keyName="Longitude" value={aisInfo.longitude || 'No info'} />
-                        <KeyValuePair keyName="Width" value={aisInfo.width || 'No info'} />
-                        <KeyValuePair keyName="Length" value={aisInfo.length || 'No info'} />
-                        <KeyValuePair keyName="Ship Type" value={aisInfo.shipType || 'No info'} />
-                        <KeyValuePair keyName="Build Year" value={aisInfo.buildYear || 'No info'} />
-                        <KeyValuePair keyName="Heading" value={aisInfo.heading || 'No info'} />
-                        <KeyValuePair keyName="Draft" value={aisInfo.draft || 'No info'} />
-                        <KeyValuePair keyName="Avg. Speed" value={aisInfo.avgSpeed || 'No info'} />
-                        <KeyValuePair keyName="Max Speed" value={aisInfo.maxSpeed || 'No info'} />
+                        <KeyValuePair keyName="Latitude" value={ais.latitude} />
+                        <KeyValuePair keyName="Longitude" value={ais.longitude} />
+                        <KeyValuePair keyName="Width" value={ais.width} />
+                        <KeyValuePair keyName="Length" value={ais.length} />
+                        <KeyValuePair keyName="Ship Type" value={ais.shipType} />
+                        <KeyValuePair keyName="Build Year" value={ais.buildYear} />
+                        <KeyValuePair keyName="Heading" value={ais.heading} />
+                        <KeyValuePair keyName="Draft" value={ais.draft} />
+                        <KeyValuePair keyName="Avg. Speed" value={ais.avgSpeed} />
+                        <KeyValuePair keyName="Max Speed" value={ais.maxSpeed} />
                       </Box>
                     </Box>
                     <Box
@@ -683,9 +710,9 @@ const EventTimelineCard = ({
                         marginTop: 12,
                       }}
                     >
-                      <KeyValuePair keyName="Latest Speed" value={aisInfo.latestSpeed || 'No info'} />
-                      <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
-                      <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
+                      <KeyValuePair keyName="Latest Speed" value={ais.latestSpeed} />
+                      <KeyValuePair keyName="Destination" value={ais.destination} />
+                      <KeyValuePair keyName="ETA" value={formatEta(ais.eta)} />
                     </Box>
                   </>
                 )}
@@ -712,16 +739,16 @@ const EventTimelineCard = ({
                       gap: '12px 16px',
                     }}
                   >
-                    <KeyValuePair keyName="Latitude" value={aisInfo.latitude || 'No info'} />
-                    <KeyValuePair keyName="Longitude" value={aisInfo.longitude || 'No info'} />
-                    <KeyValuePair keyName="Width" value={aisInfo.width || 'No info'} />
-                    <KeyValuePair keyName="Length" value={aisInfo.length || 'No info'} />
-                    <KeyValuePair keyName="Ship Type" value={aisInfo.shipType || 'No info'} />
-                    <KeyValuePair keyName="Build Year" value={aisInfo.buildYear || 'No info'} />
-                    <KeyValuePair keyName="Heading" value={aisInfo.heading || 'No info'} />
-                    <KeyValuePair keyName="Draft" value={aisInfo.draft || 'No info'} />
-                    <KeyValuePair keyName="Avg. Speed" value={aisInfo.avgSpeed || 'No info'} />
-                    <KeyValuePair keyName="Max Speed" value={aisInfo.maxSpeed || 'No info'} />
+                    <KeyValuePair keyName="Latitude" value={ais.latitude} />
+                    <KeyValuePair keyName="Longitude" value={ais.longitude} />
+                    <KeyValuePair keyName="Width" value={ais.width} />
+                    <KeyValuePair keyName="Length" value={ais.length} />
+                    <KeyValuePair keyName="Ship Type" value={ais.shipType} />
+                    <KeyValuePair keyName="Build Year" value={ais.buildYear} />
+                    <KeyValuePair keyName="Heading" value={ais.heading} />
+                    <KeyValuePair keyName="Draft" value={ais.draft} />
+                    <KeyValuePair keyName="Avg. Speed" value={ais.avgSpeed} />
+                    <KeyValuePair keyName="Max Speed" value={ais.maxSpeed} />
                   </Box>
                 </Box>
                 <Box
@@ -732,9 +759,9 @@ const EventTimelineCard = ({
                     marginTop: 12,
                   }}
                 >
-                  <KeyValuePair keyName="Latest Speed" value={aisInfo.latestSpeed || 'No info'} />
-                  <KeyValuePair keyName="Destination" value={aisInfo.destination || 'No info'} />
-                  <KeyValuePair keyName="ETA" value={formatEta(aisInfo.eta)} />
+                  <KeyValuePair keyName="Latest Speed" value={ais.latestSpeed} />
+                  <KeyValuePair keyName="Destination" value={ais.destination} />
+                  <KeyValuePair keyName="ETA" value={formatEta(ais.eta)} />
                 </Box>
               </>
             )}
