@@ -1,7 +1,7 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { Box, ActionIcon } from '@mantine/core'
-import { Plus, Minus } from '@untitledui/icons'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { Box, ActionIcon, Text } from '@mantine/core'
+import { Plus, Minus, XClose } from '@untitledui/icons'
 import TopNav from './TopNav'
 import LeftNav from './LeftNav'
 import Map from './Map'
@@ -13,15 +13,40 @@ import { useShipContext } from '../context/ShipContext'
 import SecondaryNav from './SecondaryNav'
 
 function Layout() {
+  const TIMELINE_PANEL_HEIGHT = 172
+  const TIMELINE_HEADER_HEIGHT = 42
+  const TIMELINE_COLLAPSED_HEIGHT = 30
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
   const [collapseBtnHovered, setCollapseBtnHovered] = useState(false)
   const [expandPanelHovered, setExpandPanelHovered] = useState(false)
+  const [timelinePanelOpen, setTimelinePanelOpen] = useState(true)
+  const [timelineEvents, setTimelineEvents] = useState([])
+  const [timelineSortOrder, setTimelineSortOrder] = useState('asc')
+  const [selectedTimelineEventId, setSelectedTimelineEventId] = useState(null)
   const mapRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
-  const { selectDetection, shipTabs } = useShipContext()
+  const { selectDetection, shipTabs, enabledDetectionTypes, mapDate, runtimeDetections } =
+    useShipContext()
+
+  const getDetectionDateKey = useCallback((dateStr) => {
+    const d = new Date(dateStr)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate()
+    ).padStart(2, '0')}`
+  }, [])
+
+  const getEventColor = useCallback((type) => {
+    if (type === 'ais') return '#00EB6C'
+    if (type === 'dark') return '#FFA500'
+    if (type === 'light') return '#00A3E3'
+    if (type === 'spoofing') return '#FF6D99'
+    if (type === 'sts' || type === 'sts-ais') return '#0094FF'
+    if (type === 'unattributed') return '#F75349'
+    return '#8D93A8'
+  }, [])
 
   useEffect(() => {
     if (shipTabs.length === 0) setPanelOpen(false)
@@ -29,6 +54,26 @@ function Layout() {
 
   const handleDetectionClick = useCallback(
     (detection) => {
+      if (location.pathname === '/timeline') {
+        const parsedTs = new Date(detection?.date).getTime()
+        const sortTs = Number.isNaN(parsedTs) ? Date.now() : parsedTs
+        setTimelineEvents((prev) => {
+          const next = prev
+            .filter((event) => String(event.id) !== String(detection.id))
+            .concat({
+              id: detection.id,
+              shipId: detection.shipId,
+              type: detection.type,
+              timestamp: detection.date,
+              sortTs,
+              detection,
+            })
+          return next
+        })
+        setSelectedTimelineEventId(String(detection.id))
+        selectDetection(detection, { source: 'timeline-map', allowTabSwitch: false })
+        return
+      }
       selectDetection(detection, { source: 'map', allowTabSwitch: true })
       if (location.pathname !== '/myships') {
         navigate('/myships')
@@ -41,9 +86,17 @@ function Layout() {
   const handleNavClick = useCallback(
     (to) => {
       if (location.pathname === to) {
-        setSecondaryNavOpen((prev) => !prev)
+        if (to !== '/timeline') {
+          setSecondaryNavOpen((prev) => !prev)
+        }
       } else {
-        setSecondaryNavOpen(true)
+        if (to === '/timeline') {
+          setSecondaryNavOpen(false)
+          setPanelOpen(false)
+          setTimelinePanelOpen(true)
+        } else {
+          setSecondaryNavOpen(true)
+        }
         navigate(to)
       }
     },
@@ -54,15 +107,89 @@ function Layout() {
     setPanelOpen(false)
   }, [])
 
+  const clearTimelineEvents = useCallback(() => {
+    setTimelineEvents([])
+    setSelectedTimelineEventId(null)
+  }, [])
+
+  const handleTimelineEventClick = useCallback(
+    (event) => {
+      if (!event?.detection) return
+      setSelectedTimelineEventId(String(event.id))
+      selectDetection(event.detection, {
+        source: 'timeline-event',
+        allowTabSwitch: false,
+      })
+    },
+    [selectDetection]
+  )
+
+  const handleOpenInMyShips = useCallback(
+    (event) => {
+      if (!event?.detection) return
+      selectDetection(event.detection, {
+        source: 'timeline-open-myships',
+        allowTabSwitch: true,
+      })
+      setSecondaryNavOpen(true)
+      setPanelOpen(true)
+      navigate('/myships')
+    },
+    [navigate, selectDetection]
+  )
+
+  const handleRemoveTimelineEvent = useCallback((eventId) => {
+    setTimelineEvents((prev) => prev.filter((event) => String(event.id) !== String(eventId)))
+    setSelectedTimelineEventId((prev) => (String(prev) === String(eventId) ? null : prev))
+  }, [])
+
   const isMyShips = location.pathname === '/myships'
+  const isTimelineView = location.pathname === '/timeline'
   const showPanelExpand = !panelOpen && shipTabs.length > 0
   const slidePanelClass = panelOpen ? 'slide-panel--open' : (shipTabs.length > 0 ? 'slide-panel--collapsed' : '')
+  const detectionById = useMemo(
+    () => new globalThis.Map(runtimeDetections.map((det) => [String(det.id), det])),
+    [runtimeDetections]
+  )
+  const visibleTimelineEvents = useMemo(() => {
+    return timelineEvents
+      .map((event) => {
+        const liveDetection = detectionById.get(String(event.id))
+        const detection = liveDetection || event.detection || null
+        if (!detection) return null
+        if (!enabledDetectionTypes.has(detection.type)) return null
+        if (getDetectionDateKey(detection.date) !== mapDate) return null
+        const parsedTs = new Date(detection.date).getTime()
+        return {
+          ...event,
+          detection,
+          type: detection.type,
+          shipId: detection.shipId,
+          timestamp: detection.date,
+          sortTs: Number.isNaN(parsedTs) ? event.sortTs : parsedTs,
+        }
+      })
+      .filter(Boolean)
+  }, [
+    timelineEvents,
+    detectionById,
+    enabledDetectionTypes,
+    getDetectionDateKey,
+    mapDate,
+  ])
+  const sortedVisibleTimelineEvents = useMemo(() => {
+    const sorted = [...visibleTimelineEvents].sort((a, b) => a.sortTs - b.sortTs)
+    return timelineSortOrder === 'asc' ? sorted : sorted.reverse()
+  }, [timelineSortOrder, visibleTimelineEvents])
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TopNav />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-        <Map ref={mapRef} onDetectionClick={handleDetectionClick} />
+        <Map
+          ref={mapRef}
+          onDetectionClick={handleDetectionClick}
+        />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
         )}
@@ -70,8 +197,12 @@ function Layout() {
           style={{
             position: 'absolute',
             right: 24,
-            bottom: 24,
-            zIndex: 2,
+            bottom: isTimelineView
+              ? timelinePanelOpen
+                ? TIMELINE_PANEL_HEIGHT + 12
+                : TIMELINE_COLLAPSED_HEIGHT + 12
+              : 24,
+            zIndex: 4,
             pointerEvents: 'auto',
             display: 'flex',
             flexDirection: 'column',
@@ -144,69 +275,295 @@ function Layout() {
           }}
         >
           <LeftNav onNavClick={handleNavClick} />
+          {!isTimelineView && (
+            <>
+              <SecondaryNav
+                isOpen={secondaryNavOpen}
+                onOpen={() => setSecondaryNavOpen(true)}
+                onClose={() => setSecondaryNavOpen(false)}
+                currentPath={location.pathname}
+              />
 
-          <SecondaryNav
-            isOpen={secondaryNavOpen}
-            onOpen={() => setSecondaryNavOpen(true)}
-            onClose={() => setSecondaryNavOpen(false)}
-            currentPath={location.pathname}
-          />
+              <Box className={`slide-panel ${slidePanelClass}`}>
+                {showPanelExpand && (
+                  <Box
+                    onClick={() => setPanelOpen(true)}
+                    onMouseEnter={() => setExpandPanelHovered(true)}
+                    onMouseLeave={() => setExpandPanelHovered(false)}
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: 71,
+                      cursor: 'pointer',
+                      pointerEvents: 'auto',
+                      zIndex: 10,
+                    }}
+                  >
+                    <ExpandButton
+                      backgroundColor={expandPanelHovered ? '#4C5070' : '#393C56'}
+                    />
+                  </Box>
+                )}
 
-          <Box
-            className={`slide-panel ${slidePanelClass}`}
-          >
-            {showPanelExpand && (
-              <Box
-                onClick={() => setPanelOpen(true)}
-                onMouseEnter={() => setExpandPanelHovered(true)}
-                onMouseLeave={() => setExpandPanelHovered(false)}
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: 71,
-                  cursor: 'pointer',
-                  pointerEvents: 'auto',
-                  zIndex: 10,
-                }}
-              >
-                <ExpandButton
-                  backgroundColor={expandPanelHovered ? '#4C5070' : '#393C56'}
-                />
-              </Box>
-            )}
+                {panelOpen && (
+                  <Box onClick={closePanel} style={{ position: 'relative' }}>
+                    <Box
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 71,
+                        cursor: 'pointer',
+                        pointerEvents: 'auto',
+                      }}
+                      onMouseEnter={() => setCollapseBtnHovered(true)}
+                      onMouseLeave={() => setCollapseBtnHovered(false)}
+                    >
+                      <CollapseButton
+                        backgroundColor={collapseBtnHovered ? '#4C5070' : '#393C56'}
+                      />
+                    </Box>
+                  </Box>
+                )}
 
-            {panelOpen && (
-              <Box onClick={closePanel} style={{ position: 'relative' }}>
                 <Box
+                  className="slide-panel-content"
                   style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: 71,
-                    cursor: 'pointer',
-                    pointerEvents: 'auto',
+                    minWidth: 500,
+                    opacity: panelOpen ? 1 : 0,
+                    transition: 'opacity 0.2s ease',
                   }}
-                  onMouseEnter={() => setCollapseBtnHovered(true)}
-                  onMouseLeave={() => setCollapseBtnHovered(false)}
                 >
-                  <CollapseButton
-                    backgroundColor={collapseBtnHovered ? '#4C5070' : '#393C56'}
-                  />
+                  <Outlet />
                 </Box>
               </Box>
-            )}
-
+            </>
+          )}
+        </Box>
+        {isTimelineView && (
+          <Box
+            style={{
+              position: 'absolute',
+              left: 50,
+              right: 0,
+              bottom: 0,
+              zIndex: 3,
+              pointerEvents: 'auto',
+              background: '#181926',
+              borderTop: '1px solid #393C56',
+              height: TIMELINE_PANEL_HEIGHT,
+              overflow: 'hidden',
+              transform: timelinePanelOpen
+                ? 'translateY(0)'
+                : `translateY(${TIMELINE_PANEL_HEIGHT - TIMELINE_COLLAPSED_HEIGHT}px)`,
+              transition: 'transform 220ms ease',
+            }}
+          >
             <Box
-              className="slide-panel-content"
               style={{
-                minWidth: 500,
-                opacity: panelOpen ? 1 : 0,
-                transition: 'opacity 0.2s ease',
+                padding: '8px 12px',
+                borderBottom: '1px solid #393C56',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}
             >
-              <Outlet />
+              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 700 }}>
+                Timeline
+              </Text>
+              <Box style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Text style={{ color: '#8D93A8', fontSize: 11 }}>
+                  {sortedVisibleTimelineEvents.length}/{timelineEvents.length} events
+                </Text>
+                <Text
+                  onClick={() =>
+                    setTimelineSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+                  }
+                  style={{
+                    color: '#D7DAE2',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    border: '1px solid #5A607E',
+                    borderRadius: 4,
+                    padding: '1px 8px',
+                    minWidth: 78,
+                    textAlign: 'center',
+                  }}
+                >
+                  {timelineSortOrder === 'asc' ? 'Oldest' : 'Newest'}
+                </Text>
+                <Text
+                  onClick={clearTimelineEvents}
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    border: '1px solid #5A607E',
+                    borderRadius: 4,
+                    padding: '1px 8px',
+                  }}
+                >
+                  Clear
+                </Text>
+              </Box>
+            </Box>
+            <Box
+              className="no-scrollbar"
+              style={{
+                display: 'flex',
+                alignItems: 'stretch',
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                height: 130,
+              }}
+            >
+              {timelineEvents.length === 0 ? (
+                <Box style={{ padding: '10px 12px' }}>
+                  <Text style={{ color: '#8D93A8', fontSize: 11 }}>
+                    Click a ship marker on the map to add it to the timeline with
+                    its detection time.
+                  </Text>
+                </Box>
+              ) : sortedVisibleTimelineEvents.length === 0 ? (
+                <Box style={{ padding: '10px 12px' }}>
+                  <Text style={{ color: '#8D93A8', fontSize: 11 }}>
+                    No timeline events match current ship filters/date.
+                  </Text>
+                </Box>
+              ) : (
+                sortedVisibleTimelineEvents.map((event, index) => {
+                  const isSelectedTimelineEvent =
+                    String(selectedTimelineEventId) === String(event.id)
+                  const dateObj = new Date(event.timestamp)
+                  const dateLabel = Number.isNaN(dateObj.getTime())
+                    ? 'Unknown date'
+                    : dateObj.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                  const timeLabel = Number.isNaN(dateObj.getTime())
+                    ? '--:--'
+                    : dateObj.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                      })
+                  const eventColor =
+                    getEventColor(event.type)
+
+                  return (
+                    <Box
+                      key={`${event.id}-${event.sortTs}`}
+                      onClick={() => handleTimelineEventClick(event)}
+                      style={{
+                        flex: '0 0 180px',
+                        borderLeft: '1px solid transparent',
+                        borderTop: '1px solid transparent',
+                        borderBottom: '1px solid transparent',
+                        marginTop: 0,
+                        marginBottom: 0,
+                        background: isSelectedTimelineEvent
+                          ? 'rgba(0, 148, 255, 0.08)'
+                          : 'transparent',
+                        borderRight:
+                          index === sortedVisibleTimelineEvents.length - 1
+                            ? 'none'
+                            : '1px solid #2D3047',
+                        boxShadow: isSelectedTimelineEvent
+                          ? 'inset 1px 0 0 #0094FF, inset -1px 0 0 #0094FF'
+                          : 'none',
+                        position: 'relative',
+                        zIndex: isSelectedTimelineEvent ? 1 : 0,
+                        padding: '10px 8px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Text
+                        style={{ color: '#8D93A8', fontSize: 10, marginBottom: 6 }}
+                      >
+                        {dateLabel}
+                      </Text>
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <Box
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: '50%',
+                            background: eventColor,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 600 }}>
+                          {timeLabel}
+                        </Text>
+                      </Box>
+                      <Text
+                        style={{
+                          color: '#D7DAE2',
+                          fontSize: 10,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                        title={`${event.type} • ${event.shipId}`}
+                      >
+                        {event.type} • {event.shipId}
+                      </Text>
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginTop: 6,
+                        }}
+                      >
+                        <Text
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleOpenInMyShips(event)
+                          }}
+                          style={{
+                            color: '#0094FF',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Show Details
+                        </Text>
+                        <Box
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemoveTimelineEvent(event.id)
+                          }}
+                          style={{
+                            color: '#8D93A8',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <XClose
+                            strokeWidth={2.5}
+                            style={{ width: 13, height: 13, color: '#FFFFFF' }}
+                          />
+                        </Box>
+                      </Box>
+                    </Box>
+                  )
+                })
+              )}
             </Box>
           </Box>
-        </Box>
+        )}
       </Box>
     </Box>
   )

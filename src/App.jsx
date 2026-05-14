@@ -13,6 +13,7 @@ import Polygons from './pages/Polygons'
 import Ports from './pages/Ports'
 import TemporalAnalysis from './pages/TemporalAnalysis'
 import PasswordGate from './pages/PasswordGate'
+import Timeline from './pages/Timeline'
 import './App.css'
 
 const AUTH_STORAGE_KEY = 'theia.password.unlocked'
@@ -37,6 +38,7 @@ function App() {
               <Route path="/" element={<Layout />}>
                 <Route index element={<Navigate to="/myships" replace />} />
                 <Route path="myships" element={<Myships />} />
+                <Route path="timeline" element={<Timeline />} />
                 <Route path="ports" element={<Ports />} />
                 <Route path="alerts" element={<Alerts />} />
                 <Route path="events" element={<Events />} />

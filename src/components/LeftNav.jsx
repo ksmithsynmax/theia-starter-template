@@ -5,7 +5,7 @@ import {
   List,
   VideoRecorder,
   BezierCurve03,
-  Signal01,
+  Clock,
 } from '@untitledui/icons'
 import ShipIcon from '../custom-icons/ShipIcon'
 import SatelliteIcon from '../custom-icons/SatelliteIcon'
@@ -14,7 +14,7 @@ import AlertIcon from '../custom-icons/AlertIcon'
 import SimilarSearchIcon from '../custom-icons/SimilarSearchIcon'
 import LeftNavButton from './LeftNavButton'
 
-const leftNavItems = [
+const primaryNavItems = [
   // { icon: <Signal01 color="white" size={20} />, to: '/events' },
   { icon: <ShipIcon />, to: '/myships' },
   { icon: <List color="white" size={20} />, to: '/events' },
@@ -28,6 +28,8 @@ const leftNavItems = [
   { icon: <SimilarSearchIcon />, to: '/similarsearch' },
 ]
 
+const timelineNavItem = { icon: <Clock color="white" size={20} />, to: '/timeline' }
+
 const LeftNav = ({ onNavClick }) => {
   return (
     <Box
@@ -38,16 +40,28 @@ const LeftNav = ({ onNavClick }) => {
         minHeight: '100%',
         position: 'relative',
         pointerEvents: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
       }}
     >
-      {leftNavItems.map((item, index) => (
+      <Box>
+        {primaryNavItems.map((item, index) => (
+          <LeftNavButton
+            key={index}
+            icon={item.icon}
+            to={item.to}
+            onNavClick={onNavClick}
+          />
+        ))}
+      </Box>
+      <Box style={{ marginTop: 'auto' }}>
         <LeftNavButton
-          key={index}
-          icon={item.icon}
-          to={item.to}
+          icon={timelineNavItem.icon}
+          to={timelineNavItem.to}
           onNavClick={onNavClick}
         />
-      ))}
+      </Box>
     </Box>
   )
 }
