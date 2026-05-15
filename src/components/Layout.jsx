@@ -14,8 +14,6 @@ import SecondaryNav from './SecondaryNav'
 
 function Layout() {
   const TIMELINE_PANEL_HEIGHT = 172
-  const TIMELINE_HEADER_HEIGHT = 42
-  const TIMELINE_COLLAPSED_HEIGHT = 30
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
@@ -86,7 +84,9 @@ function Layout() {
   const handleNavClick = useCallback(
     (to) => {
       if (location.pathname === to) {
-        if (to !== '/timeline') {
+        if (to === '/timeline') {
+          setTimelinePanelOpen((prev) => !prev)
+        } else {
           setSecondaryNavOpen((prev) => !prev)
         }
       } else {
@@ -200,7 +200,7 @@ function Layout() {
             bottom: isTimelineView
               ? timelinePanelOpen
                 ? TIMELINE_PANEL_HEIGHT + 12
-                : TIMELINE_COLLAPSED_HEIGHT + 12
+                : 24
               : 24,
             zIndex: 4,
             pointerEvents: 'auto',
@@ -354,7 +354,7 @@ function Layout() {
               overflow: 'hidden',
               transform: timelinePanelOpen
                 ? 'translateY(0)'
-                : `translateY(${TIMELINE_PANEL_HEIGHT - TIMELINE_COLLAPSED_HEIGHT}px)`,
+                : `translateY(${TIMELINE_PANEL_HEIGHT}px)`,
               transition: 'transform 220ms ease',
             }}
           >
@@ -419,8 +419,7 @@ function Layout() {
               {timelineEvents.length === 0 ? (
                 <Box style={{ padding: '10px 12px' }}>
                   <Text style={{ color: '#8D93A8', fontSize: 11 }}>
-                    Click a ship marker on the map to add it to the timeline with
-                    its detection time.
+                    Click a ship marker on the map to add it to the timeline.
                   </Text>
                 </Box>
               ) : sortedVisibleTimelineEvents.length === 0 ? (
