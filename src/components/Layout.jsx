@@ -14,6 +14,7 @@ import SecondaryNav from './SecondaryNav'
 
 function Layout() {
   const TIMELINE_PANEL_HEIGHT = 172
+  const [watchlistVersion, setWatchlistVersion] = useState('grouped')
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
@@ -73,7 +74,7 @@ function Layout() {
         return
       }
       selectDetection(detection, { source: 'map', allowTabSwitch: true })
-      if (location.pathname !== '/myships') {
+      if (location.pathname !== '/myships' && location.pathname !== '/watchlist') {
         navigate('/myships')
       }
       setPanelOpen(true)
@@ -143,10 +144,13 @@ function Layout() {
     setSelectedTimelineEventId((prev) => (String(prev) === String(eventId) ? null : prev))
   }, [])
 
-  const isMyShips = location.pathname === '/myships'
   const isTimelineView = location.pathname === '/timeline'
   const showPanelExpand = !panelOpen && shipTabs.length > 0
-  const slidePanelClass = panelOpen ? 'slide-panel--open' : (shipTabs.length > 0 ? 'slide-panel--collapsed' : '')
+  const slidePanelClass = panelOpen
+    ? 'slide-panel--open'
+    : shipTabs.length > 0
+      ? 'slide-panel--collapsed'
+      : ''
   const detectionById = useMemo(
     () => new globalThis.Map(runtimeDetections.map((det) => [String(det.id), det])),
     [runtimeDetections]
@@ -184,7 +188,10 @@ function Layout() {
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TopNav />
+      <TopNav
+        watchlistVersion={watchlistVersion}
+        onWatchlistVersionChange={setWatchlistVersion}
+      />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
           ref={mapRef}
@@ -274,7 +281,10 @@ function Layout() {
             pointerEvents: 'none',
           }}
         >
-          <LeftNav onNavClick={handleNavClick} />
+          <LeftNav
+            onNavClick={handleNavClick}
+            watchlistVersion={watchlistVersion}
+          />
           {!isTimelineView && (
             <>
               <SecondaryNav
@@ -282,59 +292,60 @@ function Layout() {
                 onOpen={() => setSecondaryNavOpen(true)}
                 onClose={() => setSecondaryNavOpen(false)}
                 currentPath={location.pathname}
+                watchlistVersion={watchlistVersion}
               />
 
               <Box className={`slide-panel ${slidePanelClass}`}>
-                {showPanelExpand && (
-                  <Box
-                    onClick={() => setPanelOpen(true)}
-                    onMouseEnter={() => setExpandPanelHovered(true)}
-                    onMouseLeave={() => setExpandPanelHovered(false)}
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 71,
-                      cursor: 'pointer',
-                      pointerEvents: 'auto',
-                      zIndex: 10,
-                    }}
-                  >
-                    <ExpandButton
-                      backgroundColor={expandPanelHovered ? '#4C5070' : '#393C56'}
-                    />
-                  </Box>
-                )}
-
-                {panelOpen && (
-                  <Box onClick={closePanel} style={{ position: 'relative' }}>
+                  {showPanelExpand && (
                     <Box
+                      onClick={() => setPanelOpen(true)}
+                      onMouseEnter={() => setExpandPanelHovered(true)}
+                      onMouseLeave={() => setExpandPanelHovered(false)}
                       style={{
                         position: 'absolute',
                         right: 0,
                         top: 71,
                         cursor: 'pointer',
                         pointerEvents: 'auto',
+                        zIndex: 10,
                       }}
-                      onMouseEnter={() => setCollapseBtnHovered(true)}
-                      onMouseLeave={() => setCollapseBtnHovered(false)}
                     >
-                      <CollapseButton
-                        backgroundColor={collapseBtnHovered ? '#4C5070' : '#393C56'}
+                      <ExpandButton
+                        backgroundColor={expandPanelHovered ? '#4C5070' : '#393C56'}
                       />
                     </Box>
-                  </Box>
-                )}
+                  )}
 
-                <Box
-                  className="slide-panel-content"
-                  style={{
-                    minWidth: 500,
-                    opacity: panelOpen ? 1 : 0,
-                    transition: 'opacity 0.2s ease',
-                  }}
-                >
-                  <Outlet />
-                </Box>
+                  {panelOpen && (
+                    <Box onClick={closePanel} style={{ position: 'relative' }}>
+                      <Box
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: 71,
+                          cursor: 'pointer',
+                          pointerEvents: 'auto',
+                        }}
+                        onMouseEnter={() => setCollapseBtnHovered(true)}
+                        onMouseLeave={() => setCollapseBtnHovered(false)}
+                      >
+                        <CollapseButton
+                          backgroundColor={collapseBtnHovered ? '#4C5070' : '#393C56'}
+                        />
+                      </Box>
+                    </Box>
+                  )}
+
+                  <Box
+                    className="slide-panel-content"
+                    style={{
+                      minWidth: 500,
+                      opacity: panelOpen ? 1 : 0,
+                      transition: 'opacity 0.2s ease',
+                    }}
+                  >
+                    <Outlet />
+                  </Box>
               </Box>
             </>
           )}

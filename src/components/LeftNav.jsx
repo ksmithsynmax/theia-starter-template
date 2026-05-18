@@ -1,36 +1,29 @@
 import React from 'react'
 import { Box } from '@mantine/core'
 import {
-  Anchor,
-  List,
+  Signal01,
   VideoRecorder,
-  BezierCurve03,
   Clock,
 } from '@untitledui/icons'
-import ShipIcon from '../custom-icons/ShipIcon'
 import SatelliteIcon from '../custom-icons/SatelliteIcon'
 import OsintIcon from '../custom-icons/OsintIcon'
 import AlertIcon from '../custom-icons/AlertIcon'
 import SimilarSearchIcon from '../custom-icons/SimilarSearchIcon'
 import LeftNavButton from './LeftNavButton'
 
-const primaryNavItems = [
-  // { icon: <Signal01 color="white" size={20} />, to: '/events' },
-  { icon: <ShipIcon />, to: '/myships' },
-  { icon: <List color="white" size={20} />, to: '/events' },
+const timelineNavItem = { icon: <Clock color="white" size={20} />, to: '/timeline', label: 'Timeline' }
 
-  { icon: <Anchor color="white" size={20} />, to: '/ports' },
-  { icon: <SatelliteIcon />, to: '/tip-cue' },
-  { icon: <VideoRecorder color="white" size={20} />, to: '/webcams' },
-  // { icon: <BezierCurve03 color="white" size={20} />, to: '/polygons' },
-  { icon: <OsintIcon />, to: '/osint' },
-  { icon: <AlertIcon />, to: '/alerts' },
-  { icon: <SimilarSearchIcon />, to: '/similarsearch' },
-]
+const LeftNav = ({ onNavClick, watchlistVersion = 'grouped' }) => {
+  const isVersion2 = watchlistVersion === 'version2'
+  const primaryNavItems = [
+    { icon: <Signal01 color="white" size={20} />, to: '/watchlist', label: 'Watchlist' },
+    { icon: <SatelliteIcon />, to: '/tip-cue', label: 'Tip & Cue' },
+    { icon: <VideoRecorder color="white" size={20} />, to: '/webcams', label: 'Webcams' },
+    { icon: <OsintIcon />, to: '/osint', label: 'OSINT' },
+    ...(!isVersion2 ? [{ icon: <AlertIcon />, to: '/alerts', label: 'Alerts' }] : []),
+    { icon: <SimilarSearchIcon />, to: '/similarsearch', label: 'Similar Search' },
+  ]
 
-const timelineNavItem = { icon: <Clock color="white" size={20} />, to: '/timeline' }
-
-const LeftNav = ({ onNavClick }) => {
   return (
     <Box
       style={{
@@ -51,6 +44,7 @@ const LeftNav = ({ onNavClick }) => {
             key={index}
             icon={item.icon}
             to={item.to}
+            label={item.label}
             onNavClick={onNavClick}
           />
         ))}
@@ -59,6 +53,7 @@ const LeftNav = ({ onNavClick }) => {
         <LeftNavButton
           icon={timelineNavItem.icon}
           to={timelineNavItem.to}
+          label={timelineNavItem.label}
           onNavClick={onNavClick}
         />
       </Box>

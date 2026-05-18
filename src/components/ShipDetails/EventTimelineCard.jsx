@@ -8,6 +8,7 @@ import shipSatImage2 from '../../assets/e92d7378215156c8a7c8c4c73d773963c71bd6b1
 import shipIllustration from '../../assets/ShipIllustration.png'
 
 const shipImages = [shipSatImage, shipSatImage2]
+const PRIMARY_BUTTON_COLOR = '#006CD7'
 
 const formatEta = (raw) => {
   if (!raw || raw === 'No info') return 'No info'
@@ -84,7 +85,6 @@ const EventTimelineCard = ({
   const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false)
   const [detailsHovered, setDetailsHovered] = useState(false)
   const [goToDateHovered, setGoToDateHovered] = useState(false)
-  const [viewLocationHovered, setViewLocationHovered] = useState(false)
   const expanded = Boolean(isPreviewed || (selected && !isSelectedCollapsed))
   const cardRef = useRef(null)
 
@@ -180,11 +180,9 @@ const EventTimelineCard = ({
                   onSelect?.()
                   onViewStsShips?.()
                 }}
-                onMouseEnter={() => setViewLocationHovered(true)}
-                onMouseLeave={() => setViewLocationHovered(false)}
                 style={{
-                  backgroundColor: viewLocationHovered ? '#007DD6' : '#0094FF',
-                  border: `1px solid ${viewLocationHovered ? '#007DD6' : '#0094FF'}`,
+                  backgroundColor: PRIMARY_BUTTON_COLOR,
+                  border: `1px solid ${PRIMARY_BUTTON_COLOR}`,
                   color: '#fff',
                   borderRadius: 4,
                   fontWeight: 600,
@@ -431,11 +429,9 @@ const EventTimelineCard = ({
               onClick={() => {
                 onSelect?.()
               }}
-              onMouseEnter={() => setViewLocationHovered(true)}
-              onMouseLeave={() => setViewLocationHovered(false)}
               style={{
-                backgroundColor: viewLocationHovered ? '#007DD6' : '#0094FF',
-                border: `1px solid ${viewLocationHovered ? '#007DD6' : '#0094FF'}`,
+                backgroundColor: PRIMARY_BUTTON_COLOR,
+                border: `1px solid ${PRIMARY_BUTTON_COLOR}`,
                 color: '#fff',
                 borderRadius: 4,
                 fontWeight: 600,

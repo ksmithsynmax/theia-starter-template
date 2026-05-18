@@ -89,7 +89,7 @@ const parseTypedDate = (rawValue) => {
   return { value: parsedDate, error: null }
 }
 
-const TopNav = () => {
+const TopNav = ({ watchlistVersion = 'grouped', onWatchlistVersionChange }) => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [isEditingCalendarDate, setIsEditingCalendarDate] = useState(false)
@@ -181,6 +181,38 @@ const TopNav = () => {
           <Plus color="white" size={20} />
         </Box>
         <Box style={{ flex: 1 }}></Box>
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            marginRight: '8px',
+            gap: 8,
+          }}
+        >
+          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Watchlist Version</Text>
+          <Box
+            component="select"
+            value={watchlistVersion}
+            onChange={(event) =>
+              onWatchlistVersionChange?.(event.currentTarget.value)
+            }
+            style={{
+              height: 32,
+              background: '#24263C',
+              border: '1px solid #393C56',
+              color: '#FFFFFF',
+              borderRadius: 4,
+              padding: '0 40px 0 12px',
+              minWidth: 150,
+              fontSize: 12,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="grouped">Version 1</option>
+            <option value="version2">Version 2</option>
+          </Box>
+        </Box>
         <Box component="button" type="button" className="topnav-icon-btn">
           <Bell02 color="white" size={20} />
         </Box>
