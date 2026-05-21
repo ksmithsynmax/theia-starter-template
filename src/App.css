@@ -184,6 +184,18 @@
   opacity: 1;
 }
 
+.mapboxgl-marker.attention-marker::before {
+  background: rgba(247, 83, 73, 0.24);
+  border: 2px solid #f75349;
+  opacity: 1;
+}
+
+.mapboxgl-marker.attention-marker:not(.active):hover::before {
+  background: rgba(247, 83, 73, 0.28);
+  border-color: #f75349;
+  opacity: 1;
+}
+
 .mapboxgl-marker.active[data-historical='true']::after,
 .mapboxgl-marker.previewed[data-historical='true']::after {
   content: attr(data-marker-date);

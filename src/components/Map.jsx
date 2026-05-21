@@ -4,6 +4,7 @@ import {
   useState,
   forwardRef,
   useImperativeHandle,
+  useMemo,
 } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -195,6 +196,8 @@ const Map = forwardRef(function Map(
     selectedTerminal,
     selectedBerth,
     alertPreviewAreas,
+    attentionFeedItems,
+    attentionPinOnMap,
   } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -216,6 +219,15 @@ const Map = forwardRef(function Map(
   onDetectionClickRef.current = onDetectionClick
   onPortClickRef.current = onPortClick
   const openToolPanels = openMapToolPanelsByTab['__global__'] || []
+  const criticalDetectionIds = useMemo(() => {
+    return new Set(
+      attentionFeedItems
+        .filter((item) => item?.severity === 'high')
+        .map((item) => item?.latestDetection?.id)
+        .filter((id) => id != null)
+        .map((id) => String(id))
+    )
+  }, [attentionFeedItems])
 
   useEffect(() => {
     detectionByIdRef.current = new globalThis.Map(
@@ -847,6 +859,19 @@ const Map = forwardRef(function Map(
     })
   }, [mapDate, shipTabs, activeDetectionId, runtimeDetections])
 
+  useEffect(() => {
+    if (!mapReady) return
+
+    runtimeDetections.forEach((det) => {
+      const marker = markersRef.current[det.id]
+      if (!marker) return
+      const el = marker.getElement()
+      const isCriticalDetection =
+        attentionPinOnMap && criticalDetectionIds.has(String(det.id))
+      el.classList.toggle('attention-marker', isCriticalDetection)
+    })
+  }, [runtimeDetections, criticalDetectionIds, attentionPinOnMap, mapReady])
+
   // When a detection is selected or previewed from timeline, highlight it and fly to it
   useEffect(() => {
     if (!map.current) return
@@ -929,9 +954,14 @@ const Map = forwardRef(function Map(
       const isPreviewed = previewId != null && String(det.id) === previewId
       const isCurrentDate = getDateKey(det.date) === mapDate
       const isTypeEnabled = enabledDetectionTypes.has(det.type)
+      const isCriticalPinned =
+        attentionPinOnMap && criticalDetectionIds.has(String(det.id))
       el.dataset.historical = isCurrentDate ? 'false' : 'true'
       el.style.display =
-        (isCurrentDate && isTypeEnabled) || isSelected || isPreviewed
+        (isCurrentDate && isTypeEnabled) ||
+        isSelected ||
+        isPreviewed ||
+        isCriticalPinned
           ? ''
           : 'none'
     })
@@ -942,6 +972,8 @@ const Map = forwardRef(function Map(
     activeDetectionId,
     previewDetectionId,
     runtimeDetections,
+    attentionPinOnMap,
+    criticalDetectionIds,
   ])
 
   useEffect(() => {

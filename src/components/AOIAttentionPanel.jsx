@@ -22,6 +22,8 @@ function AOIAttentionPanel() {
     selectDetection,
     openShipTab,
     setDetailPanelOpen,
+    activeDetectionId,
+    panelFocusDetectionId,
   } = useShipContext()
 
   useEffect(() => {
@@ -131,7 +133,14 @@ function AOIAttentionPanel() {
         </Box>
 
         <Box style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {topItems.map((item) => (
+          {topItems.map((item) => {
+            const latestDetectionId = item?.latestDetection?.id
+            const isActive =
+              latestDetectionId != null &&
+              String(latestDetectionId) ===
+                String(panelFocusDetectionId ?? activeDetectionId)
+
+            return (
             <Box
               key={item.shipId}
               onMouseEnter={() => setHoveredShipId(item.shipId)}
@@ -148,13 +157,16 @@ function AOIAttentionPanel() {
                 setDetailPanelOpen(true)
               }}
               style={{
-                border: '1px solid #393C56',
+                border: isActive ? '1px solid #006CD7' : '1px solid #393C56',
                 borderRadius: 4,
                 padding: '8px 10px',
                 cursor: 'pointer',
-                background:
-                  hoveredShipId === item.shipId ? '#181926' : '#24263C',
-                transition: 'background 120ms ease',
+                background: isActive
+                  ? 'rgba(0, 108, 215, 0.16)'
+                  : hoveredShipId === item.shipId
+                    ? '#181926'
+                    : '#24263C',
+                transition: 'background 120ms ease, border-color 120ms ease',
               }}
             >
               <Box
@@ -184,7 +196,8 @@ function AOIAttentionPanel() {
                 {item.eventCount === 1 ? '' : 's'}
               </Text>
             </Box>
-          ))}
+            )
+          })}
         </Box>
       </Box>
     </Box>
