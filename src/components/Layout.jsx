@@ -138,16 +138,20 @@ function Layout() {
             gap: 12,
           }}
         >
-          {!attentionPanelOpen && (
-            <Box style={{ position: 'relative' }}>
-              <ActionIcon
-                variant="filled"
-                aria-label="Open AOI attention feed"
-                onClick={() => setAttentionPanelOpen(true)}
-                style={mapTopRightButtonStyle}
-              >
-                <Target05 size={20} color="white" />
-              </ActionIcon>
+          <Box style={{ position: 'relative' }}>
+            <ActionIcon
+              variant="filled"
+              aria-label={
+                attentionPanelOpen
+                  ? 'Close AOI attention feed'
+                  : 'Open AOI attention feed'
+              }
+              onClick={() => setAttentionPanelOpen((prev) => !prev)}
+              style={mapTopRightButtonStyle}
+            >
+              <Target05 size={20} color="white" />
+            </ActionIcon>
+            {!attentionPanelOpen && (
               <Box
                 style={{
                   position: 'absolute',
@@ -169,8 +173,8 @@ function Layout() {
               >
                 {attentionFeedItems.length}
               </Box>
-            </Box>
-          )}
+            )}
+          </Box>
           <ActionIcon
             variant="filled"
             aria-label="Close tools"
