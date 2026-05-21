@@ -70,6 +70,9 @@ export function ShipProvider({ children }) {
   const [attentionShowOnLogin, setAttentionShowOnLogin] = useState(true)
   const [attentionLinkAlerts, setAttentionLinkAlerts] = useState(false)
   const [attentionPanelOpen, setAttentionPanelOpen] = useState(true)
+  const [dismissedAttentionByShip, setDismissedAttentionByShip] = useState({})
+  const [dismissedAttentionTrayByShip, setDismissedAttentionTrayByShip] =
+    useState({})
 
   // Port specific state
   const [activePortLevel, setActivePortLevel] = useState('Port Details')
@@ -253,6 +256,54 @@ export function ShipProvider({ children }) {
     setAttentionSetupOpen(false)
   }, [])
 
+  const dismissAttentionShip = useCallback((item) => {
+    const shipId = item?.shipId
+    const detectionId = item?.latestDetection?.id
+    if (shipId == null || detectionId == null) return
+    setDismissedAttentionByShip((prev) => ({
+      ...prev,
+      [String(shipId)]: {
+        shipId: String(shipId),
+        detectionId: String(detectionId),
+        shipName: item?.shipName || 'Unknown',
+        dismissedAt: Date.now(),
+      },
+    }))
+    setDismissedAttentionTrayByShip((prev) => ({
+      ...prev,
+      [String(shipId)]: {
+        shipId: String(shipId),
+        detectionId: String(detectionId),
+        shipName: item?.shipName || 'Unknown',
+        dismissedAt: Date.now(),
+      },
+    }))
+  }, [])
+
+  const restoreAttentionShip = useCallback((shipId) => {
+    if (shipId == null) return
+    setDismissedAttentionByShip((prev) => {
+      const key = String(shipId)
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+    setDismissedAttentionTrayByShip((prev) => {
+      const key = String(shipId)
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }, [])
+
+  const clearDismissedAttention = useCallback(() => {
+    // Clear only the dismissed tray/history; keep suppression in place
+    // until a new detection arrives for that ship.
+    setDismissedAttentionTrayByShip({})
+  }, [])
+
   const enabledDetectionTypes = useMemo(() => {
     const enabled = new Set()
     SHIP_FILTERED_TYPE_IDS.forEach((filterId) => {
@@ -270,7 +321,7 @@ export function ShipProvider({ children }) {
     )
   }, [runtimeDetections, enabledDetectionTypes])
 
-  const attentionFeedItems = useMemo(() => {
+  const attentionFeedBaseItems = useMemo(() => {
     const activeSignalKeys = Object.entries(attentionSignals)
       .filter(([, enabled]) => enabled)
       .map(([key]) => key)
@@ -307,7 +358,7 @@ export function ShipProvider({ children }) {
       return acc
     }, {})
 
-    return Object.values(byShip)
+    const items = Object.values(byShip)
       .map((entry) => {
         const events = [...entry.events].sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -346,7 +397,35 @@ export function ShipProvider({ children }) {
           new Date(a.latestDetection?.date || 0).getTime()
         )
       })
+
+    return items
   }, [attentionSignals, runtimeDetections, attentionLookbackDays])
+
+  const dismissedAttentionItems = useMemo(() => {
+    return attentionFeedBaseItems
+      .filter((item) => {
+        const dismissedEntry = dismissedAttentionTrayByShip[String(item.shipId)]
+        if (!dismissedEntry) return false
+        return (
+          String(item.latestDetection?.id) === String(dismissedEntry.detectionId)
+        )
+      })
+      .map((item) => ({
+        ...item,
+        dismissedAt:
+          dismissedAttentionTrayByShip[String(item.shipId)]?.dismissedAt,
+      }))
+      .sort((a, b) => (b.dismissedAt || 0) - (a.dismissedAt || 0))
+  }, [attentionFeedBaseItems, dismissedAttentionTrayByShip])
+
+  const attentionFeedItems = useMemo(() => {
+    const dismissedShipIds = new Set(
+      dismissedAttentionItems.map((item) => String(item.shipId))
+    )
+    return attentionFeedBaseItems.filter(
+      (item) => !dismissedShipIds.has(String(item.shipId))
+    )
+  }, [attentionFeedBaseItems, dismissedAttentionItems])
 
   const attentionReasonCounts = useMemo(() => {
     return attentionFeedItems.reduce((acc, item) => {
@@ -419,7 +498,11 @@ export function ShipProvider({ children }) {
         closeAttentionSetup,
         saveAttentionSetup,
         skipAttentionSetup,
+        dismissAttentionShip,
+        restoreAttentionShip,
+        clearDismissedAttention,
         attentionFeedItems,
+        dismissedAttentionItems,
         attentionReasonCounts,
         enabledDetectionTypes,
         filteredRuntimeDetections,

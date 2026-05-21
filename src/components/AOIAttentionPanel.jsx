@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Box, Text } from '@mantine/core'
-import { XClose } from '@untitledui/icons'
+import { Trash02, XClose } from '@untitledui/icons'
 import { useShipContext } from '../context/ShipContext'
 
 const PRIORITY_DOT_FLASH_MS = 700
@@ -14,8 +14,10 @@ const severityColor = {
 function AOIAttentionPanel() {
   const [isPriorityDotFlashOn, setIsPriorityDotFlashOn] = useState(true)
   const [hoveredShipId, setHoveredShipId] = useState(null)
+  const [showDismissed, setShowDismissed] = useState(false)
   const {
     attentionFeedItems,
+    dismissedAttentionItems,
     attentionReasonCounts,
     attentionPanelOpen,
     setAttentionPanelOpen,
@@ -24,6 +26,9 @@ function AOIAttentionPanel() {
     setDetailPanelOpen,
     activeDetectionId,
     panelFocusDetectionId,
+    dismissAttentionShip,
+    restoreAttentionShip,
+    clearDismissedAttention,
   } = useShipContext()
 
   useEffect(() => {
@@ -35,7 +40,7 @@ function AOIAttentionPanel() {
 
   if (!attentionPanelOpen) return null
 
-  const topItems = attentionFeedItems.slice(0, 5)
+  const topItems = attentionFeedItems
   const reasonEntries = Object.entries(attentionReasonCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
@@ -90,7 +95,7 @@ function AOIAttentionPanel() {
         <Box style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <XClose
             size={16}
-            color="#A4ABBE"
+            color="#FFFFFF"
             style={{ cursor: 'pointer' }}
             onClick={() => setAttentionPanelOpen(false)}
           />
@@ -174,22 +179,46 @@ function AOIAttentionPanel() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  // marginBottom: 4,
-                  // gap: 8,
                 }}
               >
                 <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
                   {item.shipName}
                 </Text>
-                <Text
-                  style={{
-                    color: severityColor[item.severity] || '#fff',
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}
-                >
-                  {item.severity.toUpperCase()}
-                </Text>
+                <Box style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Text
+                    style={{
+                      color: severityColor[item.severity] || '#fff',
+                      fontSize: 10,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {item.severity.toUpperCase()}
+                  </Text>
+                  <Box
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      if (item?.shipId != null && item?.latestDetection?.id != null) {
+                        dismissAttentionShip(item)
+                      }
+                    }}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#FFFFFF',
+                      cursor: 'pointer',
+                      background: '#181926',
+                      border: '1px solid #393C56',
+                    }}
+                    title="Dismiss until new event"
+                    aria-label="Dismiss from critical list"
+                  >
+                    <XClose size={12} color="#FFFFFF" />
+                  </Box>
+                </Box>
               </Box>
               <Text style={{ color: '#A4ABBE', fontSize: 11 }}>
                 {item.signalLabels.join(', ')} • {item.eventCount} event
@@ -199,6 +228,101 @@ function AOIAttentionPanel() {
             )
           })}
         </Box>
+        <Box
+          onClick={() => {
+            if (dismissedAttentionItems.length > 0) {
+              setShowDismissed((prev) => !prev)
+            }
+          }}
+          style={{
+            marginTop: 8,
+            paddingTop: 8,
+            borderTop: '1px solid #393C56',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: dismissedAttentionItems.length > 0 ? 'pointer' : 'default',
+            opacity: dismissedAttentionItems.length > 0 ? 1 : 0.7,
+          }}
+        >
+          <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Trash02 size={14} color="#A4ABBE" />
+            <Text style={{ color: '#DDE2F0', fontSize: 11, fontWeight: 600 }}>
+              Dismissed
+            </Text>
+            <Box
+              style={{
+                minWidth: 18,
+                height: 18,
+                borderRadius: 999,
+                background: '#F75349',
+                color: '#FFFFFF',
+                fontSize: 10,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 6px',
+              }}
+            >
+              {dismissedAttentionItems.length}
+            </Box>
+          </Box>
+          {dismissedAttentionItems.length > 0 && (
+            <Text style={{ color: '#A4ABBE', fontSize: 10 }}>
+              {showDismissed ? 'Hide' : 'Show'}
+            </Text>
+          )}
+        </Box>
+        {showDismissed && dismissedAttentionItems.length > 0 && (
+          <Box style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {dismissedAttentionItems.map((item) => (
+              <Box
+                key={`dismissed-${item.shipId}`}
+                style={{
+                  border: '1px solid #393C56',
+                  borderRadius: 4,
+                  padding: '6px 8px',
+                  background: '#181926',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Text style={{ color: '#A4ABBE', fontSize: 11 }}>{item.shipName}</Text>
+                <Text
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    restoreAttentionShip(item.shipId)
+                  }}
+                  style={{
+                    color: '#006CD7',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Restore
+                </Text>
+              </Box>
+            ))}
+            <Box style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+              <Text
+                onClick={(event) => {
+                  event.stopPropagation()
+                  clearDismissedAttention()
+                }}
+                style={{
+                  color: '#A4ABBE',
+                  fontSize: 10,
+                  cursor: 'pointer',
+                }}
+              >
+                Clear dismissed
+              </Text>
+            </Box>
+          </Box>
+        )}
       </Box>
     </Box>
   )
