@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Loader, Text } from '@mantine/core'
 import { Plus, Anchor, BezierCurve03, Bell02, Star01 } from '@untitledui/icons'
+import { useNavigate } from 'react-router-dom'
 import CollapseButton from '../custom-icons/CollapseButton'
 import ExpandButton from '../custom-icons/ExpandButton'
 import ShipIcon from '../custom-icons/ShipIcon'
+import ShipPathPanelButton from './ShipDetails/ShipPathPanelButton'
+import CircleIcon from '../custom-icons/CircleIcon'
+import PolygonIcon from '../custom-icons/PolygonIcon'
+import RectangleIcon from '../custom-icons/RectangleIcon'
 import { ships } from '../data/mockData'
 import { useShipContext } from '../context/ShipContext'
 
@@ -38,33 +43,16 @@ const VERSION2_ADD_OPTIONS = [
   {
     id: 'polygons',
     title: 'Polygon',
-    description: 'Watch an area by drawing or uploading',
+    description: 'Monitor a polygon by name or shape file',
   },
   {
     id: 'alerts',
     title: 'Alerts',
-    description: 'Watch an area by drawing or uploading',
+    description: 'Get updates when key activity is detected',
   },
 ]
 
-const watchedPorts = [
-  {
-    id: 'port-fujairah',
-    name: 'Fujairah Anchorage',
-    country: 'UAE',
-    activity: 'Congestion',
-    risk: 'Medium',
-    updatedAt: '2026-05-15 09:48',
-  },
-  {
-    id: 'port-jebel-ali',
-    name: 'Jebel Ali',
-    country: 'UAE',
-    activity: 'Bunkering',
-    risk: 'Low',
-    updatedAt: '2026-05-15 08:15',
-  },
-]
+const watchedPorts = []
 
 const watchedPolygons = [
   {
@@ -269,7 +257,16 @@ const SecondaryNav = ({
   const [version2SearchResults, setVersion2SearchResults] = useState([])
   const [version2IsSearching, setVersion2IsSearching] = useState(false)
   const [version2PendingShips, setVersion2PendingShips] = useState([])
+  const [version2PortQuery, setVersion2PortQuery] = useState('')
+  const [version2PortSearchResults, setVersion2PortSearchResults] = useState([])
+  const [version2IsPortSearching, setVersion2IsPortSearching] = useState(false)
+  const [version2PendingPorts, setVersion2PendingPorts] = useState([])
+  const [version2AlertShipSearchValue, setVersion2AlertShipSearchValue] =
+    useState('')
+  const [version2AlertMyShipValue, setVersion2AlertMyShipValue] = useState('')
+  const [version2UploadedFileName, setVersion2UploadedFileName] = useState('')
   const [version2PrototypeShipRows, setVersion2PrototypeShipRows] = useState([])
+  const [version2PrototypePortRows, setVersion2PrototypePortRows] = useState([])
   const [collapseHovered, setCollapseHovered] = useState(false)
   const [expandHovered, setExpandHovered] = useState(false)
   const [navWidth, setNavWidth] = useState(SECONDARY_NAV_DEFAULT_WIDTH)
@@ -277,6 +274,8 @@ const SecondaryNav = ({
   const resizeStartXRef = useRef(0)
   const resizeStartWidthRef = useRef(SECONDARY_NAV_DEFAULT_WIDTH)
   const version2SearchTimerRef = useRef(null)
+  const version2UploadInputRef = useRef(null)
+  const navigate = useNavigate()
   const { shipTabs, favoriteShipIds, toggleFavoriteShip } = useShipContext()
 
   const isWatchlistView = currentPath === '/watchlist'
@@ -486,6 +485,9 @@ const SecondaryNav = ({
   const cleanedVersion2ShipQuery = version2ShipQuery.trim().replace(/\s+/g, ' ')
   const normalizedVersion2ShipQuery = cleanedVersion2ShipQuery.toLowerCase()
   const hasVersion2ShipQuery = cleanedVersion2ShipQuery.length > 0
+  const cleanedVersion2PortQuery = version2PortQuery.trim().replace(/\s+/g, ' ')
+  const normalizedVersion2PortQuery = cleanedVersion2PortQuery.toLowerCase()
+  const hasVersion2PortQuery = cleanedVersion2PortQuery.length > 0
   const showVersion1Onboarding =
     isGroupedVersion &&
     activeTopTab === 'my-watchlist' &&
@@ -494,6 +496,10 @@ const SecondaryNav = ({
   const version2MyWatchlistShipRows = useMemo(
     () => [...myShipRows, ...version2PrototypeShipRows],
     [myShipRows, version2PrototypeShipRows]
+  )
+  const version2MyWatchlistPortRows = useMemo(
+    () => [...portRows, ...version2PrototypePortRows],
+    [portRows, version2PrototypePortRows]
   )
   const version2PendingShipIds = useMemo(
     () => new Set(version2PendingShips.map((ship) => ship.optionId)),
@@ -523,12 +529,51 @@ const SecondaryNav = ({
     version2PendingCount > 0
       ? `Add ${version2PendingCount} Ship${version2PendingCount === 1 ? '' : 's'}`
       : 'Add to Watchlist'
-  const canProceedVersion2 = version2SelectedFlow === 'ships'
+  const version2PendingPortIds = useMemo(
+    () => new Set(version2PendingPorts.map((port) => port.optionId)),
+    [version2PendingPorts]
+  )
+  const version2DisplayPortSearchRows = useMemo(() => {
+    const seen = new Set()
+    const rows = []
+
+    version2PortSearchResults.forEach((port) => {
+      if (!port?.optionId || seen.has(port.optionId)) return
+      seen.add(port.optionId)
+      rows.push(port)
+    })
+
+    version2PendingPorts.forEach((port) => {
+      if (!port?.optionId || seen.has(port.optionId)) return
+      seen.add(port.optionId)
+      rows.push(port)
+    })
+
+    return rows
+  }, [version2PendingPorts, version2PortSearchResults])
+  const version2PendingPortCount = version2PendingPorts.length
+  const version2PortSubmitLabel =
+    version2PendingPortCount > 0
+      ? `Add ${version2PendingPortCount} Port${version2PendingPortCount === 1 ? '' : 's'}`
+      : 'Add to Watchlist'
+  const canProceedVersion2 = Boolean(version2SelectedFlow)
 
   const handleVersion2Next = () => {
     if (!version2SelectedFlow) return
     if (version2SelectedFlow === 'ships') {
       setVersion2Mode('ships')
+      return
+    }
+    if (version2SelectedFlow === 'ports') {
+      setVersion2Mode('ports')
+      return
+    }
+    if (version2SelectedFlow === 'polygons') {
+      setVersion2Mode('polygons')
+      return
+    }
+    if (version2SelectedFlow === 'alerts') {
+      setVersion2Mode('alerts')
     }
   }
 
@@ -540,14 +585,12 @@ const SecondaryNav = ({
     const baseName = cleanedQuery
       .split(' ')
       .map((word) =>
-        word ? `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}` : ''
+        word
+          ? `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`
+          : ''
       )
       .join(' ')
-    const nameOptions = [
-      baseName,
-      `${baseName} Star`,
-      `${baseName} Voyager`,
-    ]
+    const nameOptions = [baseName, `${baseName} Star`, `${baseName} Voyager`]
     const seed = normalizedQuery
       .split('')
       .reduce((sum, char) => sum + char.charCodeAt(0), 0)
@@ -560,6 +603,48 @@ const SecondaryNav = ({
       isPrototype: true,
       baseShipId: null,
     }))
+  }
+
+  const buildVersion2PortSearchResults = (query) => {
+    const cleanedQuery = query.trim().replace(/\s+/g, ' ')
+    const normalizedQuery = cleanedQuery.toLowerCase()
+    if (!cleanedQuery) return []
+
+    const baseName = cleanedQuery
+      .split(' ')
+      .map((word) =>
+        word
+          ? `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`
+          : ''
+      )
+      .join(' ')
+    const seed = normalizedQuery
+      .split('')
+      .reduce((sum, char) => sum + char.charCodeAt(0), 0)
+
+    return [
+      {
+        optionId: `typed-port-${normalizedQuery}-0`,
+        name: `${baseName} Anchorage`,
+        country: 'UAE',
+        activity: 'Bunkering',
+        locode: `AE${String(100 + (seed % 900)).slice(-3)}`,
+      },
+      {
+        optionId: `typed-port-${normalizedQuery}-1`,
+        name: `${baseName} Terminal`,
+        country: 'Saudi Arabia',
+        activity: 'Cargo',
+        locode: `SA${String(100 + ((seed * 3) % 900)).slice(-3)}`,
+      },
+      {
+        optionId: `typed-port-${normalizedQuery}-2`,
+        name: `${baseName} Port`,
+        country: 'Oman',
+        activity: 'Anchorage',
+        locode: `OM${String(100 + ((seed * 7) % 900)).slice(-3)}`,
+      },
+    ]
   }
 
   const handleVersion2QueueShip = (ship) => {
@@ -629,6 +714,66 @@ const SecondaryNav = ({
     setActiveWatchlistTab('ships')
   }
 
+  const handleVersion2QueuePort = (port) => {
+    if (!port) return
+    setVersion2PendingPorts((prev) =>
+      prev.some((pendingPort) => pendingPort.optionId === port.optionId)
+        ? prev
+        : [...prev, port]
+    )
+  }
+
+  const handleVersion2PortToggle = (port) => {
+    const isAlreadySelected = version2PendingPorts.some(
+      (pendingPort) => pendingPort.optionId === port.optionId
+    )
+    if (isAlreadySelected) {
+      setVersion2PendingPorts((prev) =>
+        prev.filter((pendingPort) => pendingPort.optionId !== port.optionId)
+      )
+      return
+    }
+    handleVersion2QueuePort(port)
+  }
+
+  const handleVersion2SubmitPorts = () => {
+    if (version2PendingPorts.length === 0) return
+
+    const existingPrototypeNames = new Set(
+      version2PrototypePortRows.map((row) => (row.name || '').toLowerCase())
+    )
+    const prototypePortsToAdd = version2PendingPorts.filter((port) => {
+      const normalizedName = (port.name || '').toLowerCase()
+      if (existingPrototypeNames.has(normalizedName)) return false
+      existingPrototypeNames.add(normalizedName)
+      return true
+    })
+
+    if (prototypePortsToAdd.length > 0) {
+      setVersion2PrototypePortRows((prev) => [
+        ...prev,
+        ...prototypePortsToAdd.map((port) => ({
+          id: `proto-port-row-${port.optionId}`,
+          name: port.name || 'No info',
+          country: port.country || 'No info',
+          activity: port.activity || 'No info',
+          risk: 'Medium',
+          updatedAt: 'Just now',
+          entityType: 'Port',
+          description: `${port.country || 'No info'} • ${port.activity || 'No info'}`,
+          status: 'Monitoring',
+        })),
+      ])
+    }
+
+    setVersion2PendingPorts([])
+    setVersion2PortQuery('')
+    setVersion2PortSearchResults([])
+    setVersion2Mode('ports-list')
+    setActiveTopTab('my-watchlist')
+    setActiveWatchlistTab('ports')
+  }
+
   useEffect(() => {
     if (!isVersion2) {
       setVersion2Mode('empty')
@@ -638,7 +783,12 @@ const SecondaryNav = ({
       setVersion2SearchResults([])
       setVersion2IsSearching(false)
       setVersion2PendingShips([])
+      setVersion2PortQuery('')
+      setVersion2PortSearchResults([])
+      setVersion2IsPortSearching(false)
+      setVersion2PendingPorts([])
       setVersion2PrototypeShipRows([])
+      setVersion2PrototypePortRows([])
       if (version2SearchTimerRef.current) {
         window.clearTimeout(version2SearchTimerRef.current)
         version2SearchTimerRef.current = null
@@ -773,10 +923,56 @@ const SecondaryNav = ({
             </Box>
           ))}
         </Box>
+        {activeTopTab === 'my-watchlist' && !isVersion2 && !showVersion1Onboarding && (
+          <Box
+            className="no-scrollbar"
+            style={{
+              padding: '12px 20px 10px',
+              overflowX: 'auto',
+              overflowY: 'hidden',
+            }}
+          >
+            <Box
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+                width: 'max-content',
+                paddingBottom: 2,
+              }}
+            >
+              {WATCHLIST_SUB_TABS.map((tab) => (
+                <Box
+                  key={tab.id}
+                  onClick={() => setActiveWatchlistTab(tab.id)}
+                  style={{
+                    cursor: 'pointer',
+                    color: '#FFFFFF',
+                    border: `1px solid ${activeWatchlistTab === tab.id ? '#0094FF' : '#4B4F70'}`,
+                    background: activeWatchlistTab === tab.id ? '#0A3F73' : '#252845',
+                    borderRadius: 4,
+                    padding: '6px 20px',
+                    fontSize: 12,
+                    fontWeight: 400,
+                    lineHeight: '18px',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    transition: 'background-color 120ms ease, border-color 120ms ease',
+                  }}
+                >
+                  {tab.label}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        )}
 
         <Box
           style={{
-            padding: '20px 16px',
+            padding: 0,
             flex: 1,
             minHeight: 0,
             minWidth: 0,
@@ -784,67 +980,39 @@ const SecondaryNav = ({
             overflowX: 'hidden',
           }}
         >
-          {activeTopTab === 'my-watchlist' &&
-            !isVersion2 &&
-            !showVersion1Onboarding && (
-            <Box
-              className="no-scrollbar"
-              style={{
-                marginBottom: 16,
-                overflowX: 'auto',
-                overflowY: 'hidden',
-              }}
-            >
-              <Box
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  alignItems: 'center',
-                  width: 'max-content',
-                  paddingBottom: 2,
-                }}
-              >
-                {WATCHLIST_SUB_TABS.map((tab) => (
-                  <Box
-                    key={tab.id}
-                    onClick={() => setActiveWatchlistTab(tab.id)}
-                    style={{
-                      cursor: 'pointer',
-                      color: '#FFFFFF',
-                      border: `1px solid ${activeWatchlistTab === tab.id ? '#0094FF' : '#4B4F70'}`,
-                      background:
-                        activeWatchlistTab === tab.id ? '#0A3F73' : '#252845',
-                      borderRadius: 4,
-                      padding: '6px 20px',
-                      fontSize: 12,
-                      fontWeight: 400,
-                      lineHeight: '18px',
-                      whiteSpace: 'nowrap',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      transition:
-                        'background-color 120ms ease, border-color 120ms ease',
-                    }}
-                  >
-                    {tab.label}
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-          )}
-
           {isVersion2 ? (
             activeTopTab === 'my-watchlist' && version2Mode === 'ships' ? (
               <Box
                 style={{
-                  padding: '2px 4px 0',
+                  padding: 20,
                   display: 'flex',
                   flexDirection: 'column',
                   height: '100%',
                 }}
               >
+                {version2Mode === 'alerts' && (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 14,
+                    }}
+                  >
+                    {[0, 1, 2, 3, 4].map((step) => (
+                      <Box
+                        key={`alerts-step-${step}`}
+                        style={{
+                          flex: 1,
+                          height: 14,
+                          borderRadius: 999,
+                          background: step === 0 ? '#006CD7' : '#0B4D73',
+                          opacity: step === 0 ? 1 : 0.45,
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
                 <Text
                   style={{
                     color: '#FFFFFF',
@@ -879,7 +1047,9 @@ const SecondaryNav = ({
                   <Box
                     component="input"
                     value={version2ShipQuery}
-                    onChange={(event) => setVersion2ShipQuery(event.currentTarget.value)}
+                    onChange={(event) =>
+                      setVersion2ShipQuery(event.currentTarget.value)
+                    }
                     onKeyDown={(event) => {
                       if (event.key !== 'Enter') return
                       event.preventDefault()
@@ -891,7 +1061,9 @@ const SecondaryNav = ({
                         window.clearTimeout(version2SearchTimerRef.current)
                       }
                       version2SearchTimerRef.current = window.setTimeout(() => {
-                        setVersion2SearchResults(buildVersion2SearchResults(submittedQuery))
+                        setVersion2SearchResults(
+                          buildVersion2SearchResults(submittedQuery)
+                        )
                         setVersion2IsSearching(false)
                         setVersion2ShipQuery('')
                         version2SearchTimerRef.current = null
@@ -942,7 +1114,9 @@ const SecondaryNav = ({
                         }}
                       >
                         {version2DisplaySearchRows.map((ship) => {
-                          const isSelected = version2PendingShipIds.has(ship.optionId)
+                          const isSelected = version2PendingShipIds.has(
+                            ship.optionId
+                          )
                           return (
                             <Box
                               key={ship.optionId}
@@ -981,7 +1155,8 @@ const SecondaryNav = ({
                                     textOverflow: 'ellipsis',
                                   }}
                                 >
-                                  IMO: {ship.imo || 'No info'} • MMSI: {ship.mmsi || 'No info'}
+                                  IMO: {ship.imo || 'No info'} • MMSI:{' '}
+                                  {ship.mmsi || 'No info'}
                                 </Text>
                               </Box>
                               <Box
@@ -997,7 +1172,9 @@ const SecondaryNav = ({
                                   WebkitAppearance: 'none',
                                   borderRadius: 3,
                                   border: `1px solid ${isSelected ? '#006CD7' : '#424750'}`,
-                                  background: isSelected ? '#006CD7' : '#0A0E19',
+                                  background: isSelected
+                                    ? '#006CD7'
+                                    : '#0A0E19',
                                   backgroundImage: isSelected
                                     ? 'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27 fill=%27none%27%3E%3Cpath d=%27M3.5 8.2L6.6 11.1L12.5 4.9%27 stroke=%27%23FFFFFF%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E")'
                                     : 'none',
@@ -1064,13 +1241,15 @@ const SecondaryNav = ({
                       height: 32,
                       borderRadius: 4,
                       border: 'none',
-                      background: version2PendingCount > 0 ? '#006CD7' : '#3A3E5E',
+                      background:
+                        version2PendingCount > 0 ? '#006CD7' : '#3A3E5E',
                       color: '#FFFFFF',
                       fontSize: 12,
                       fontWeight: 600,
                       lineHeight: '14px',
                       padding: '0 12px',
-                      cursor: version2PendingCount > 0 ? 'pointer' : 'not-allowed',
+                      cursor:
+                        version2PendingCount > 0 ? 'pointer' : 'not-allowed',
                       opacity: version2PendingCount > 0 ? 1 : 0.8,
                     }}
                   >
@@ -1079,11 +1258,390 @@ const SecondaryNav = ({
                 </Box>
               </Box>
             ) : activeTopTab === 'my-watchlist' &&
+              (version2Mode === 'ports' ||
+                version2Mode === 'polygons' ||
+                version2Mode === 'alerts') ? (
+              <Box
+                style={{
+                  padding: 20,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: 16,
+                    fontWeight: 600,
+                    lineHeight: '20px',
+                    marginBottom: 4,
+                  }}
+                >
+                  {version2Mode === 'polygons'
+                    ? 'Add Polygon'
+                    : version2Mode === 'alerts'
+                      ? 'Add Alerts'
+                      : 'Add Ports'}
+                </Text>
+                <Text
+                  style={{
+                    color: '#8D93A8',
+                    fontSize: 12,
+                    lineHeight: '18px',
+                    marginBottom: 12,
+                  }}
+                >
+                  {version2Mode === 'alerts'
+                    ? 'Select the ship(s) you’d like to be alerted with.'
+                    : version2Mode === 'polygons'
+                    ? 'Create a ploygon by:'
+                    : 'Search by port name, Locode, or country and choose ports to watch.'}
+                </Text>
+                {version2Mode === 'alerts' && (
+                  <Box style={{ marginBottom: 12 }}>
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        lineHeight: '18px',
+                        marginBottom: 6,
+                      }}
+                    >
+                      Search For Ship(s)
+                    </Text>
+                    <Box
+                      component="select"
+                      value={version2AlertShipSearchValue}
+                      onChange={(event) =>
+                        setVersion2AlertShipSearchValue(event.currentTarget.value)
+                      }
+                      style={{
+                        width: '100%',
+                        height: 34,
+                        border: '1px solid #424750',
+                        borderRadius: 6,
+                        background: '#0A0E19',
+                        color: version2AlertShipSearchValue ? '#FFFFFF' : '#8D93A8',
+                        fontSize: 12,
+                        padding: '0 30px 0 10px',
+                        outline: 'none',
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none',
+                        backgroundImage:
+                          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238D93A8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 12px center',
+                      }}
+                    >
+                      <option value="">Search by name, SynMax ship ID, IMO, or MMSI</option>
+                      {myShipRows.map((ship) => (
+                        <option key={`alert-search-${ship.id}`} value={ship.id}>
+                          {ship.name || 'Unknown ship'}
+                        </option>
+                      ))}
+                      <option value="any-ship">Any ship</option>
+                    </Box>
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        lineHeight: '18px',
+                        marginTop: 12,
+                        marginBottom: 6,
+                      }}
+                    >
+                      Import From My Ships
+                    </Text>
+                    <Box
+                      component="select"
+                      value={version2AlertMyShipValue}
+                      onChange={(event) =>
+                        setVersion2AlertMyShipValue(event.currentTarget.value)
+                      }
+                      style={{
+                        width: '100%',
+                        height: 34,
+                        border: '1px solid #424750',
+                        borderRadius: 6,
+                        background: '#0A0E19',
+                        color: version2AlertMyShipValue ? '#FFFFFF' : '#8D93A8',
+                        fontSize: 12,
+                        padding: '0 30px 0 10px',
+                        outline: 'none',
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none',
+                        backgroundImage:
+                          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238D93A8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 12px center',
+                      }}
+                    >
+                      <option value="">Select</option>
+                      {version2MyWatchlistShipRows.map((ship) => (
+                        <option key={`alert-import-${ship.id}`} value={ship.id}>
+                          {ship.name || 'Unknown ship'}
+                        </option>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+                {version2Mode === 'polygons' && (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      gap: 6,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {[
+                      { label: 'Draw A Polygon', icon: <PolygonIcon /> },
+                      { label: 'Draw A Rectangle', icon: <RectangleIcon /> },
+                      { label: 'Draw A Circle', icon: <CircleIcon /> },
+                    ].map((item) => (
+                      <ShipPathPanelButton
+                        key={item.label}
+                        label={item.label}
+                        icon={item.icon}
+                        fullWidth
+                        singleLineLabel
+                      />
+                    ))}
+                  </Box>
+                )}
+                {version2Mode === 'ports' && (
+                  <Box
+                    style={{
+                      border: '1px solid #424750',
+                      borderRadius: 6,
+                      background: '#0A0E19',
+                      marginBottom: 10,
+                      padding: '0 10px',
+                      position: 'relative',
+                    }}
+                  >
+                    <Box
+                      component="input"
+                      value={version2PortQuery}
+                      onChange={(event) =>
+                        setVersion2PortQuery(event.currentTarget.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return
+                        event.preventDefault()
+                        if (!hasVersion2PortQuery || version2IsPortSearching) return
+                        const submittedQuery = cleanedVersion2PortQuery
+                        setVersion2IsPortSearching(true)
+                        setVersion2PortSearchResults([])
+                        if (version2SearchTimerRef.current) {
+                          window.clearTimeout(version2SearchTimerRef.current)
+                        }
+                        version2SearchTimerRef.current = window.setTimeout(() => {
+                          setVersion2PortSearchResults(
+                            buildVersion2PortSearchResults(submittedQuery)
+                          )
+                          setVersion2IsPortSearching(false)
+                          setVersion2PortQuery('')
+                          version2SearchTimerRef.current = null
+                        }, 2000)
+                      }}
+                      placeholder="Search ports, Locode, or country"
+                      style={{
+                        width: '100%',
+                        height: 34,
+                        border: 'none',
+                        outline: 'none',
+                        background: 'transparent',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        paddingRight: 26,
+                      }}
+                    />
+                    {version2IsPortSearching && (
+                      <Box
+                        style={{
+                          position: 'absolute',
+                          right: 10,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Loader size={14} color="#8D93A8" />
+                      </Box>
+                    )}
+                  </Box>
+                )}
+                <Box style={{ flex: 1, minHeight: 0 }}>
+                  {version2Mode === 'ports' &&
+                    version2DisplayPortSearchRows.length > 0 && (
+                    <Box
+                      style={{
+                        height: '100%',
+                        minHeight: 0,
+                        overflowY: 'auto',
+                        paddingRight: 2,
+                      }}
+                    >
+                      <Box
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 6,
+                        }}
+                      >
+                        {version2DisplayPortSearchRows.map((port) => {
+                          const isSelected = version2PendingPortIds.has(port.optionId)
+                          return (
+                            <Box
+                              key={port.optionId}
+                              style={{
+                                border: `1px solid ${isSelected ? '#006CD7' : '#3C4164'}`,
+                                borderRadius: 6,
+                                background: isSelected ? '#203B5A' : '#252845',
+                                padding: '8px 10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                              }}
+                            >
+                              <Box style={{ minWidth: 0 }}>
+                                <Text
+                                  style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    lineHeight: '16px',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {port.name || 'Unknown port'}
+                                </Text>
+                                <Text
+                                  style={{
+                                    color: '#A0A6BC',
+                                    fontSize: 11,
+                                    lineHeight: '16px',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  Locode: {port.locode || 'No info'} •{' '}
+                                  {port.country || 'No info'}
+                                </Text>
+                              </Box>
+                              <Box
+                                component="input"
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleVersion2PortToggle(port)}
+                                style={{
+                                  width: 16,
+                                  height: 16,
+                                  margin: 0,
+                                  appearance: 'none',
+                                  WebkitAppearance: 'none',
+                                  borderRadius: 3,
+                                  border: `1px solid ${isSelected ? '#006CD7' : '#424750'}`,
+                                  background: isSelected ? '#006CD7' : '#0A0E19',
+                                  backgroundImage: isSelected
+                                    ? 'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27 fill=%27none%27%3E%3Cpath d=%27M3.5 8.2L6.6 11.1L12.5 4.9%27 stroke=%27%23FFFFFF%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E")'
+                                    : 'none',
+                                  backgroundRepeat: 'no-repeat',
+                                  backgroundPosition: 'center',
+                                  backgroundSize: '12px 12px',
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                }}
+                              />
+                            </Box>
+                          )
+                        })}
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+                <Box
+                  style={{
+                    marginTop: 'auto',
+                    paddingTop: 12,
+                    display: 'flex',
+                    justifyContent: 'flex-start',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <Box
+                    component="button"
+                    type="button"
+                    onClick={() => {
+                      if (version2SearchTimerRef.current) {
+                        window.clearTimeout(version2SearchTimerRef.current)
+                        version2SearchTimerRef.current = null
+                      }
+                      setVersion2IsPortSearching(false)
+                      setVersion2PortQuery('')
+                      setVersion2PortSearchResults([])
+                      setVersion2PendingPorts([])
+                      setVersion2AlertShipSearchValue('')
+                      setVersion2AlertMyShipValue('')
+                      setVersion2Mode('add-options')
+                    }}
+                    style={{
+                      height: 32,
+                      borderRadius: 4,
+                      border: '1px solid #FFFFFF',
+                      background: 'transparent',
+                      color: '#FFFFFF',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      lineHeight: '14px',
+                      padding: '0 12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Back
+                  </Box>
+                  <Box
+                    component="button"
+                    type="button"
+                    onClick={handleVersion2SubmitPorts}
+                    disabled={version2PendingPortCount === 0}
+                    style={{
+                      marginLeft: 'auto',
+                      height: 32,
+                      borderRadius: 4,
+                      border: 'none',
+                      background:
+                        version2PendingPortCount > 0 ? '#006CD7' : '#3A3E5E',
+                      color: '#FFFFFF',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      lineHeight: '14px',
+                      padding: '0 12px',
+                      cursor:
+                        version2PendingPortCount > 0 ? 'pointer' : 'not-allowed',
+                      opacity: version2PendingPortCount > 0 ? 1 : 0.8,
+                    }}
+                  >
+                    {version2PortSubmitLabel}
+                  </Box>
+                </Box>
+              </Box>
+            ) : activeTopTab === 'my-watchlist' &&
               version2Mode === 'add-options' ? (
               <Box
                 style={{
-                  margin: '-20px -16px 0 -16px',
-                  padding: '22px 28px 30px',
+                  padding: 20,
                 }}
               >
                 <Text
@@ -1185,7 +1743,38 @@ const SecondaryNav = ({
                     )
                   })}
                 </Box>
-                <Box style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+                <Box
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: 14,
+                    gap: 8,
+                  }}
+                >
+                  <Box
+                    component="button"
+                    type="button"
+                    onClick={() => {
+                      setVersion2SelectedFlow(null)
+                      setVersion2HoveredFlow(null)
+                      setVersion2Mode('empty')
+                    }}
+                    style={{
+                      height: 32,
+                      borderRadius: 4,
+                      border: '1px solid #FFFFFF',
+                      background: 'transparent',
+                      color: '#FFFFFF',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      lineHeight: '14px',
+                      padding: '0 12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Back
+                  </Box>
                   <Box
                     component="button"
                     type="button"
@@ -1214,8 +1803,15 @@ const SecondaryNav = ({
                 </Box>
               </Box>
             ) : activeTopTab === 'my-watchlist' &&
-              version2Mode === 'ships-list' ? (
-              <Box style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              (version2Mode === 'ships-list' || version2Mode === 'ports-list') ? (
+              <Box
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                  padding: 20,
+                }}
+              >
                 <Box
                   style={{
                     display: 'flex',
@@ -1224,7 +1820,9 @@ const SecondaryNav = ({
                     gap: 10,
                   }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}>
+                  <Text
+                    style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                  >
                     Ships: {version2MyWatchlistShipRows.length}
                   </Text>
                   <Box
@@ -1233,6 +1831,8 @@ const SecondaryNav = ({
                     onClick={() => {
                       setVersion2ShipQuery('')
                       setVersion2PendingShips([])
+                      setVersion2PortQuery('')
+                      setVersion2PendingPorts([])
                       setVersion2SelectedFlow(null)
                       setVersion2HoveredFlow(null)
                       setVersion2Mode('add-options')
@@ -1262,12 +1862,19 @@ const SecondaryNav = ({
                   columns={getColumnsByTab('ships')}
                   emptyMessage="No ships in watchlist yet."
                 />
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}>
+                  Ports: {version2MyWatchlistPortRows.length}
+                </Text>
+                <DataTable
+                  rows={version2MyWatchlistPortRows}
+                  columns={getColumnsByTab('ports')}
+                  emptyMessage="No ports in watchlist yet."
+                />
               </Box>
             ) : (
               <Box
                 style={{
-                  margin: '-20px -16px 0 -16px',
-                  padding: '30px 32px',
+                  padding: 20,
                 }}
               >
                 <Text
@@ -1325,13 +1932,173 @@ const SecondaryNav = ({
                     Add to Watchlist
                   </Box>
                 )}
+                {activeTopTab === 'my-watchlist' && (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginTop: 12,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Box
+                      style={{ flex: 1, height: 1, background: '#3D4264' }}
+                    />
+                    <Text
+                      style={{
+                        color: '#8D93A8',
+                        fontSize: 11,
+                        lineHeight: '12px',
+                      }}
+                    >
+                      or
+                    </Text>
+                    <Box
+                      style={{ flex: 1, height: 1, background: '#3D4264' }}
+                    />
+                  </Box>
+                )}
+                {activeTopTab === 'my-watchlist' && (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <Star01
+                      style={{ color: '#FFFFFF', width: 18, height: 18 }}
+                    />
+                    <Text
+                      style={{
+                        color: '#8D93A8',
+                        fontSize: 20,
+                        lineHeight: '20px',
+                      }}
+                    >
+                      ----&gt;
+                    </Text>
+                    <Star01
+                      style={{
+                        color: '#F7C948',
+                        fill: '#F7C948',
+                        width: 18,
+                        height: 18,
+                      }}
+                    />
+                  </Box>
+                )}
+                {activeTopTab === 'my-watchlist' && (
+                  <Text
+                    style={{
+                      color: '#A0A6BC',
+                      fontSize: 11,
+                      lineHeight: '16px',
+                    }}
+                  >
+                    Quick add: use the star in ship or port details.
+                  </Text>
+                )}
+                {activeTopTab === 'my-watchlist' && (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      marginTop: 14,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Box
+                      style={{ flex: 1, height: 1, background: '#3D4264' }}
+                    />
+                    <Text
+                      style={{
+                        color: '#8D93A8',
+                        fontSize: 11,
+                        lineHeight: '12px',
+                      }}
+                    >
+                      or
+                    </Text>
+                    <Box
+                      style={{ flex: 1, height: 1, background: '#3D4264' }}
+                    />
+                  </Box>
+                )}
+                {activeTopTab === 'my-watchlist' && (
+                  <Box>
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 13,
+                        lineHeight: '18px',
+                        marginBottom: 6,
+                        fontWeight: 500,
+                      }}
+                    >
+                      Add manually or upload
+                    </Text>
+                    <Text
+                      style={{
+                        color: '#8D93A8',
+                        fontSize: 12,
+                        lineHeight: '16px',
+                        marginBottom: 6,
+                      }}
+                    >
+                      Or upload a file to add ships and ports.
+                    </Text>
+                    <Text
+                      style={{
+                        color: '#8D93A8',
+                        fontSize: 12,
+                        lineHeight: '16px',
+                        marginBottom: 10,
+                      }}
+                    >
+                      Accepted file types: .csv, .xls, .xlsx
+                    </Text>
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={() => version2UploadInputRef.current?.click()}
+                      style={{
+                        height: 34,
+                        borderRadius: 6,
+                        border: '1px solid #FFFFFF',
+                        background: 'transparent',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        padding: '0 16px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Upload File
+                    </Box>
+                    {version2UploadedFileName && (
+                      <Text
+                        style={{
+                          color: '#A0A6BC',
+                          fontSize: 11,
+                          lineHeight: '16px',
+                          marginTop: 6,
+                        }}
+                      >
+                        Selected: {version2UploadedFileName}
+                      </Text>
+                    )}
+                  </Box>
+                )}
               </Box>
             )
           ) : showVersion1Onboarding ? (
             <Box
               style={{
-                margin: '-20px -16px 0 -16px',
-                padding: '30px 32px',
+                padding: 20,
               }}
             >
               <Text
@@ -1354,9 +2121,9 @@ const SecondaryNav = ({
                   marginBottom: 14,
                 }}
               >
-                Add ships and ports to monitor activity in one place.
-                Quick-add ships and ports with the star in detail panels. Events
-                are generated automatically from what you monitor.
+                Add ships and ports to monitor activity in one place. Quick-add
+                ships and ports with the star in detail panels. Events are
+                generated automatically from what you monitor.
               </Text>
 
               <Box
@@ -1368,7 +2135,9 @@ const SecondaryNav = ({
                 }}
               >
                 <Star01 style={{ color: '#FFFFFF', width: 20, height: 20 }} />
-                <Text style={{ color: '#8D93A8', fontSize: 16, lineHeight: '16px' }}>
+                <Text
+                  style={{ color: '#8D93A8', fontSize: 16, lineHeight: '16px' }}
+                >
                   ----&gt;
                 </Text>
                 <Star01
@@ -1454,7 +2223,14 @@ const SecondaryNav = ({
           ) : isGroupedVersion &&
             activeTopTab === 'my-watchlist' &&
             activeWatchlistTab === 'all' ? (
-            <Box style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <Box
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 18,
+                padding: 20,
+              }}
+            >
               {watchlistSections.map((section) => (
                 <Box key={section.id}>
                   <Text
@@ -1476,7 +2252,14 @@ const SecondaryNav = ({
               ))}
             </Box>
           ) : isGroupedVersion && activeTopTab === 'recently-viewed' ? (
-            <Box style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <Box
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 18,
+                padding: 20,
+              }}
+            >
               {recentlyViewedSections.map((section) => (
                 <Box key={`recent-${section.id}`}>
                   <Text
@@ -1498,15 +2281,17 @@ const SecondaryNav = ({
               ))}
             </Box>
           ) : (
-            <DataTable
-              rows={activeRows}
-              columns={columns}
-              emptyMessage={
-                activeTopTab === 'recently-viewed'
-                  ? 'No recently viewed entities yet. Open ships, ports, polygons, or events to populate this list.'
-                  : 'Nothing in this watchlist segment yet.'
-              }
-            />
+            <Box style={{ padding: 20 }}>
+              <DataTable
+                rows={activeRows}
+                columns={columns}
+                emptyMessage={
+                  activeTopTab === 'recently-viewed'
+                    ? 'No recently viewed entities yet. Open ships, ports, polygons, or events to populate this list.'
+                    : 'Nothing in this watchlist segment yet.'
+                }
+              />
+            </Box>
           )}
         </Box>
       </Box>

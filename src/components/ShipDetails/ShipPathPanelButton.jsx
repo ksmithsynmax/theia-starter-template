@@ -1,7 +1,15 @@
 import { useState } from 'react'
 import { Box, Text } from '@mantine/core'
 
-const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick }) => {
+const ShipPathPanelButton = ({
+  icon,
+  label,
+  disabled,
+  active = false,
+  onClick,
+  fullWidth = false,
+  singleLineLabel = false,
+}) => {
   const [hovered, setHovered] = useState(false)
   const [pressed, setPressed] = useState(false)
   const isHighlighted = hovered || active
@@ -27,7 +35,7 @@ const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick })
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 102,
+        width: fullWidth ? '100%' : 102,
         height: 72,
         border: active ? '1px solid #8ED2FF' : '1px solid transparent',
         borderRadius: 4,
@@ -91,12 +99,14 @@ const ShipPathPanelButton = ({ icon, label, disabled, active = false, onClick })
             fontWeight: active ? 700 : 500,
             textAlign: 'center',
             lineHeight: '12px',
-            minHeight: 24,
-            maxWidth: 84,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
+            minHeight: singleLineLabel ? 0 : 24,
+            maxWidth: singleLineLabel ? '100%' : 84,
+            display: singleLineLabel ? 'block' : '-webkit-box',
+            WebkitLineClamp: singleLineLabel ? 'unset' : 2,
+            WebkitBoxOrient: singleLineLabel ? 'unset' : 'vertical',
+            whiteSpace: singleLineLabel ? 'nowrap' : 'normal',
             overflow: 'hidden',
+            textOverflow: singleLineLabel ? 'ellipsis' : 'clip',
           }}
         >
           {label}

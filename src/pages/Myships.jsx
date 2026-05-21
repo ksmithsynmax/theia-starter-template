@@ -47,6 +47,11 @@ const baseDetailTabs = [
   'Ship Information',
 ]
 const tiffaniDetailTabs = [...baseDetailTabs, 'Sanctions Details']
+const SANCTION_TITLE_VARIANT_OPTIONS = [
+  { value: 'info', label: 'Version 1' },
+  { value: 'profile', label: 'Version 2' },
+  { value: 'records', label: 'Version 3' },
+]
 const GO_TO_DATE_WARNING_PREF_KEY = 'myships.skipGoToDateWarning'
 const GO_TO_DATE_CONFIRM_DELAY_MS = 420
 const GO_TO_DATE_MODAL_TRANSITION_MS = 220
@@ -284,6 +289,7 @@ function Myships() {
     useState(false)
   const [satTimelineEventTypeMenuOpened, setSatTimelineEventTypeMenuOpened] =
     useState(false)
+  const [sanctionTitleVariant, setSanctionTitleVariant] = useState('info')
   const cardRefs = useRef({})
   const satCardRefs = useRef({})
   const scrollContainerRef = useRef(null)
@@ -3958,7 +3964,49 @@ function Myships() {
                 )}
                 {isTiffaniShipTab && activeDetailTab === 3 && (
                   <Box style={{ padding: '8px 20px 20px 20px' }}>
-                    <SanctionDetailsVersionB />
+                    <Box
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: 4,
+                        marginBottom: 10,
+                        borderRadius: 6,
+                        border: '1px solid #3D456B',
+                        background: '#24263C',
+                      }}
+                    >
+                      {SANCTION_TITLE_VARIANT_OPTIONS.map((option) => {
+                        const isActive = sanctionTitleVariant === option.value
+                        return (
+                          <Box
+                            key={option.value}
+                            onClick={() => setSanctionTitleVariant(option.value)}
+                            style={{
+                              cursor: 'pointer',
+                              borderRadius: 4,
+                              border: isActive
+                                ? '1px solid #0094FF'
+                                : '1px solid transparent',
+                              background: isActive ? '#273252' : 'transparent',
+                              padding: '4px 10px',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: isActive ? '#FFFFFF' : '#8D95AA',
+                                fontSize: 11,
+                                fontWeight: isActive ? 600 : 500,
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {option.label}
+                            </Text>
+                          </Box>
+                        )
+                      })}
+                    </Box>
+                    <SanctionDetailsVersionB titleVariant={sanctionTitleVariant} />
                   </Box>
                 )}
               </Box>
@@ -4219,5 +4267,6 @@ function Myships() {
 }
 
 export default Myships
+
 
 

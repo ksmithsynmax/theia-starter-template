@@ -1,12 +1,23 @@
-import { Box, Text, Title } from '@mantine/core'
-
+import { Box, Text } from '@mantine/core'
 
 function Polygons() {
-  return(
-        <Box style={{ padding: "8px 12px" }}>
-
-        <Title order={4} style={{ color: "white" }}>Polygons</Title></Box>
-
+  return (
+    <Box style={{ padding: '20px' }}>
+      <Text
+        style={{
+          color: '#FFFFFF',
+          fontSize: 36,
+          fontWeight: 600,
+          lineHeight: 1.15,
+          marginBottom: 8,
+        }}
+      >
+        Polygons
+      </Text>
+      <Text style={{ color: '#8D93A8', fontSize: 14, lineHeight: '20px' }}>
+        Polygon tools are temporarily hidden.
+      </Text>
+    </Box>
   )
 }
 

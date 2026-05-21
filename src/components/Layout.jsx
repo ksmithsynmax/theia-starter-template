@@ -14,7 +14,7 @@ import SecondaryNav from './SecondaryNav'
 
 function Layout() {
   const TIMELINE_PANEL_HEIGHT = 172
-  const [watchlistVersion, setWatchlistVersion] = useState('grouped')
+  const [watchlistVersion, setWatchlistVersion] = useState('version2')
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)

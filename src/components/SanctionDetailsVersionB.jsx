@@ -1,6 +1,5 @@
 import React from 'react'
 import { Box, Text } from '@mantine/core'
-import { ArrowRight, ChevronDown } from '@untitledui/icons'
 
 const DEFAULT_OVERVIEW = {
   vesselOwner: 'HCC Shipmanagement Inc',
@@ -14,14 +13,6 @@ const DEFAULT_BADGE_STYLES = {
   flag: { background: '#393C56', color: '#fff' },
   scrapped: { background: '#F84B4B', color: '#fff' },
   warning: { background: '#393C56', color: '#fff' },
-}
-
-const DEFAULT_COUNTRY_FLAGS = {
-  Tanzania: '🇹🇿',
-  'Sierra Leone': '🇸🇱',
-  Cameroon: '🇨🇲',
-  UK: '🇬🇧',
-  EU: '🇪🇺',
 }
 
 const DEFAULT_EVENTS = [
@@ -108,15 +99,38 @@ const DEFAULT_EVENTS = [
   },
 ]
 
+const formatDateLabel = (dateValue) => {
+  if (!dateValue) return 'No info'
+  const parsedDate = new Date(dateValue)
+  if (Number.isNaN(parsedDate.getTime())) return dateValue
+  return parsedDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+const SECTION_TITLE_VARIANTS = {
+  info: {
+    summary: 'Sanction Info',
+    events: 'Sanction Events',
+  },
+  profile: {
+    summary: 'Sanctions Profile',
+    events: 'Sanctions Timeline',
+  },
+  records: {
+    summary: 'Sanctions Overview',
+    events: 'Sanction Records',
+  },
+}
+
 const SanctionDetailsVersionB = ({
   versionData,
   events,
-  expandedEventId,
-  setExpandedEventId,
   badgeStyles,
-  countryFlags,
+  titleVariant = 'info',
 }) => {
-  const [localExpandedEventId, setLocalExpandedEventId] = React.useState(null)
   const safeVersionData = versionData || {}
   const safeOverview = {
     ...DEFAULT_OVERVIEW,
@@ -124,117 +138,483 @@ const SanctionDetailsVersionB = ({
   }
   const safeEvents =
     Array.isArray(events) && events.length > 0 ? events : DEFAULT_EVENTS
+  const sanctionEvents = safeEvents.filter(
+    (event) => event.eventType === 'sanctions'
+  )
   const safeBadgeStyles = { ...DEFAULT_BADGE_STYLES, ...(badgeStyles || {}) }
-  const safeCountryFlags = { ...DEFAULT_COUNTRY_FLAGS, ...(countryFlags || {}) }
-  const sanctionDates = safeEvents
-    .filter((event) => event.eventType === 'sanctions' && event.effectiveDate)
-    .map((event) => event.effectiveDate)
-  const sanctionDateLabel =
-    safeOverview.sanctionDate || sanctionDates[0] || 'No info'
-  const hasExternalExpandedState = typeof setExpandedEventId === 'function'
-  const resolvedExpandedEventId = hasExternalExpandedState
-    ? expandedEventId
-    : localExpandedEventId
-  const onToggleExpanded = (nextEventId) => {
-    if (hasExternalExpandedState) {
-      setExpandedEventId(nextEventId)
-      return
-    }
-    setLocalExpandedEventId(nextEventId)
+  const providerProgramMap = {
+    UK: 'Russia Sanctions 2019',
+    EU: 'Sanctions',
+  }
+  const providerAuthorityMap = {
+    UK: 'UK OFSI',
+    EU: 'EU Council',
+  }
+  const providerNoticeMap = {
+    UK: 'https://www.gov.uk/government/publications/the-russia-sanctions-regime',
+    EU: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1485',
+  }
+  const summaryPrograms = sanctionEvents
+    .map((event) => event.chips || [])
+    .flat()
+    .filter((chip) => chip.tone === 'provider' && chip.label)
+    .reduce((acc, chip) => {
+      if (acc.some((item) => item.provider === chip.label)) return acc
+      return [
+        ...acc,
+        {
+          provider: chip.label,
+          program: providerProgramMap[chip.label] || 'Sanctions',
+        },
+      ]
+    }, [])
+  const resolvedTitleVariant =
+    SECTION_TITLE_VARIANTS[titleVariant] || SECTION_TITLE_VARIANTS.info
+  const isProfileVariant = titleVariant === 'profile'
+  const isRecordsVariant = titleVariant === 'records'
+
+  const renderEventBody = (event) => {
+    const providerChips = (event.chips || []).filter(
+      (chip) => chip.tone === 'provider'
+    )
+
+    return (
+      <Box style={{ minWidth: 0 }}>
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 12,
+            marginBottom: 6,
+          }}
+        >
+          <Box
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              flexWrap: 'wrap',
+              minWidth: 0,
+            }}
+          >
+            <Text
+              style={{
+                color: '#8D95AA',
+                fontSize: 12,
+                lineHeight: '18px',
+                fontWeight: 500,
+              }}
+            >
+              {formatDateLabel(event.effectiveDate)}
+            </Text>
+            {providerChips.map((chip) => {
+              return (
+                <Box
+                  key={`${event.id}-${chip.label}`}
+                  style={{
+                    background: safeBadgeStyles[chip.tone]?.background || '#2B3350',
+                    borderRadius: 4,
+                    padding: '4px 8px',
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: safeBadgeStyles[chip.tone]?.color || '#fff',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      lineHeight: '14px',
+                    }}
+                  >
+                    {chip.label}
+                  </Text>
+                </Box>
+              )
+            })}
+          </Box>
+          {event.code && (
+            <Text
+              style={{
+                color: '#8D95AA',
+                fontSize: 13,
+                lineHeight: '18px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {event.code}
+            </Text>
+          )}
+        </Box>
+        <Text
+          style={{
+            color: '#FFFFFF',
+            fontSize: 15,
+            fontWeight: 600,
+            lineHeight: '21px',
+            marginBottom: 0,
+            minWidth: 0,
+          }}
+        >
+          {event.headline}
+        </Text>
+      </Box>
+    )
   }
 
-  return (
-    <Box
-      style={{
-        border: '1px solid #3D456B',
-        borderRadius: 4,
-        background: '#24263C',
-        padding: 12,
-      }}
-    >
+  const renderProfileEventCard = (event) => {
+    const providerChips = (event.chips || []).filter(
+      (chip) => chip.tone === 'provider'
+    )
+    const primaryProvider = providerChips[0]?.label
+    const authorityLabel =
+      event.authority ||
+      (primaryProvider ? providerAuthorityMap[primaryProvider] : null) ||
+      'Unknown authority'
+    const verifiedLabel = formatDateLabel(event.lastVerified || event.effectiveDate)
+    const noticeUrl =
+      event.officialNoticeUrl ||
+      (primaryProvider ? providerNoticeMap[primaryProvider] : null)
+
+    return (
+      <Box
+        key={event.id}
+        style={{
+          background: '#21243A',
+          border: '1px solid #3A4163',
+          borderRadius: 4,
+          padding: 16,
+        }}
+      >
+        {renderEventBody(event)}
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginTop: 8,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 500 }}>
+            {authorityLabel}
+          </Text>
+          <Text style={{ color: '#8D95AA', fontSize: 11 }}>•</Text>
+          <Text style={{ color: '#8D95AA', fontSize: 12 }}>
+            Verified {verifiedLabel}
+          </Text>
+          {noticeUrl && (
+            <>
+              <Text style={{ color: '#8D95AA', fontSize: 11 }}>•</Text>
+              <Text
+                component="a"
+                href={noticeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#0094FF',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                Official notice
+              </Text>
+            </>
+          )}
+        </Box>
+      </Box>
+    )
+  }
+
+  if (isProfileVariant) {
+    return (
       <Box
         style={{
-          marginBottom: 12,
+          border: '1px solid #3D456B',
+          borderRadius: 4,
+          background: '#24263C',
+          padding: 16,
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          gap: 12,
         }}
       >
         <Box>
-          <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
-            Date of sanction
-          </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
-            {sanctionDateLabel}
-          </Text>
-        </Box>
-        <Box>
-          <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
+          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 6 }}>
             Program(s)
           </Text>
           <Box
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              columnGap: 8,
+              rowGap: 6,
               flexWrap: 'wrap',
             }}
           >
-            <Box
-              style={{
-                background: '#393C56',
-                borderRadius: 4,
-                padding: '4px 8px',
-              }}
-            >
-              <Text
-                style={{
-                  color: '#FFFFFF',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                }}
-              >
-                UK
+            {summaryPrograms.length > 0 ? (
+              summaryPrograms.map((program, index) => (
+                <Box
+                  key={`${program.provider}-${program.program}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginRight: index < summaryPrograms.length - 1 ? 10 : 0,
+                  }}
+                >
+                  <Box
+                    style={{
+                      background: '#393C56',
+                      borderRadius: 4,
+                      padding: '4px 8px',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        lineHeight: '14px',
+                      }}
+                    >
+                      {program.provider}
+                    </Text>
+                  </Box>
+                  <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
+                    {program.program}
+                  </Text>
+                </Box>
+              ))
+            ) : (
+              <Text style={{ color: '#8D95AA', fontSize: 12 }}>
+                No sanction programs available.
               </Text>
-            </Box>
-            <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
-              Russia Sanctions 2019
-            </Text>
-            <Box
-              style={{
-                width: 1,
-                height: 12,
-                background: '#4B5070',
-                margin: '0 2px',
-              }}
-            />
-            <Box
-              style={{
-                background: '#393C56',
-                borderRadius: 4,
-                padding: '4px 8px',
-              }}
-            >
-              <Text
-                style={{
-                  color: '#FFFFFF',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                }}
-              >
-                EU
-              </Text>
-            </Box>
-            <Text style={{ color: '#FFFFFF', fontSize: 12 }}>Sanctions</Text>
+            )}
           </Box>
         </Box>
         <Box>
-          <Text style={{ color: '#8D95AA', fontSize: 10, marginBottom: 2 }}>
+          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 6 }}>
             Vessel Owner
           </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: '20px' }}>
+            {safeOverview.vesselOwner || 'No info'}
+          </Text>
+        </Box>
+        {sanctionEvents.length > 0 && (
+          <Box
+            style={{
+              borderTop: '1px solid #3D456B',
+              paddingTop: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            {sanctionEvents.map((event) => renderProfileEventCard(event))}
+          </Box>
+        )}
+        {sanctionEvents.length === 0 && (
+          <Text style={{ color: '#8D95AA', fontSize: 12 }}>
+            No sanction events available.
+          </Text>
+        )}
+      </Box>
+    )
+  }
+
+  if (isRecordsVariant) {
+    return (
+      <Box
+        style={{
+          border: '1px solid #3D456B',
+          borderRadius: 4,
+          background: '#24263C',
+          padding: 16,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <Box>
+          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 6 }}>
+            Program(s)
+          </Text>
+          <Box
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              columnGap: 8,
+              rowGap: 6,
+              flexWrap: 'wrap',
+            }}
+          >
+            {summaryPrograms.length > 0 ? (
+              summaryPrograms.map((program, index) => (
+                <Box
+                  key={`${program.provider}-${program.program}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginRight: index < summaryPrograms.length - 1 ? 10 : 0,
+                  }}
+                >
+                  <Box
+                    style={{
+                      background: '#393C56',
+                      borderRadius: 4,
+                      padding: '4px 8px',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        lineHeight: '14px',
+                      }}
+                    >
+                      {program.provider}
+                    </Text>
+                  </Box>
+                  <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
+                    {program.program}
+                  </Text>
+                </Box>
+              ))
+            ) : (
+              <Text style={{ color: '#8D95AA', fontSize: 12 }}>
+                No sanction programs available.
+              </Text>
+            )}
+          </Box>
+        </Box>
+        <Box>
+          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 6 }}>
+            Vessel Owner
+          </Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: '20px' }}>
+            {safeOverview.vesselOwner || 'No info'}
+          </Text>
+        </Box>
+        {sanctionEvents.length > 0 && (
+          <Box
+            style={{
+              borderTop: '1px solid #3D456B',
+              paddingTop: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            {sanctionEvents.map((event, index) => (
+              <Box
+                key={event.id}
+                style={{
+                  paddingTop: index === 0 ? 0 : 12,
+                  borderTop: index === 0 ? 'none' : '1px solid #343B59',
+                }}
+              >
+                {renderEventBody(event)}
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Box>
+    )
+  }
+
+  return (
+    <Box
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      <Text
+        style={{
+          color: '#FFFFFF',
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: '0.4px',
+          textTransform: 'uppercase',
+        }}
+      >
+        {resolvedTitleVariant.summary}
+      </Text>
+      <Box
+        style={{
+          border: '1px solid #3D456B',
+          borderRadius: 4,
+          background: '#24263C',
+          padding: 16,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <Box>
+          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 6 }}>
+            Program(s)
+          </Text>
+          <Box
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              columnGap: 8,
+              rowGap: 6,
+              flexWrap: 'wrap',
+            }}
+          >
+            {summaryPrograms.length > 0 ? (
+              summaryPrograms.map((program, index) => (
+                <Box
+                  key={`${program.provider}-${program.program}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginRight: index < summaryPrograms.length - 1 ? 10 : 0,
+                  }}
+                >
+                  <Box
+                    style={{
+                      background: '#393C56',
+                      borderRadius: 4,
+                      padding: '4px 8px',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        lineHeight: '14px',
+                      }}
+                    >
+                      {program.provider}
+                    </Text>
+                  </Box>
+                  <Text style={{ color: '#FFFFFF', fontSize: 12 }}>
+                    {program.program}
+                  </Text>
+                </Box>
+              ))
+            ) : (
+              <Text style={{ color: '#8D95AA', fontSize: 12 }}>
+                No sanction programs available.
+              </Text>
+            )}
+          </Box>
+        </Box>
+        <Box>
+          <Text style={{ color: '#8D95AA', fontSize: 11, marginBottom: 6 }}>
+            Vessel Owner
+          </Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 14, lineHeight: '20px' }}>
             {safeOverview.vesselOwner || 'No info'}
           </Text>
         </Box>
@@ -244,307 +624,39 @@ const SanctionDetailsVersionB = ({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          position: 'relative',
+          gap: 8,
+          marginTop: 10,
         }}
       >
-        <Box
+        <Text
           style={{
-            position: 'absolute',
-            left: 10,
-            top: 8,
-            bottom: 14,
-            width: 1,
-            backgroundImage:
-              'repeating-linear-gradient(to bottom, #A7ADBF 0 3px, transparent 3px 7px)',
-            display: 'block',
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: '0.4px',
+            textTransform: 'uppercase',
           }}
-        />
-        {safeEvents.map((event, index) => {
-          const isExpanded = resolvedExpandedEventId === event.id
-          const hasDetails = (event.detailFields || []).length > 0
-          const canExpand = hasDetails && event.eventType === 'scrapped'
-          const isFlagChangeEvent = event.eventType === 'flag_change'
-          const hasBeforeAndAfter = Boolean(
-            event.beforeValue && event.afterValue
-          )
-          const hasSingleValue =
-            !hasBeforeAndAfter && Boolean(event.afterValue || event.beforeValue)
-          const hideDuplicateChangeHeadline = [
-            'mmsi_change',
-            'name_change',
-            'flag_change',
-          ].includes(event.eventType)
-
-          return (
-            <Box
-              key={event.id}
-              style={{
-                display: 'flex',
-                gap: 14,
-                paddingBottom: index < safeEvents.length - 1 ? 10 : 0,
-              }}
-            >
-              <Box
-                style={{
-                  width: 22,
-                  flexShrink: 0,
-                  position: 'relative',
-                }}
-              >
-                <Box
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 3,
-                    background: '#FFFFFF',
-                    outline: '2px solid #24263c',
-                    position: 'absolute',
-                    left: 5,
-                    top: 5,
-                    flexShrink: 0,
-                  }}
-                />
-              </Box>
-              <Box
-                style={{
-                  flex: 1,
-                  paddingBottom: 10,
-                  background: 'transparent',
-                  border: 'none',
-                  borderRadius: 0,
-                }}
-              >
-                <Box>
-                  <Box style={{ minWidth: 0 }}>
-                    <Box
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        marginBottom: 6,
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: '#8D95AA',
-                          fontSize: 14,
-                          lineHeight: '22px',
-                        }}
-                      >
-                        {event.effectiveDate}
-                      </Text>
-                      {event.chips?.map((chip) => {
-                        const labelOverride =
-                          chip.tone === 'name'
-                            ? 'Name Change'
-                            : chip.tone === 'mmsi'
-                              ? 'MMSI Change'
-                              : chip.tone === 'flag'
-                                ? 'Flag Change'
-                                : chip.label
-
-                        return (
-                          <Box
-                            key={`${event.id}-${chip.label}`}
-                            style={{
-                              background:
-                                safeBadgeStyles[chip.tone]?.background ||
-                                '#2B3350',
-                              borderRadius: 4,
-                              padding: '4px 8px',
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color:
-                                  safeBadgeStyles[chip.tone]?.color || '#fff',
-                                fontSize: 11,
-                                fontWeight: 700,
-                                lineHeight: 1.2,
-                              }}
-                            >
-                              {labelOverride}
-                            </Text>
-                          </Box>
-                        )
-                      })}
-                    </Box>
-                    {!hideDuplicateChangeHeadline && (
-                      <Text
-                        style={{
-                          color: '#FFFFFF',
-                          fontSize: 16,
-                          fontWeight: 500,
-                          marginBottom: 2,
-                        }}
-                      >
-                        {event.headline}
-                      </Text>
-                    )}
-                    {event.code && (
-                      <Text
-                        style={{
-                          color: '#8D95AA',
-                          fontSize: 14,
-                          marginBottom: 4,
-                        }}
-                      >
-                        {event.code}
-                      </Text>
-                    )}
-                    {hasBeforeAndAfter && (
-                      <Box
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          marginBottom: 6,
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        {isFlagChangeEvent ? (
-                          <Box
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                            }}
-                          >
-                            {safeCountryFlags[event.beforeValue] && (
-                              <Text style={{ fontSize: 16, lineHeight: 1 }}>
-                                {safeCountryFlags[event.beforeValue]}
-                              </Text>
-                            )}
-                            <Text style={{ color: '#fff', fontSize: 16 }}>
-                              {event.beforeValue}
-                            </Text>
-                          </Box>
-                        ) : (
-                          <Text style={{ color: '#fff', fontSize: 16 }}>
-                            {event.beforeValue}
-                          </Text>
-                        )}
-                        <ArrowRight
-                          style={{
-                            width: 18,
-                            height: 16,
-                            color: '#888F9E',
-                          }}
-                        />
-                        {isFlagChangeEvent ? (
-                          <Box
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                            }}
-                          >
-                            {safeCountryFlags[event.afterValue] && (
-                              <Text style={{ fontSize: 16, lineHeight: 1 }}>
-                                {safeCountryFlags[event.afterValue]}
-                              </Text>
-                            )}
-                            <Text style={{ color: '#FFFFFF', fontSize: 16 }}>
-                              {event.afterValue}
-                            </Text>
-                          </Box>
-                        ) : (
-                          <Text style={{ color: '#FFFFFF', fontSize: 16 }}>
-                            {event.afterValue}
-                          </Text>
-                        )}
-                      </Box>
-                    )}
-                    {hasSingleValue && (
-                      <Text
-                        style={{
-                          color: '#FFFFFF',
-                          fontSize: 16,
-                          marginBottom: 6,
-                        }}
-                      >
-                        {event.afterValue || event.beforeValue}
-                      </Text>
-                    )}
-                    {canExpand && (
-                      <Box
-                        onClick={() =>
-                          onToggleExpanded(isExpanded ? null : event.id)
-                        }
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          cursor: 'pointer',
-                          marginBottom: isExpanded ? 8 : 0,
-                          userSelect: 'none',
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: '#0094FF',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            lineHeight: 1.2,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {isExpanded ? 'Hide details' : 'View details'}
-                        </Text>
-                        <ChevronDown
-                          style={{
-                            width: 14,
-                            height: 14,
-                            color: '#0094FF',
-                            transform: isExpanded
-                              ? 'rotate(180deg)'
-                              : 'rotate(0deg)',
-                            transition: 'transform 140ms ease',
-                            flexShrink: 0,
-                          }}
-                        />
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
-                {canExpand && isExpanded && hasDetails && (
-                  <Box
-                    style={{
-                      marginTop: 0,
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      border: '1px solid #393C56',
-                      borderRadius: 4,
-                      background: '#24263C',
-                      padding: 14,
-                      display: 'grid',
-                      gridTemplateColumns: '1fr',
-                      gap: 12,
-                    }}
-                  >
-                    {event.detailFields.map((field) => (
-                      <Box key={`${event.id}-${field.label}`}>
-                        <Text
-                          style={{
-                            color: '#7E8BA6',
-                            fontSize: 11,
-                            marginBottom: 2,
-                          }}
-                        >
-                          {field.label}
-                        </Text>
-                        <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
-                          {field.value}
-                        </Text>
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-              </Box>
-            </Box>
-          )
-        })}
+        >
+          {resolvedTitleVariant.events}
+        </Text>
+        {sanctionEvents.map((event) => (
+          <Box
+            key={event.id}
+            style={{
+              background: '#21243A',
+              border: '1px solid #3A4163',
+              borderRadius: 4,
+              padding: 16,
+            }}
+          >
+            {renderEventBody(event)}
+          </Box>
+        ))}
+        {sanctionEvents.length === 0 && (
+          <Text style={{ color: '#8D95AA', fontSize: 12 }}>
+            No sanction events available.
+          </Text>
+        )}
       </Box>
     </Box>
   )
