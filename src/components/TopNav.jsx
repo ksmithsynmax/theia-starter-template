@@ -211,6 +211,7 @@ const TopNav = ({ watchlistVersion = 'grouped', onWatchlistVersionChange }) => {
           >
             <option value="grouped">Version 1</option>
             <option value="version2">Version 2</option>
+            <option value="version3">Version 3</option>
           </Box>
         </Box>
         <Box component="button" type="button" className="topnav-icon-btn">

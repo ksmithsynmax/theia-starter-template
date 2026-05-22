@@ -258,7 +258,9 @@ const SecondaryNav = ({
 }) => {
   const [activeTopTab, setActiveTopTab] = useState('my-watchlist')
   const [activeWatchlistTab, setActiveWatchlistTab] = useState('all')
-  const [version2Mode, setVersion2Mode] = useState('empty')
+  const [version2Mode, setVersion2Mode] = useState(
+    watchlistVersion === 'version3' ? 'add-options' : 'empty'
+  )
   const [version2SelectedFlow, setVersion2SelectedFlow] = useState(null)
   const [version2HoveredFlow, setVersion2HoveredFlow] = useState(null)
   const [version2ShipQuery, setVersion2ShipQuery] = useState('')
@@ -289,6 +291,9 @@ const SecondaryNav = ({
   const isWatchlistView = currentPath === '/watchlist'
   const isGroupedVersion = watchlistVersion === 'grouped'
   const isVersion2 = watchlistVersion === 'version2'
+  const isVersion3 = watchlistVersion === 'version3'
+  const isVersion2Or3 = isVersion2 || isVersion3
+  const isVersion3UploadHovered = version2HoveredFlow === 'upload-file'
 
   const shipLookup = useMemo(() => {
     const rows = {}
@@ -566,21 +571,21 @@ const SecondaryNav = ({
       : 'Add to Watchlist'
   const canProceedVersion2 = Boolean(version2SelectedFlow)
 
-  const handleVersion2Next = () => {
-    if (!version2SelectedFlow) return
-    if (version2SelectedFlow === 'ships') {
+  const handleVersion2Next = (selectedFlow = version2SelectedFlow) => {
+    if (!selectedFlow) return
+    if (selectedFlow === 'ships') {
       setVersion2Mode('ships')
       return
     }
-    if (version2SelectedFlow === 'ports') {
+    if (selectedFlow === 'ports') {
       setVersion2Mode('ports')
       return
     }
-    if (version2SelectedFlow === 'polygons') {
+    if (selectedFlow === 'polygons') {
       setVersion2Mode('polygons')
       return
     }
-    if (version2SelectedFlow === 'alerts') {
+    if (selectedFlow === 'alerts') {
       setVersion2Mode('alerts')
     }
   }
@@ -783,7 +788,7 @@ const SecondaryNav = ({
   }
 
   useEffect(() => {
-    if (!isVersion2) {
+    if (!isVersion2Or3) {
       setVersion2Mode('empty')
       setVersion2SelectedFlow(null)
       setVersion2HoveredFlow(null)
@@ -802,7 +807,13 @@ const SecondaryNav = ({
         version2SearchTimerRef.current = null
       }
     }
-  }, [isVersion2])
+  }, [isVersion2Or3])
+
+  useEffect(() => {
+    if (isVersion3 && version2Mode === 'empty') {
+      setVersion2Mode('add-options')
+    }
+  }, [isVersion3, version2Mode])
 
   useEffect(
     () => () => {
@@ -932,7 +943,7 @@ const SecondaryNav = ({
           ))}
         </Box>
         {activeTopTab === 'my-watchlist' &&
-          !isVersion2 &&
+          !isVersion2Or3 &&
           !showVersion1Onboarding && (
             <Box
               className="no-scrollbar"
@@ -992,7 +1003,7 @@ const SecondaryNav = ({
             overflowX: 'hidden',
           }}
         >
-          {isVersion2 ? (
+          {isVersion2Or3 ? (
             activeTopTab === 'my-watchlist' && version2Mode === 'ships' ? (
               <Box
                 style={{
@@ -1686,9 +1697,10 @@ const SecondaryNav = ({
                     fontWeight: 600,
                     lineHeight: '20px',
                     marginBottom: 4,
+                    textAlign: isVersion2 ? 'center' : 'left',
                   }}
                 >
-                  Add to Watchlist
+                  {isVersion3 ? 'Start tracking' : 'Add to Watchlist'}
                 </Text>
                 <Text
                   style={{
@@ -1696,12 +1708,23 @@ const SecondaryNav = ({
                     fontSize: 12,
                     lineHeight: '18px',
                     marginBottom: 14,
+                    textAlign: isVersion2 ? 'center' : 'left',
                   }}
                 >
-                  What would you like to add?
+                  {isVersion3
+                    ? 'Add ships, ports, or polygons to monitor events and activity in one place.'
+                    : 'What would you like to add?'}
                 </Text>
                 <Box
-                  style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+                  style={
+                    isVersion2
+                      ? {
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                          gap: 12,
+                        }
+                      : { display: 'flex', flexDirection: 'column', gap: 4 }
+                  }
                 >
                   {VERSION2_ADD_OPTIONS.map((option) => {
                     const isSelected = version2SelectedFlow === option.id
@@ -1722,28 +1745,57 @@ const SecondaryNav = ({
                         key={option.id}
                         onMouseEnter={() => setVersion2HoveredFlow(option.id)}
                         onMouseLeave={() => setVersion2HoveredFlow(null)}
-                        onClick={() => setVersion2SelectedFlow(option.id)}
+                        onClick={() => {
+                          if (isVersion2 || isVersion3) {
+                            setVersion2SelectedFlow(null)
+                            setVersion2HoveredFlow(null)
+                            handleVersion2Next(option.id)
+                            return
+                          }
+                          setVersion2SelectedFlow(option.id)
+                        }}
                         style={{
-                          border: `1px solid ${isSelected ? '#006CD7' : isHovered ? '#4A5077' : '#3C4164'}`,
+                          border: `1px solid ${
+                            isVersion3
+                              ? isHovered
+                                ? '#006CD7'
+                                : '#393C56'
+                              : isSelected
+                                ? '#006CD7'
+                                : isHovered
+                                  ? '#4A5077'
+                                  : '#3C4164'
+                          }`,
                           borderRadius: 6,
-                          background: isSelected
-                            ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #252845'
-                            : isHovered
-                              ? '#2A2E4C'
-                              : '#252845',
-                          padding: 8,
+                          background: isVersion3
+                            ? isHovered
+                              ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                              : '#24263C'
+                            : isVersion2
+                            ? isHovered
+                              ? '#20233A'
+                              : '#181926'
+                            : isSelected
+                              ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #252845'
+                              : isHovered
+                                ? '#2A2E4C'
+                                : '#252845',
+                          padding: isVersion2 ? '14px 10px' : 8,
                           display: 'flex',
+                          flexDirection: isVersion2 ? 'column' : 'row',
                           alignItems: 'center',
-                          gap: 14,
+                          justifyContent: isVersion2 ? 'center' : 'flex-start',
+                          gap: isVersion2 ? 6 : 14,
                           cursor: 'pointer',
+                          minHeight: isVersion2 ? 128 : undefined,
                         }}
                       >
                         <Box
                           style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 4,
-                            background: '#181926',
+                            width: isVersion2 ? 'auto' : 40,
+                            height: isVersion2 ? 'auto' : 40,
+                            borderRadius: isVersion2 ? 0 : 4,
+                            background: isVersion2 ? 'transparent' : '#181926',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -1752,91 +1804,181 @@ const SecondaryNav = ({
                         >
                           {icon}
                         </Box>
-                        <Box style={{ minWidth: 0 }}>
+                        <Box style={{ minWidth: 0, textAlign: isVersion2 ? 'center' : 'left' }}>
                           <Text
                             style={{
                               color: '#FFFFFF',
-                              fontSize: 13,
-                              fontWeight: 600,
-                              lineHeight: '18px',
-                              marginBottom: 2,
+                              fontSize: isVersion2 ? 14 : 13,
+                              fontWeight: isVersion2 ? 400 : 600,
+                              lineHeight: isVersion2 ? '18px' : '18px',
+                              marginBottom: isVersion2 ? 0 : 2,
                             }}
                           >
                             {option.title}
                           </Text>
-                          <Text
-                            style={{
-                              color: '#A0A6BC',
-                              fontSize: 12,
-                              lineHeight: '16px',
-                            }}
-                          >
-                            {option.description}
-                          </Text>
+                          {!isVersion2 && (
+                            <Text
+                              style={{
+                                color: '#A0A6BC',
+                                fontSize: 12,
+                                lineHeight: isVersion2 ? '18px' : '16px',
+                              }}
+                            >
+                              {option.description}
+                            </Text>
+                          )}
                         </Box>
                       </Box>
                     )
                   })}
                 </Box>
-                <Box
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginTop: 'auto',
-                    paddingTop: 14,
-                    gap: 8,
-                  }}
-                >
+                {isVersion3 && (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      marginTop: 10,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
+                    <Text
+                      style={{
+                        color: isVersion3 ? '#FFFFFF' : '#393C56',
+                        fontSize: 11,
+                        lineHeight: '12px',
+                      }}
+                    >
+                      or
+                    </Text>
+                    <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
+                  </Box>
+                )}
+                {isVersion3 && (
                   <Box
                     component="button"
                     type="button"
-                    onClick={() => {
-                      setVersion2SelectedFlow(null)
-                      setVersion2HoveredFlow(null)
-                      setVersion2Mode('empty')
-                    }}
+                    onMouseEnter={() => setVersion2HoveredFlow('upload-file')}
+                    onMouseLeave={() => setVersion2HoveredFlow(null)}
+                    onClick={() => version2UploadInputRef.current?.click()}
                     style={{
-                      height: 32,
-                      borderRadius: 4,
-                      border: '1px solid #FFFFFF',
-                      background: 'transparent',
+                      display: 'flex',
+                      width: '100%',
+                      justifyContent: 'flex-start',
+                      alignItems: 'center',
+                      gap: 10,
+                      border: `1px solid ${isVersion3UploadHovered ? '#006CD7' : '#393C56'}`,
+                      borderRadius: 6,
+                      background: isVersion3UploadHovered
+                        ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                        : '#24263C',
                       color: '#FFFFFF',
                       fontSize: 12,
                       fontWeight: 600,
                       lineHeight: '14px',
-                      padding: '0 12px',
+                      padding: '12px 14px',
                       cursor: 'pointer',
                     }}
                   >
-                    Back
+                    <Upload01 size={14} color="#FFFFFF" />
+                    Upload a file
+                    <Text
+                      component="span"
+                      style={{
+                        color: '#8D93A8',
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      (.csv, .xls, .xlsx)
+                    </Text>
                   </Box>
-                  <Box
-                    component="button"
-                    type="button"
-                    onClick={handleVersion2Next}
-                    disabled={!canProceedVersion2}
+                )}
+                {isVersion3 && version2UploadedFileName && (
+                  <Text
                     style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                      border: 'none',
-                      borderRadius: 4,
-                      background: canProceedVersion2 ? '#006CD7' : '#3A3E5E',
-                      color: '#FFFFFF',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      lineHeight: '14px',
-                      height: 32,
-                      padding: '0 14px',
-                      cursor: canProceedVersion2 ? 'pointer' : 'not-allowed',
-                      opacity: canProceedVersion2 ? 1 : 0.8,
+                      color: '#A0A6BC',
+                      fontSize: 11,
+                      lineHeight: '16px',
+                      marginTop: 6,
                     }}
                   >
-                    Next
+                    Selected: {version2UploadedFileName}
+                  </Text>
+                )}
+                {isVersion3 && (
+                  <Box
+                    style={{
+                      marginTop: 4,
+                      borderRadius: 6,
+                      border: '1px solid #393C56',
+                      background: '#24263C',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                    }}
+                  >
+                    <Star01
+                      style={{
+                        color: '#F7C948',
+                        fill: '#F7C948',
+                        width: 18,
+                        height: 18,
+                        flexShrink: 0,
+                        marginTop: 1,
+                      }}
+                    />
+                    <Text
+                      style={{
+                        color: '#8D93A8',
+                        fontSize: 12,
+                        lineHeight: '18px',
+                        fontWeight: 500,
+                      }}
+                    >
+                      Tap the star on any ship or port detail page to add it
+                      instantly.
+                    </Text>
                   </Box>
-                </Box>
+                )}
+                {isVersion2 && (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'center',
+                      marginTop: 'auto',
+                      paddingTop: 14,
+                      gap: 8,
+                    }}
+                  >
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={() => {
+                        setVersion2SelectedFlow(null)
+                        setVersion2HoveredFlow(null)
+                        setVersion2Mode('empty')
+                      }}
+                      style={{
+                        height: 32,
+                        borderRadius: 4,
+                        border: '1px solid #FFFFFF',
+                        background: 'transparent',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        lineHeight: '14px',
+                        padding: '0 12px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Back
+                    </Box>
+                  </Box>
+                )}
               </Box>
             ) : activeTopTab === 'my-watchlist' &&
               (version2Mode === 'ships-list' ||
@@ -1852,16 +1994,9 @@ const SecondaryNav = ({
                 <Box
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 10,
+                    justifyContent: 'flex-start',
                   }}
                 >
-                  <Text
-                    style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
-                  >
-                    Ships: {version2MyWatchlistShipRows.length}
-                  </Text>
                   <Box
                     component="button"
                     type="button"
@@ -1894,6 +2029,9 @@ const SecondaryNav = ({
                     Add to Watchlist
                   </Box>
                 </Box>
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}>
+                  Ships: {version2MyWatchlistShipRows.length}
+                </Text>
                 <DataTable
                   rows={version2MyWatchlistShipRows}
                   columns={getColumnsByTab('ships')}
@@ -1928,7 +2066,7 @@ const SecondaryNav = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      margin: '0 auto 12px',
+                      margin: isVersion2 ? '0 auto 12px' : '0 0 12px',
                     }}
                   >
                     <Signal01 size={20} color="#FFFFFF" />
@@ -1942,7 +2080,9 @@ const SecondaryNav = ({
                     lineHeight: '22px',
                     marginBottom: 10,
                     textAlign:
-                      activeTopTab === 'my-watchlist' ? 'center' : 'left',
+                      activeTopTab === 'my-watchlist' && isVersion2
+                        ? 'center'
+                        : 'left',
                   }}
                 >
                   {activeTopTab === 'my-watchlist'
@@ -1957,16 +2097,20 @@ const SecondaryNav = ({
                     marginBottom: activeTopTab === 'my-watchlist' ? 32 : 16,
                     maxWidth: 420,
                     textAlign:
-                      activeTopTab === 'my-watchlist' ? 'center' : 'left',
-                    marginLeft: activeTopTab === 'my-watchlist' ? 'auto' : 0,
-                    marginRight: activeTopTab === 'my-watchlist' ? 'auto' : 0,
+                      activeTopTab === 'my-watchlist' && isVersion2
+                        ? 'center'
+                        : 'left',
+                    marginLeft:
+                      activeTopTab === 'my-watchlist' && isVersion2 ? 'auto' : 0,
+                    marginRight:
+                      activeTopTab === 'my-watchlist' && isVersion2 ? 'auto' : 0,
                   }}
                 >
                   {activeTopTab === 'my-watchlist'
                     ? 'Add ships, ports, or polygons to monitor events and activity in one place.'
                     : 'Open ships, ports, polygons, or events to build your recently viewed list.'}
                 </Text>
-                {activeTopTab === 'my-watchlist' && (
+                {activeTopTab === 'my-watchlist' && !isVersion3 && (
                   <Box
                     component="button"
                     type="button"
@@ -2300,6 +2444,22 @@ const SecondaryNav = ({
             </Box>
           ) : (
             <Box style={{ padding: 20 }}>
+              {isGroupedVersion &&
+                activeTopTab === 'my-watchlist' &&
+                activeWatchlistTab !== 'all' && (
+                  <Text
+                    style={{
+                      color: '#FFFFFF',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {activeRows.length}{' '}
+                    {WATCHLIST_SUB_TABS.find((tab) => tab.id === activeWatchlistTab)
+                      ?.label || 'Items'}
+                  </Text>
+                )}
               <DataTable
                 rows={activeRows}
                 columns={columns}
