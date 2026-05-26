@@ -44,6 +44,7 @@ function Layout() {
   const [portsLayerVisible, setPortsLayerVisible] = useState(false)
   const [collapseBtnHovered, setCollapseBtnHovered] = useState(false)
   const [expandPanelHovered, setExpandPanelHovered] = useState(false)
+  const [selectedMockupVersion, setSelectedMockupVersion] = useState('version1')
   const mapRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -104,7 +105,10 @@ function Layout() {
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TopNav />
+      <TopNav
+        selectedMockupVersion={selectedMockupVersion}
+        onMockupVersionChange={setSelectedMockupVersion}
+      />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
           ref={mapRef}
@@ -115,7 +119,7 @@ function Layout() {
           }}
           showPorts={portsLayerVisible}
         />
-        <AOIAttentionPanel />
+        <AOIAttentionPanel mockupVersion={selectedMockupVersion} />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
         )}
@@ -307,6 +311,7 @@ function Layout() {
               isOpen={secondaryNavOpen}
               onOpen={() => setSecondaryNavOpen(true)}
               onClose={() => setSecondaryNavOpen(false)}
+              watchlistVersion={selectedMockupVersion}
             />
           ) : location.pathname === '/events' ? (
             <EventsSecondaryNav

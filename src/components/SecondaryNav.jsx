@@ -10,7 +10,12 @@ const SECONDARY_NAV_DEFAULT_WIDTH = 386
 const SECONDARY_NAV_MIN_WIDTH = 340
 const SECONDARY_NAV_MAX_WIDTH = 720
 
-const SecondaryNav = ({ isOpen, onOpen, onClose }) => {
+const SecondaryNav = ({
+  isOpen,
+  onOpen,
+  onClose,
+  watchlistVersion = 'version1',
+}) => {
   const [activeTab, setActiveTab] = useState('My Ships')
   const [collapseHovered, setCollapseHovered] = useState(false)
   const [expandHovered, setExpandHovered] = useState(false)
@@ -19,6 +24,7 @@ const SecondaryNav = ({ isOpen, onOpen, onClose }) => {
   const resizeStartXRef = useRef(0)
   const resizeStartWidthRef = useRef(SECONDARY_NAV_DEFAULT_WIDTH)
   const { shipTabs, favoriteShipIds } = useShipContext()
+  const isVersion2 = watchlistVersion === 'version2'
 
   const recentlyViewedRows = shipTabs
     .filter((tab) => tab.type !== 'sts')
@@ -160,7 +166,7 @@ const SecondaryNav = ({ isOpen, onOpen, onClose }) => {
               fontSize: 14,
             }}
           >
-            My Ships
+            {isVersion2 ? 'Recommended for You' : 'My Ships'}
           </Box>
           <Box
             onClick={() => setActiveTab('Recently Viewed')}
@@ -186,7 +192,119 @@ const SecondaryNav = ({ isOpen, onOpen, onClose }) => {
           {activeTab === 'My Ships' && (
             <>
               {myShipRows.length === 0 ? (
-                <>
+                isVersion2 ? (
+                  <>
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 16,
+                        fontWeight: 600,
+                        marginBottom: 6,
+                      }}
+                    >
+                      Recommended for You
+                    </Text>
+                    <Text
+                      style={{
+                        color: '#8D95AA',
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        marginBottom: 18,
+                      }}
+                    >
+                      This feed is tailored to your Area of Interest and vessel
+                      preferences.
+                    </Text>
+
+                    <Box
+                      style={{
+                        border: '1px solid #393C56',
+                        borderRadius: 6,
+                        background: '#24263C',
+                        padding: '10px 12px',
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          marginBottom: 2,
+                        }}
+                      >
+                        In your AOI
+                      </Text>
+                      <Text
+                        style={{
+                          color: '#8D95AA',
+                          fontSize: 12,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        Activity in Strait of Hormuz
+                      </Text>
+                    </Box>
+
+                    <Box
+                      style={{
+                        border: '1px solid #393C56',
+                        borderRadius: 6,
+                        background: '#24263C',
+                        padding: '10px 12px',
+                        marginBottom: 16,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          marginBottom: 2,
+                        }}
+                      >
+                        Interest match
+                      </Text>
+                      <Text
+                        style={{
+                          color: '#8D95AA',
+                          fontSize: 12,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        Dark tanker activity
+                      </Text>
+                    </Box>
+
+                    <Text
+                      style={{
+                        color: '#8D95AA',
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        marginBottom: 10,
+                      }}
+                    >
+                      Customize recommendations by updating your AOI and vessel
+                      interests.
+                    </Text>
+
+                    <Button
+                      variant="outline"
+                      style={{
+                        borderColor: '#393C56',
+                        color: '#fff',
+                        background: 'transparent',
+                        height: 34,
+                        padding: '0 16px',
+                        fontWeight: 500,
+                        alignSelf: 'flex-start',
+                      }}
+                    >
+                      Customize
+                    </Button>
+                  </>
+                ) : (
+                  <>
                   <Text
                     style={{
                       color: '#fff',
@@ -306,7 +424,8 @@ const SecondaryNav = ({ isOpen, onOpen, onClose }) => {
                       Upload
                     </Button>
                   </Box>
-                </>
+                  </>
+                )
               ) : (
                 <Box
                   style={{

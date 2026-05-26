@@ -89,13 +89,20 @@ const parseTypedDate = (rawValue) => {
   return { value: parsedDate, error: null }
 }
 
-const TopNav = () => {
+const VERSION_OPTIONS = [
+  { value: 'version1', label: 'Version 1' },
+  { value: 'version2', label: 'Version 2' },
+]
+
+const TopNav = ({ selectedMockupVersion = 'version1', onMockupVersionChange }) => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
+  const [versionMenuOpen, setVersionMenuOpen] = useState(false)
   const [isEditingCalendarDate, setIsEditingCalendarDate] = useState(false)
   const [typedDate, setTypedDate] = useState('')
   const [typedDateError, setTypedDateError] = useState(null)
   const calendarRef = useRef(null)
+  const versionMenuRef = useRef(null)
   const selectedDate = parseDateFromKey(mapDate) || new Date()
   const selectedDateKey = formatDateKey(selectedDate)
   const selectedDateToolbarLabel = selectedDateKey.replace(/-/g, '/')
@@ -115,6 +122,17 @@ const TopNav = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [calendarOpen])
+
+  useEffect(() => {
+    if (!versionMenuOpen) return
+    const handleClickOutside = (e) => {
+      if (versionMenuRef.current && !versionMenuRef.current.contains(e.target)) {
+        setVersionMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [versionMenuOpen])
 
   useEffect(() => {
     setTypedDate(selectedDateKey.replace(/-/g, '/'))
@@ -144,6 +162,10 @@ const TopNav = () => {
       setIsEditingCalendarDate(false)
     }
   }
+
+  const selectedVersionLabel =
+    VERSION_OPTIONS.find((option) => option.value === selectedMockupVersion)
+      ?.label || 'Version 1'
 
   return (
     <div>
@@ -214,6 +236,64 @@ const TopNav = () => {
           <Text variant="body1" c="#fff" style={{ marginLeft: '8px' }}>
             Search
           </Text>
+        </Box>
+        <Box style={{ position: 'relative' }} ref={versionMenuRef}>
+          <Box
+            component="button"
+            type="button"
+            className="topnav-toolbar-btn"
+            onClick={() => setVersionMenuOpen((prev) => !prev)}
+          >
+            <Text variant="body1" c="#fff" style={{ marginRight: '8px' }}>
+              {selectedVersionLabel}
+            </Text>
+            <ChevronDown color="white" size={20} />
+          </Box>
+          {versionMenuOpen && (
+            <Box
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginTop: 8,
+                minWidth: 132,
+                background: '#24263C',
+                border: '1px solid #393C56',
+                borderRadius: 8,
+                overflow: 'hidden',
+                zIndex: 1000,
+              }}
+            >
+              {VERSION_OPTIONS.map((option) => {
+                const isSelected = option.value === selectedMockupVersion
+                return (
+                  <Box
+                    key={option.value}
+                    component="button"
+                    type="button"
+                    onClick={() => {
+                      onMockupVersionChange?.(option.value)
+                      setVersionMenuOpen(false)
+                    }}
+                    style={{
+                      width: '100%',
+                      border: 'none',
+                      background: isSelected ? '#0A3F73' : 'transparent',
+                      color: '#FFFFFF',
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      fontSize: 12,
+                      lineHeight: '16px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {option.label}
+                  </Box>
+                )
+              })}
+            </Box>
+          )}
         </Box>
         <Box style={{ position: 'relative' }} ref={calendarRef}>
           <Box

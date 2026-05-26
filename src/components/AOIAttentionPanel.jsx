@@ -11,7 +11,7 @@ const severityColor = {
   low: '#00A3E3',
 }
 
-function AOIAttentionPanel() {
+function AOIAttentionPanel({ mockupVersion = 'version1' }) {
   const [isPriorityDotFlashOn, setIsPriorityDotFlashOn] = useState(true)
   const [hoveredShipId, setHoveredShipId] = useState(null)
   const [showDismissed, setShowDismissed] = useState(false)
@@ -30,13 +30,18 @@ function AOIAttentionPanel() {
     restoreAttentionShip,
     clearDismissedAttention,
   } = useShipContext()
+  const isVersion2 = mockupVersion === 'version2'
 
   useEffect(() => {
+    if (isVersion2) {
+      setIsPriorityDotFlashOn(true)
+      return undefined
+    }
     const flashTimer = window.setInterval(() => {
       setIsPriorityDotFlashOn((prev) => !prev)
     }, PRIORITY_DOT_FLASH_MS)
     return () => window.clearInterval(flashTimer)
-  }, [])
+  }, [isVersion2])
 
   if (!attentionPanelOpen) return null
 
@@ -44,6 +49,8 @@ function AOIAttentionPanel() {
   const reasonEntries = Object.entries(attentionReasonCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
+  const panelTitle =
+    mockupVersion === 'version2' ? 'Recommended for You' : 'Critical'
 
   return (
     <Box
@@ -73,23 +80,25 @@ function AOIAttentionPanel() {
         }}
       >
         <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Box
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: 999,
-              background: isPriorityDotFlashOn
-                ? '#F75349'
-                : 'rgba(247, 83, 73, 0.32)',
-              boxShadow: isPriorityDotFlashOn
-                ? '0 0 0 2px rgba(247, 83, 73, 0.24)'
-                : 'none',
-              flexShrink: 0,
-              transition: 'all 160ms ease',
-            }}
-          />
+          {!isVersion2 && (
+            <Box
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 999,
+                background: isPriorityDotFlashOn
+                  ? '#F75349'
+                  : 'rgba(247, 83, 73, 0.32)',
+                boxShadow: isPriorityDotFlashOn
+                  ? '0 0 0 2px rgba(247, 83, 73, 0.24)'
+                  : 'none',
+                flexShrink: 0,
+                transition: 'all 160ms ease',
+              }}
+            />
+          )}
           <Text style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>
-            Critical
+            {panelTitle}
           </Text>
         </Box>
         <Box style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -185,15 +194,17 @@ function AOIAttentionPanel() {
                   {item.shipName}
                 </Text>
                 <Box style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Text
-                    style={{
-                      color: severityColor[item.severity] || '#fff',
-                      fontSize: 10,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {item.severity.toUpperCase()}
-                  </Text>
+                  {!isVersion2 && (
+                    <Text
+                      style={{
+                        color: severityColor[item.severity] || '#fff',
+                        fontSize: 10,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {item.severity.toUpperCase()}
+                    </Text>
+                  )}
                   <Box
                     onClick={(event) => {
                       event.stopPropagation()
