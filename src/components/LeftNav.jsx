@@ -2,6 +2,7 @@ import React from 'react'
 import { Box } from '@mantine/core'
 import {
   Signal01,
+  Bookmark,
   VideoRecorder,
   Clock,
 } from '@untitledui/icons'
@@ -15,8 +16,18 @@ const timelineNavItem = { icon: <Clock color="white" size={20} />, to: '/timelin
 
 const LeftNav = ({ onNavClick, watchlistVersion = 'grouped' }) => {
   const isVersion2 = watchlistVersion === 'version2'
+  const isVersion4Or5 =
+    watchlistVersion === 'version4' || watchlistVersion === 'version5'
   const primaryNavItems = [
-    { icon: <Signal01 color="white" size={20} />, to: '/watchlist', label: 'Watchlist' },
+    {
+      icon: isVersion4Or5 ? (
+        <Bookmark color="white" size={20} />
+      ) : (
+        <Signal01 color="white" size={20} />
+      ),
+      to: '/watchlist',
+      label: isVersion4Or5 ? 'Bookmarks' : 'Watchlist',
+    },
     { icon: <SatelliteIcon />, to: '/tip-cue', label: 'Tip & Cue' },
     { icon: <VideoRecorder color="white" size={20} />, to: '/webcams', label: 'Webcams' },
     { icon: <OsintIcon />, to: '/osint', label: 'OSINT' },

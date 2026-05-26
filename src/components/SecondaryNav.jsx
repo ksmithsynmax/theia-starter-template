@@ -17,6 +17,7 @@ import ShipPathPanelButton from './ShipDetails/ShipPathPanelButton'
 import CircleIcon from '../custom-icons/CircleIcon'
 import PolygonIcon from '../custom-icons/PolygonIcon'
 import RectangleIcon from '../custom-icons/RectangleIcon'
+import AnchorIcon from '../custom-icons/AnchorIcon.svg'
 import { ships } from '../data/mockData'
 import { useShipContext } from '../context/ShipContext'
 
@@ -259,7 +260,11 @@ const SecondaryNav = ({
   const [activeTopTab, setActiveTopTab] = useState('my-watchlist')
   const [activeWatchlistTab, setActiveWatchlistTab] = useState('all')
   const [version2Mode, setVersion2Mode] = useState(
-    watchlistVersion === 'version3' ? 'add-options' : 'empty'
+    watchlistVersion === 'version3' ||
+      watchlistVersion === 'version4' ||
+      watchlistVersion === 'version5'
+      ? 'add-options'
+      : 'empty'
   )
   const [version2SelectedFlow, setVersion2SelectedFlow] = useState(null)
   const [version2HoveredFlow, setVersion2HoveredFlow] = useState(null)
@@ -292,8 +297,36 @@ const SecondaryNav = ({
   const isGroupedVersion = watchlistVersion === 'grouped'
   const isVersion2 = watchlistVersion === 'version2'
   const isVersion3 = watchlistVersion === 'version3'
-  const isVersion2Or3 = isVersion2 || isVersion3
+  const isVersion4 = watchlistVersion === 'version4'
+  const isVersion5 = watchlistVersion === 'version5'
+  const isVersion4Or5 = isVersion4 || isVersion5
+  const isVersion3Or4Or5 = isVersion3 || isVersion4Or5
+  const isVersion2Or3Or4Or5 = isVersion2 || isVersion3Or4Or5
+  const topTabWatchlistLabel = isVersion4Or5 ? 'Bookmarks' : 'My Watchlist'
+  const listCollectionLabel = isVersion4Or5 ? 'Bookmarks' : 'Watchlist'
+  const listCollectionLabelLower = isVersion4Or5 ? 'bookmarks' : 'watchlist'
+  const polygonEntityLabelSingular = isVersion5 ? 'Shape' : 'Polygon'
+  const polygonEntityLabelPlural = isVersion5 ? 'Shapes' : 'Polygons'
+  const polygonEntityLabelLowerPlural = isVersion5 ? 'shapes' : 'polygons'
   const isVersion3UploadHovered = version2HoveredFlow === 'upload-file'
+  const version2AddOptions = useMemo(
+    () => {
+      const baseOptions = isVersion5
+        ? VERSION2_ADD_OPTIONS.filter((option) => option.id !== 'alerts')
+        : VERSION2_ADD_OPTIONS
+
+      return baseOptions.map((option) =>
+        isVersion5 && option.id === 'polygons'
+          ? {
+              ...option,
+              title: 'Shapes',
+              description: 'Monitor by area of interest',
+            }
+          : option
+      )
+    },
+    [isVersion5]
+  )
 
   const shipLookup = useMemo(() => {
     const rows = {}
@@ -514,6 +547,8 @@ const SecondaryNav = ({
     () => [...portRows, ...version2PrototypePortRows],
     [portRows, version2PrototypePortRows]
   )
+  const version4BookmarkedPolygonRows = useMemo(() => [], [])
+  const version4BookmarkedAlertRows = useMemo(() => [], [])
   const version2PendingShipIds = useMemo(
     () => new Set(version2PendingShips.map((ship) => ship.optionId)),
     [version2PendingShips]
@@ -541,7 +576,7 @@ const SecondaryNav = ({
   const version2SubmitLabel =
     version2PendingCount > 0
       ? `Add ${version2PendingCount} Ship${version2PendingCount === 1 ? '' : 's'}`
-      : 'Add to Watchlist'
+      : `Add to ${listCollectionLabel}`
   const version2PendingPortIds = useMemo(
     () => new Set(version2PendingPorts.map((port) => port.optionId)),
     [version2PendingPorts]
@@ -568,7 +603,7 @@ const SecondaryNav = ({
   const version2PortSubmitLabel =
     version2PendingPortCount > 0
       ? `Add ${version2PendingPortCount} Port${version2PendingPortCount === 1 ? '' : 's'}`
-      : 'Add to Watchlist'
+      : `Add to ${listCollectionLabel}`
   const canProceedVersion2 = Boolean(version2SelectedFlow)
 
   const handleVersion2Next = (selectedFlow = version2SelectedFlow) => {
@@ -788,7 +823,7 @@ const SecondaryNav = ({
   }
 
   useEffect(() => {
-    if (!isVersion2Or3) {
+    if (!isVersion2Or3Or4Or5) {
       setVersion2Mode('empty')
       setVersion2SelectedFlow(null)
       setVersion2HoveredFlow(null)
@@ -807,13 +842,19 @@ const SecondaryNav = ({
         version2SearchTimerRef.current = null
       }
     }
-  }, [isVersion2Or3])
+  }, [isVersion2Or3Or4Or5])
 
   useEffect(() => {
-    if (isVersion3 && version2Mode === 'empty') {
+    if (isVersion3Or4Or5 && version2Mode === 'empty') {
       setVersion2Mode('add-options')
     }
-  }, [isVersion3, version2Mode])
+  }, [isVersion3Or4Or5, version2Mode])
+
+  useEffect(() => {
+    if (isVersion5 && version2Mode === 'alerts') {
+      setVersion2Mode('add-options')
+    }
+  }, [isVersion5, version2Mode])
 
   useEffect(
     () => () => {
@@ -938,12 +979,12 @@ const SecondaryNav = ({
                 fontSize: 14,
               }}
             >
-              {tab.label}
+              {tab.id === 'my-watchlist' ? topTabWatchlistLabel : tab.label}
             </Box>
           ))}
         </Box>
         {activeTopTab === 'my-watchlist' &&
-          !isVersion2Or3 &&
+          !isVersion2Or3Or4Or5 &&
           !showVersion1Onboarding && (
             <Box
               className="no-scrollbar"
@@ -1003,7 +1044,7 @@ const SecondaryNav = ({
             overflowX: 'hidden',
           }}
         >
-          {isVersion2Or3 ? (
+          {isVersion2Or3Or4Or5 ? (
             activeTopTab === 'my-watchlist' && version2Mode === 'ships' ? (
               <Box
                 style={{
@@ -1119,6 +1160,116 @@ const SecondaryNav = ({
                     </Box>
                   )}
                 </Box>
+                {isVersion5 && (
+                  <>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        marginTop: 2,
+                        marginBottom: 10,
+                      }}
+                    >
+                      <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 11,
+                          lineHeight: '12px',
+                        }}
+                      >
+                        or
+                      </Text>
+                      <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
+                    </Box>
+                    <Box
+                      component="button"
+                      type="button"
+                      onMouseEnter={() => setVersion2HoveredFlow('upload-file')}
+                      onMouseLeave={() => setVersion2HoveredFlow(null)}
+                      onClick={() => version2UploadInputRef.current?.click()}
+                      style={{
+                        display: 'flex',
+                        width: '100%',
+                        justifyContent: 'flex-start',
+                        alignItems: 'center',
+                        gap: 10,
+                        border: `1px solid ${isVersion3UploadHovered ? '#006CD7' : '#393C56'}`,
+                        borderRadius: 6,
+                        background: isVersion3UploadHovered
+                          ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                          : '#24263C',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        lineHeight: '14px',
+                        padding: '12px 14px',
+                        cursor: 'pointer',
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Upload01 size={14} color="#FFFFFF" />
+                      Upload a file
+                      <Text
+                        component="span"
+                        style={{
+                          color: '#8D93A8',
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}
+                      >
+                        (.csv, .xls, .xlsx)
+                      </Text>
+                    </Box>
+                    {version2UploadedFileName && (
+                      <Text
+                        style={{
+                          color: '#A0A6BC',
+                          fontSize: 11,
+                          lineHeight: '16px',
+                          marginBottom: 8,
+                        }}
+                      >
+                        Selected: {version2UploadedFileName}
+                      </Text>
+                    )}
+                    <Box
+                      style={{
+                        marginBottom: 10,
+                        borderRadius: 6,
+                        border: '1px solid #393C56',
+                        background: '#24263C',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                      }}
+                    >
+                      <Star01
+                        style={{
+                          color: '#F7C948',
+                          fill: '#F7C948',
+                          width: 18,
+                          height: 18,
+                          flexShrink: 0,
+                          marginTop: 1,
+                        }}
+                      />
+                      <Text
+                        style={{
+                          color: '#8D93A8',
+                          fontSize: 12,
+                          lineHeight: '18px',
+                          fontWeight: 500,
+                        }}
+                      >
+                        Tap the star on any ship or port detail page to add it
+                        instantly.
+                      </Text>
+                    </Box>
+                  </>
+                )}
                 <Box style={{ flex: 1, minHeight: 0 }}>
                   {version2DisplaySearchRows.length > 0 && (
                     <Box
@@ -1302,7 +1453,7 @@ const SecondaryNav = ({
                   }}
                 >
                   {version2Mode === 'polygons'
-                    ? 'Add Polygon'
+                    ? `Add ${polygonEntityLabelSingular}`
                     : version2Mode === 'alerts'
                       ? 'Add Alerts'
                       : 'Add Ports'}
@@ -1318,7 +1469,7 @@ const SecondaryNav = ({
                   {version2Mode === 'alerts'
                     ? 'Select the ship(s) you’d like to be alerted with.'
                     : version2Mode === 'polygons'
-                      ? 'Create a ploygon by:'
+                      ? `Create a ${polygonEntityLabelLowerPlural.slice(0, -1)} by:`
                       : 'Search by port name, Locode, or country and choose ports to watch.'}
                 </Text>
                 {version2Mode === 'alerts' && (
@@ -1428,7 +1579,10 @@ const SecondaryNav = ({
                     }}
                   >
                     {[
-                      { label: 'Draw A Polygon', icon: <PolygonIcon /> },
+                      {
+                        label: isVersion5 ? 'Draw A Shape' : 'Draw A Polygon',
+                        icon: <PolygonIcon />,
+                      },
                       { label: 'Draw A Rectangle', icon: <RectangleIcon /> },
                       { label: 'Draw A Circle', icon: <CircleIcon /> },
                     ].map((item) => (
@@ -1509,6 +1663,116 @@ const SecondaryNav = ({
                       </Box>
                     )}
                   </Box>
+                )}
+                {isVersion5 && version2Mode === 'ports' && (
+                  <>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        marginTop: 2,
+                        marginBottom: 10,
+                      }}
+                    >
+                      <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 11,
+                          lineHeight: '12px',
+                        }}
+                      >
+                        or
+                      </Text>
+                      <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
+                    </Box>
+                    <Box
+                      component="button"
+                      type="button"
+                      onMouseEnter={() => setVersion2HoveredFlow('upload-file')}
+                      onMouseLeave={() => setVersion2HoveredFlow(null)}
+                      onClick={() => version2UploadInputRef.current?.click()}
+                      style={{
+                        display: 'flex',
+                        width: '100%',
+                        justifyContent: 'flex-start',
+                        alignItems: 'center',
+                        gap: 10,
+                        border: `1px solid ${isVersion3UploadHovered ? '#006CD7' : '#393C56'}`,
+                        borderRadius: 6,
+                        background: isVersion3UploadHovered
+                          ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                          : '#24263C',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        lineHeight: '14px',
+                        padding: '12px 14px',
+                        cursor: 'pointer',
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Upload01 size={14} color="#FFFFFF" />
+                      Upload a file
+                      <Text
+                        component="span"
+                        style={{
+                          color: '#8D93A8',
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}
+                      >
+                        (.csv, .xls, .xlsx)
+                      </Text>
+                    </Box>
+                    {version2UploadedFileName && (
+                      <Text
+                        style={{
+                          color: '#A0A6BC',
+                          fontSize: 11,
+                          lineHeight: '16px',
+                          marginBottom: 8,
+                        }}
+                      >
+                        Selected: {version2UploadedFileName}
+                      </Text>
+                    )}
+                    <Box
+                      style={{
+                        marginBottom: 10,
+                        borderRadius: 6,
+                        border: '1px solid #393C56',
+                        background: '#24263C',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                      }}
+                    >
+                      <Star01
+                        style={{
+                          color: '#F7C948',
+                          fill: '#F7C948',
+                          width: 18,
+                          height: 18,
+                          flexShrink: 0,
+                          marginTop: 1,
+                        }}
+                      />
+                      <Text
+                        style={{
+                          color: '#8D93A8',
+                          fontSize: 12,
+                          lineHeight: '18px',
+                          fontWeight: 500,
+                        }}
+                      >
+                        Tap the star on any ship or port detail page to add it
+                        instantly.
+                      </Text>
+                    </Box>
+                  </>
                 )}
                 <Box style={{ flex: 1, minHeight: 0 }}>
                   {version2Mode === 'ports' &&
@@ -1700,7 +1964,11 @@ const SecondaryNav = ({
                     textAlign: isVersion2 ? 'center' : 'left',
                   }}
                 >
-                  {isVersion3 ? 'Start tracking' : 'Add to Watchlist'}
+                  {isVersion4Or5
+                    ? 'Add bookmarks'
+                    : isVersion3
+                      ? 'Start tracking'
+                      : `Add to ${listCollectionLabel}`}
                 </Text>
                 <Text
                   style={{
@@ -1711,8 +1979,10 @@ const SecondaryNav = ({
                     textAlign: isVersion2 ? 'center' : 'left',
                   }}
                 >
-                  {isVersion3
-                    ? 'Add ships, ports, or polygons to monitor events and activity in one place.'
+                  {isVersion3Or4Or5
+                    ? isVersion5
+                      ? 'Add ships, ports, or shapes to monitor events and activity in one place.'
+                      : 'Add ships, ports, or polygons to monitor events and activity in one place.'
                     : 'What would you like to add?'}
                 </Text>
                 <Box
@@ -1726,7 +1996,7 @@ const SecondaryNav = ({
                       : { display: 'flex', flexDirection: 'column', gap: 4 }
                   }
                 >
-                  {VERSION2_ADD_OPTIONS.map((option) => {
+                  {version2AddOptions.map((option) => {
                     const isSelected = version2SelectedFlow === option.id
                     const isHovered = version2HoveredFlow === option.id
                     const icon =
@@ -1746,7 +2016,7 @@ const SecondaryNav = ({
                         onMouseEnter={() => setVersion2HoveredFlow(option.id)}
                         onMouseLeave={() => setVersion2HoveredFlow(null)}
                         onClick={() => {
-                          if (isVersion2 || isVersion3) {
+                          if (isVersion2 || isVersion3Or4Or5) {
                             setVersion2SelectedFlow(null)
                             setVersion2HoveredFlow(null)
                             handleVersion2Next(option.id)
@@ -1756,7 +2026,7 @@ const SecondaryNav = ({
                         }}
                         style={{
                           border: `1px solid ${
-                            isVersion3
+                            isVersion3Or4Or5
                               ? isHovered
                                 ? '#006CD7'
                                 : '#393C56'
@@ -1767,7 +2037,7 @@ const SecondaryNav = ({
                                   : '#3C4164'
                           }`,
                           borderRadius: 6,
-                          background: isVersion3
+                          background: isVersion3Or4Or5
                             ? isHovered
                               ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
                               : '#24263C'
@@ -1832,7 +2102,7 @@ const SecondaryNav = ({
                     )
                   })}
                 </Box>
-                {isVersion3 && (
+                {isVersion3Or4Or5 && (
                   <Box
                     style={{
                       display: 'flex',
@@ -1845,7 +2115,7 @@ const SecondaryNav = ({
                     <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
                     <Text
                       style={{
-                        color: isVersion3 ? '#FFFFFF' : '#393C56',
+                        color: isVersion3Or4Or5 ? '#FFFFFF' : '#393C56',
                         fontSize: 11,
                         lineHeight: '12px',
                       }}
@@ -1855,7 +2125,7 @@ const SecondaryNav = ({
                     <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
                   </Box>
                 )}
-                {isVersion3 && (
+                {isVersion3Or4Or5 && (
                   <Box
                     component="button"
                     type="button"
@@ -1895,7 +2165,7 @@ const SecondaryNav = ({
                     </Text>
                   </Box>
                 )}
-                {isVersion3 && version2UploadedFileName && (
+                {isVersion3Or4Or5 && version2UploadedFileName && (
                   <Text
                     style={{
                       color: '#A0A6BC',
@@ -1907,7 +2177,7 @@ const SecondaryNav = ({
                     Selected: {version2UploadedFileName}
                   </Text>
                 )}
-                {isVersion3 && (
+                {isVersion3Or4Or5 && (
                   <Box
                     style={{
                       marginTop: 4,
@@ -2026,27 +2296,107 @@ const SecondaryNav = ({
                     }}
                   >
                     <Plus size={14} color="#FFFFFF" />
-                    Add to Watchlist
+                    {`Add to ${listCollectionLabel}`}
                   </Box>
                 </Box>
-                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}>
-                  Ships: {version2MyWatchlistShipRows.length}
-                </Text>
-                <DataTable
-                  rows={version2MyWatchlistShipRows}
-                  columns={getColumnsByTab('ships')}
-                  emptyMessage="No ships in watchlist yet."
-                />
-                <Text
-                  style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
-                >
-                  Ports: {version2MyWatchlistPortRows.length}
-                </Text>
-                <DataTable
-                  rows={version2MyWatchlistPortRows}
-                  columns={getColumnsByTab('ports')}
-                  emptyMessage="No ports in watchlist yet."
-                />
+                {(!isVersion4Or5 || version2MyWatchlistShipRows.length > 0) && (
+                  <>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      {isVersion4Or5 && (
+                        <ShipIcon
+                          style={{
+                            width: 16,
+                            height: 16,
+                          }}
+                        />
+                      )}
+                      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}>
+                        Ships: {version2MyWatchlistShipRows.length}
+                      </Text>
+                    </Box>
+                    <DataTable
+                      rows={version2MyWatchlistShipRows}
+                      columns={getColumnsByTab('ships')}
+                      emptyMessage={`No ships in ${listCollectionLabelLower} yet.`}
+                    />
+                  </>
+                )}
+                {(!isVersion4Or5 || version2MyWatchlistPortRows.length > 0) && (
+                  <>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      {isVersion4Or5 && (
+                        <Box
+                          component="img"
+                          src={AnchorIcon}
+                          alt=""
+                          style={{
+                            width: 16,
+                            height: 16,
+                            display: 'block',
+                          }}
+                        />
+                      )}
+                      <Text
+                        style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                      >
+                        Ports: {version2MyWatchlistPortRows.length}
+                      </Text>
+                    </Box>
+                    <DataTable
+                      rows={version2MyWatchlistPortRows}
+                      columns={getColumnsByTab('ports')}
+                      emptyMessage={`No ports in ${listCollectionLabelLower} yet.`}
+                    />
+                  </>
+                )}
+                {isVersion4Or5 && version4BookmarkedPolygonRows.length > 0 && (
+                  <>
+                    <Text
+                      style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                    >
+                      {polygonEntityLabelPlural}: {version4BookmarkedPolygonRows.length}
+                    </Text>
+                    <DataTable
+                      rows={version4BookmarkedPolygonRows}
+                      columns={
+                        isVersion5
+                          ? getColumnsByTab('polygons').map((column) =>
+                              column.key === 'name'
+                                ? { ...column, label: polygonEntityLabelSingular }
+                                : column
+                            )
+                          : getColumnsByTab('polygons')
+                      }
+                      emptyMessage={`No ${polygonEntityLabelLowerPlural} in ${listCollectionLabelLower} yet.`}
+                    />
+                  </>
+                )}
+                {isVersion4Or5 && version4BookmarkedAlertRows.length > 0 && (
+                  <>
+                    <Text
+                      style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                    >
+                      Alerts: {version4BookmarkedAlertRows.length}
+                    </Text>
+                    <DataTable
+                      rows={version4BookmarkedAlertRows}
+                      columns={getColumnsByTab('events')}
+                      emptyMessage={`No alerts in ${listCollectionLabelLower} yet.`}
+                    />
+                  </>
+                )}
               </Box>
             ) : (
               <Box
@@ -2086,7 +2436,9 @@ const SecondaryNav = ({
                   }}
                 >
                   {activeTopTab === 'my-watchlist'
-                    ? 'Start tracking'
+                    ? isVersion4Or5
+                      ? 'Add bookmarks'
+                      : 'Start tracking'
                     : 'No recently viewed items'}
                 </Text>
                 <Text
@@ -2107,10 +2459,14 @@ const SecondaryNav = ({
                   }}
                 >
                   {activeTopTab === 'my-watchlist'
-                    ? 'Add ships, ports, or polygons to monitor events and activity in one place.'
-                    : 'Open ships, ports, polygons, or events to build your recently viewed list.'}
+                    ? isVersion5
+                      ? 'Add ships, ports, or shapes to monitor events and activity in one place.'
+                      : 'Add ships, ports, or polygons to monitor events and activity in one place.'
+                    : isVersion5
+                      ? 'Open ships, ports, shapes, or events to build your recently viewed list.'
+                      : 'Open ships, ports, polygons, or events to build your recently viewed list.'}
                 </Text>
-                {activeTopTab === 'my-watchlist' && !isVersion3 && (
+                {activeTopTab === 'my-watchlist' && !isVersion3Or4Or5 && (
                   <Box
                     component="button"
                     type="button"
@@ -2138,7 +2494,7 @@ const SecondaryNav = ({
                     }}
                   >
                     <Plus size={14} color="#FFFFFF" />
-                    Add to Watchlist
+                    {`Add to ${listCollectionLabel}`}
                   </Box>
                 )}
                 {activeTopTab === 'my-watchlist' && (
@@ -2272,7 +2628,7 @@ const SecondaryNav = ({
                   marginBottom: 10,
                 }}
               >
-                Build your watchlist
+                {`Build your ${listCollectionLabelLower}`}
               </Text>
               <Text
                 style={{
@@ -2408,7 +2764,7 @@ const SecondaryNav = ({
                   <DataTable
                     rows={section.rows}
                     columns={getColumnsByTab(section.id)}
-                    emptyMessage={`No ${section.title.toLowerCase()} in watchlist yet.`}
+                    emptyMessage={`No ${section.title.toLowerCase()} in ${listCollectionLabelLower} yet.`}
                   />
                 </Box>
               ))}
@@ -2465,8 +2821,10 @@ const SecondaryNav = ({
                 columns={columns}
                 emptyMessage={
                   activeTopTab === 'recently-viewed'
-                    ? 'No recently viewed entities yet. Open ships, ports, polygons, or events to populate this list.'
-                    : 'Nothing in this watchlist segment yet.'
+                    ? isVersion5
+                      ? 'No recently viewed entities yet. Open ships, ports, shapes, or events to populate this list.'
+                      : 'No recently viewed entities yet. Open ships, ports, polygons, or events to populate this list.'
+                    : `Nothing in this ${isVersion4Or5 ? 'bookmark' : 'watchlist'} segment yet.`
                 }
               />
             </Box>
