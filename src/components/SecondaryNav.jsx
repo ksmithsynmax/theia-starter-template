@@ -5,9 +5,11 @@ import {
   Anchor,
   BezierCurve03,
   Bell02,
+  List,
   Signal01,
   Star01,
   Upload01,
+  XClose,
 } from '@untitledui/icons'
 import { useNavigate } from 'react-router-dom'
 import CollapseButton from '../custom-icons/CollapseButton'
@@ -103,7 +105,7 @@ const watchedEvents = [
 
 const tableShellStyles = {
   width: '100%',
-  borderRadius: 4,
+  borderRadius: '4px 4px 0 0',
   overflow: 'hidden',
   background: 'transparent',
 }
@@ -167,8 +169,11 @@ const getColumnsByTab = (tabId) => {
   ]
 }
 
-const DataTable = ({ rows, columns, emptyMessage }) => {
+const DataTable = ({ rows, columns, emptyMessage, onRowClick }) => {
   const gridTemplateColumns = columns.map((column) => column.width).join(' ')
+  const isInteractive = typeof onRowClick === 'function'
+  const [hoveredRowId, setHoveredRowId] = useState(null)
+  const [activeRowId, setActiveRowId] = useState(null)
 
   return (
     <Box style={tableShellStyles}>
@@ -180,7 +185,7 @@ const DataTable = ({ rows, columns, emptyMessage }) => {
           alignItems: 'center',
           padding: '6px 10px',
           background: '#24263C',
-          borderRadius: 4,
+          borderRadius: '4px 4px 0 0',
         }}
       >
         {columns.map((column) => (
@@ -216,14 +221,50 @@ const DataTable = ({ rows, columns, emptyMessage }) => {
         rows.map((row, idx) => (
           <Box
             key={row.id}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
+            onMouseEnter={
+              isInteractive ? () => setHoveredRowId(String(row.id)) : undefined
+            }
+            onMouseLeave={isInteractive ? () => setHoveredRowId(null) : undefined}
+            onMouseDown={
+              isInteractive ? () => setActiveRowId(String(row.id)) : undefined
+            }
             style={{
               display: 'grid',
               gridTemplateColumns,
               columnGap: 10,
               alignItems: 'center',
               padding: '8px',
-              borderTop: idx === 0 ? 'none' : '1px solid #393C56',
-              background: '#181926',
+              borderTop:
+                isInteractive && activeRowId === String(row.id)
+                  ? '1px solid #006CD7'
+                  : idx === 0 ||
+                      (isInteractive &&
+                        idx > 0 &&
+                        activeRowId === String(rows[idx - 1]?.id))
+                    ? 'none'
+                    : '1px solid #393C56',
+              borderRight:
+                isInteractive && activeRowId === String(row.id)
+                  ? '1px solid #006CD7'
+                  : 'none',
+              borderBottom:
+                isInteractive && activeRowId === String(row.id)
+                  ? '1px solid #006CD7'
+                  : 'none',
+              borderLeft:
+                isInteractive && activeRowId === String(row.id)
+                  ? '1px solid #006CD7'
+                  : 'none',
+              borderRadius: 0,
+              background:
+                isInteractive && activeRowId === String(row.id)
+                  ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #181926'
+                  : isInteractive && hoveredRowId === String(row.id)
+                    ? '#0056AC'
+                    : '#181926',
+              cursor: isInteractive ? 'pointer' : 'default',
+              transition: isInteractive ? 'background-color 120ms ease' : undefined,
             }}
           >
             {columns.map((column) => (
@@ -256,6 +297,7 @@ const SecondaryNav = ({
   onClose,
   currentPath,
   watchlistVersion = 'grouped',
+  onShipSelect,
 }) => {
   const [activeTopTab, setActiveTopTab] = useState('my-watchlist')
   const [activeWatchlistTab, setActiveWatchlistTab] = useState('all')
@@ -287,6 +329,8 @@ const SecondaryNav = ({
   const [version6RecentActivityRows, setVersion6RecentActivityRows] = useState([])
   const [version2PrototypeShipRows, setVersion2PrototypeShipRows] = useState([])
   const [version2PrototypePortRows, setVersion2PrototypePortRows] = useState([])
+  const [version2HasAddedBookmarks, setVersion2HasAddedBookmarks] = useState(false)
+  const [showQuickAddBanner, setShowQuickAddBanner] = useState(true)
   const [collapseHovered, setCollapseHovered] = useState(false)
   const [expandHovered, setExpandHovered] = useState(false)
   const [navWidth, setNavWidth] = useState(SECONDARY_NAV_DEFAULT_WIDTH)
@@ -305,7 +349,8 @@ const SecondaryNav = ({
     selectedDetectionId,
   } = useShipContext()
 
-  const isWatchlistView = currentPath === '/watchlist'
+  const isWatchlistView =
+    currentPath === '/watchlist' || currentPath.startsWith('/myships')
   const isGroupedVersion = watchlistVersion === 'grouped'
   const isVersion2 = watchlistVersion === 'version2'
   const isVersion3 = watchlistVersion === 'version3'
@@ -674,6 +719,7 @@ const SecondaryNav = ({
   )
   const version4BookmarkedPolygonRows = useMemo(() => [], [])
   const version4BookmarkedAlertRows = useMemo(() => [], [])
+  const hasAnyBookmarkedItems = version2HasAddedBookmarks
   const version2PendingShipIds = useMemo(
     () => new Set(version2PendingShips.map((ship) => ship.optionId)),
     [version2PendingShips]
@@ -701,7 +747,7 @@ const SecondaryNav = ({
   const version2SubmitLabel =
     version2PendingCount > 0
       ? `Add ${version2PendingCount} Ship${version2PendingCount === 1 ? '' : 's'}`
-      : `Add to ${listCollectionLabel}`
+      : 'Select ships to add'
   const version2PendingPortIds = useMemo(
     () => new Set(version2PendingPorts.map((port) => port.optionId)),
     [version2PendingPorts]
@@ -728,7 +774,9 @@ const SecondaryNav = ({
   const version2PortSubmitLabel =
     version2PendingPortCount > 0
       ? `Add ${version2PendingPortCount} Port${version2PendingPortCount === 1 ? '' : 's'}`
-      : `Add to ${listCollectionLabel}`
+      : version2Mode === 'polygons'
+        ? `Select ${polygonEntityLabelLowerPlural} to add`
+        : 'Select ports to add'
   const isVersion5ShapeMode = isVersion5 && version2Mode === 'polygons'
   const isVersion5MixedUploadMode = isVersion5 && version2Mode === 'add-options'
   const uploadTarget = isVersion5ShapeMode
@@ -751,6 +799,50 @@ const SecondaryNav = ({
     setVersion2UploadError('')
     version2UploadInputRef.current?.click()
   }
+
+  const returnToBookmarksList = () => {
+    if (version2SearchTimerRef.current) {
+      window.clearTimeout(version2SearchTimerRef.current)
+      version2SearchTimerRef.current = null
+    }
+    setVersion2IsSearching(false)
+    setVersion2IsPortSearching(false)
+    setVersion2ShipQuery('')
+    setVersion2SearchResults([])
+    setVersion2PendingShips([])
+    setVersion2PortQuery('')
+    setVersion2PortSearchResults([])
+    setVersion2PendingPorts([])
+    setVersion2SelectedFlow(null)
+    setVersion2HoveredFlow(null)
+    setVersion2Mode('ships-list')
+    setActiveTopTab('my-watchlist')
+    setActiveWatchlistTab('all')
+  }
+
+  const handleShipRowClick = useCallback(
+    (row) => {
+      const rowId = String(row?.id || '')
+      if (rowId.startsWith('ship-')) {
+        const shipId = rowId.slice(5)
+        if (shipId) {
+          onShipSelect?.(shipId)
+          return
+        }
+      }
+
+      const normalizedName = String(row?.name || '')
+        .trim()
+        .toLowerCase()
+      if (!normalizedName) return
+      const matchedShip = Object.values(shipLookup).find(
+        (ship) => String(ship?.name || '').trim().toLowerCase() === normalizedName
+      )
+      if (!matchedShip?.id) return
+      onShipSelect?.(matchedShip.id)
+    },
+    [onShipSelect, shipLookup]
+  )
 
   const pushVersion6RecentActivity = useCallback((row) => {
     if (!row?.activityKey) return
@@ -934,6 +1026,7 @@ const SecondaryNav = ({
 
   const handleVersion2SubmitShips = () => {
     if (version2PendingShips.length === 0) return
+    setVersion2HasAddedBookmarks(true)
 
     const realShipsToAdd = version2PendingShips.filter(
       (ship) => ship.baseShipId && !favoriteShipIds.includes(ship.baseShipId)
@@ -1020,6 +1113,7 @@ const SecondaryNav = ({
 
   const handleVersion2SubmitPorts = () => {
     if (version2PendingPorts.length === 0) return
+    setVersion2HasAddedBookmarks(true)
 
     const existingPrototypeNames = new Set(
       version2PrototypePortRows.map((row) => (row.name || '').toLowerCase())
@@ -1090,6 +1184,7 @@ const SecondaryNav = ({
       setVersion2PendingPorts([])
       setVersion2PrototypeShipRows([])
       setVersion2PrototypePortRows([])
+      setVersion2HasAddedBookmarks(false)
       if (version2SearchTimerRef.current) {
         window.clearTimeout(version2SearchTimerRef.current)
         version2SearchTimerRef.current = null
@@ -1354,7 +1449,7 @@ const SecondaryNav = ({
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 12,
+                  gap: 8,
                   padding: 20,
                 }}
               >
@@ -1362,16 +1457,47 @@ const SecondaryNav = ({
                   .filter((section) => section.rows.length > 0)
                   .map((section) => (
                     <Box key={`v6-recent-${section.id}`}>
-                      <Text
+                      <Box
                         style={{
-                          color: '#FFFFFF',
-                          fontSize: 14,
-                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
                           marginBottom: 8,
                         }}
                       >
-                        {section.rows.length} {section.title}
-                      </Text>
+                        {section.id === 'ships' ? (
+                          <ShipIcon
+                            style={{
+                              width: 16,
+                              height: 16,
+                            }}
+                          />
+                        ) : section.id === 'ports' ? (
+                          <Box
+                            component="img"
+                            src={AnchorIcon}
+                            alt=""
+                            style={{
+                              width: 16,
+                              height: 16,
+                              display: 'block',
+                            }}
+                          />
+                        ) : section.id === 'polygons' ? (
+                          <BezierCurve03 size={16} color="#FFFFFF" />
+                        ) : section.id === 'events' ? (
+                          <List size={16} color="#FFFFFF" />
+                        ) : null}
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 14,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {section.rows.length} {section.title}
+                        </Text>
+                      </Box>
                       <DataTable
                         rows={section.rows}
                         columns={version6RecentlyViewedColumnsBySection[section.id]}
@@ -1410,6 +1536,114 @@ const SecondaryNav = ({
                         }}
                       />
                     ))}
+                  </Box>
+                )}
+                {isVersion7 && isVersion4Or5 && showQuickAddBanner && (
+                  <Box
+                    style={{
+                      marginBottom: 10,
+                      borderRadius: 6,
+                      border: '1px solid #AD8B37',
+                      background: 'rgba(255, 207, 92, 0.1)',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      position: 'relative',
+                    }}
+                  >
+                    <Box
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 4,
+                        background: '#181926',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        position: 'relative',
+                        overflow: 'visible',
+                      }}
+                    >
+                      <Star01
+                        className="quick-add-banner-star"
+                        style={{
+                          width: 16,
+                          height: 16,
+                        }}
+                      />
+                      <svg
+                        className="quick-add-banner-cursor"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M2.15823 1.16501C1.69998 1.03023 1.47086 0.962837 1.31485 1.02099C1.1789 1.07167 1.07167 1.1789 1.02099 1.31485C0.962837 1.47086 1.03023 1.69998 1.16501 2.15823L5.37091 16.4583C5.49615 16.8841 5.55878 17.097 5.68517 17.1959C5.79546 17.2821 5.93686 17.3182 6.07499 17.2953C6.23328 17.269 6.39022 17.1121 6.70408 16.7982L9.75116 13.7512L14.1855 18.1855C14.3835 18.3835 14.4825 18.4825 14.5967 18.5196C14.6971 18.5522 14.8052 18.5522 14.9057 18.5196C15.0198 18.4825 15.1188 18.3835 15.3168 18.1855L18.1855 15.3168C18.3835 15.1188 18.4825 15.0198 18.5196 14.9057C18.5522 14.8052 18.5522 14.6971 18.5196 14.5967C18.4825 14.4825 18.3835 14.3835 18.1855 14.1855L13.7512 9.75116L16.7982 6.70408C17.1121 6.39022 17.269 6.23328 17.2953 6.07499C17.3182 5.93686 17.2821 5.79546 17.1959 5.68517C17.097 5.55878 16.8841 5.49615 16.4583 5.37091L2.15823 1.16501Z"
+                          fill="white"
+                          stroke="black"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </Box>
+                    <Box style={{ minWidth: 0, paddingRight: 22 }}>
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 13,
+                          lineHeight: '18px',
+                          fontWeight: 600,
+                          letterSpacing: 0.4,
+                          textTransform: 'none',
+                          textAlign: 'left',
+                          marginBottom: 2,
+                        }}
+                      >
+                        Quick add
+                      </Text>
+                      <Text
+                        style={{
+                          color: '#8D93A8',
+                          fontSize: 12,
+                          lineHeight: '16px',
+                          fontWeight: 500,
+                          textAlign: 'left',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Tap star on ship/port details to bookmark.
+                      </Text>
+                    </Box>
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={() => setShowQuickAddBanner(false)}
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 10,
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#FFFFFF',
+                        width: 16,
+                        height: 16,
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      aria-label="Dismiss quick add banner"
+                    >
+                      <XClose size={14} color="#FFFFFF" />
+                    </Box>
                   </Box>
                 )}
                 <Text
@@ -1546,17 +1780,28 @@ const SecondaryNav = ({
                       }}
                     >
                       {renderVersion2UploadIcon()}
-                      Upload a file
-                      <Text
-                        component="span"
-                        style={{
-                          color: '#8D93A8',
-                          fontSize: 11,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {uploadAcceptLabel}
-                      </Text>
+                      <Box style={{ minWidth: 0, textAlign: 'left' }}>
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: '16px',
+                          }}
+                        >
+                          Upload file for Ships
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#8D93A8',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            lineHeight: '14px',
+                          }}
+                        >
+                          .csv, .xls, .xlsx
+                        </Text>
+                      </Box>
                     </Box>
                     {version2UploadedFileName && (
                       <Text
@@ -1582,31 +1827,33 @@ const SecondaryNav = ({
                         {version2UploadError}
                       </Text>
                     )}
-                    <Box
-                      style={{
-                        marginBottom: 10,
-                        borderRadius: 6,
-                        border: '1px solid #393C56',
-                        background: '#24263C',
-                        padding: isVersion6 ? 8 : '12px 14px',
-                        display: 'flex',
-                        alignItems: isVersion6 ? 'center' : 'flex-start',
-                        gap: isVersion6 ? 14 : 10,
-                      }}
-                    >
-                      {renderVersion2TipStarIcon()}
-                      <Text
+                    {!isVersion7 && (
+                      <Box
                         style={{
-                          color: '#8D93A8',
-                          fontSize: 12,
-                          lineHeight: '18px',
-                          fontWeight: 500,
+                          marginBottom: 10,
+                          borderRadius: 6,
+                          border: '1px solid #393C56',
+                          background: '#24263C',
+                          padding: isVersion6 ? 8 : '12px 14px',
+                          display: 'flex',
+                          alignItems: isVersion6 ? 'center' : 'flex-start',
+                          gap: isVersion6 ? 14 : 10,
                         }}
                       >
-                        Tap the star on any ship or port detail page to add it
-                        instantly.
-                      </Text>
-                    </Box>
+                        {renderVersion2TipStarIcon()}
+                        <Text
+                          style={{
+                            color: '#8D93A8',
+                            fontSize: 12,
+                            lineHeight: '18px',
+                            fontWeight: 500,
+                          }}
+                        >
+                          Tap the star on any ship or port detail page to add it
+                          instantly.
+                        </Text>
+                      </Box>
+                    )}
                   </>
                 )}
                 <Box style={{ flex: 1, minHeight: 0 }}>
@@ -1782,6 +2029,117 @@ const SecondaryNav = ({
                   height: '100%',
                 }}
               >
+                {version2Mode === 'ports' &&
+                  isVersion7 &&
+                  isVersion4Or5 &&
+                  showQuickAddBanner && (
+                  <Box
+                    style={{
+                      marginBottom: 10,
+                      borderRadius: 6,
+                      border: '1px solid #AD8B37',
+                      background: 'rgba(255, 207, 92, 0.1)',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      position: 'relative',
+                    }}
+                  >
+                    <Box
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 4,
+                        background: '#181926',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        position: 'relative',
+                        overflow: 'visible',
+                      }}
+                    >
+                      <Star01
+                        className="quick-add-banner-star"
+                        style={{
+                          width: 16,
+                          height: 16,
+                        }}
+                      />
+                      <svg
+                        className="quick-add-banner-cursor"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M2.15823 1.16501C1.69998 1.03023 1.47086 0.962837 1.31485 1.02099C1.1789 1.07167 1.07167 1.1789 1.02099 1.31485C0.962837 1.47086 1.03023 1.69998 1.16501 2.15823L5.37091 16.4583C5.49615 16.8841 5.55878 17.097 5.68517 17.1959C5.79546 17.2821 5.93686 17.3182 6.07499 17.2953C6.23328 17.269 6.39022 17.1121 6.70408 16.7982L9.75116 13.7512L14.1855 18.1855C14.3835 18.3835 14.4825 18.4825 14.5967 18.5196C14.6971 18.5522 14.8052 18.5522 14.9057 18.5196C15.0198 18.4825 15.1188 18.3835 15.3168 18.1855L18.1855 15.3168C18.3835 15.1188 18.4825 15.0198 18.5196 14.9057C18.5522 14.8052 18.5522 14.6971 18.5196 14.5967C18.4825 14.4825 18.3835 14.3835 18.1855 14.1855L13.7512 9.75116L16.7982 6.70408C17.1121 6.39022 17.269 6.23328 17.2953 6.07499C17.3182 5.93686 17.2821 5.79546 17.1959 5.68517C17.097 5.55878 16.8841 5.49615 16.4583 5.37091L2.15823 1.16501Z"
+                          fill="white"
+                          stroke="black"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </Box>
+                    <Box style={{ minWidth: 0, paddingRight: 22 }}>
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 13,
+                          lineHeight: '18px',
+                          fontWeight: 600,
+                          letterSpacing: 0.4,
+                          textTransform: 'none',
+                          textAlign: 'left',
+                          marginBottom: 2,
+                        }}
+                      >
+                        Quick add
+                      </Text>
+                      <Text
+                        style={{
+                          color: '#8D93A8',
+                          fontSize: 12,
+                          lineHeight: '16px',
+                          fontWeight: 500,
+                          textAlign: 'left',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Tap star on ship/port details to bookmark.
+                      </Text>
+                    </Box>
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={() => setShowQuickAddBanner(false)}
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 10,
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#FFFFFF',
+                        width: 16,
+                        height: 16,
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      aria-label="Dismiss quick add banner"
+                    >
+                      <XClose size={14} color="#FFFFFF" />
+                    </Box>
+                  </Box>
+                )}
                 <Text
                   style={{
                     color: '#FFFFFF',
@@ -1985,17 +2343,28 @@ const SecondaryNav = ({
                       }}
                     >
                       {renderVersion2UploadIcon()}
-                      Upload a file
-                      <Text
-                        component="span"
-                        style={{
-                          color: '#8D93A8',
-                          fontSize: 11,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {uploadAcceptLabel}
-                      </Text>
+                      <Box style={{ minWidth: 0, textAlign: 'left' }}>
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: '16px',
+                          }}
+                        >
+                          Upload file for Shapes
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#8D93A8',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            lineHeight: '14px',
+                          }}
+                        >
+                          .json, .geojson
+                        </Text>
+                      </Box>
                     </Box>
                     {version2UploadedFileName && (
                       <Text
@@ -2143,17 +2512,28 @@ const SecondaryNav = ({
                       }}
                     >
                       {renderVersion2UploadIcon()}
-                      Upload a file
-                      <Text
-                        component="span"
-                        style={{
-                          color: '#8D93A8',
-                          fontSize: 11,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {uploadAcceptLabel}
-                      </Text>
+                      <Box style={{ minWidth: 0, textAlign: 'left' }}>
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: '16px',
+                          }}
+                        >
+                          Upload file for Ports
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#8D93A8',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            lineHeight: '14px',
+                          }}
+                        >
+                          .csv, .xls, .xlsx
+                        </Text>
+                      </Box>
                     </Box>
                     {version2UploadedFileName && (
                       <Text
@@ -2179,31 +2559,33 @@ const SecondaryNav = ({
                         {version2UploadError}
                       </Text>
                     )}
-                    <Box
-                      style={{
-                        marginBottom: 10,
-                        borderRadius: 6,
-                        border: '1px solid #393C56',
-                        background: '#24263C',
-                        padding: isVersion6 ? 8 : '12px 14px',
-                        display: 'flex',
-                        alignItems: isVersion6 ? 'center' : 'flex-start',
-                        gap: isVersion6 ? 14 : 10,
-                      }}
-                    >
-                      {renderVersion2TipStarIcon()}
-                      <Text
+                    {!isVersion7 && (
+                      <Box
                         style={{
-                          color: '#8D93A8',
-                          fontSize: 12,
-                          lineHeight: '18px',
-                          fontWeight: 500,
+                          marginBottom: 10,
+                          borderRadius: 6,
+                          border: '1px solid #393C56',
+                          background: '#24263C',
+                          padding: isVersion6 ? 8 : '12px 14px',
+                          display: 'flex',
+                          alignItems: isVersion6 ? 'center' : 'flex-start',
+                          gap: isVersion6 ? 14 : 10,
                         }}
                       >
-                        Tap the star on any ship or port detail page to add it
-                        instantly.
-                      </Text>
-                    </Box>
+                        {renderVersion2TipStarIcon()}
+                        <Text
+                          style={{
+                            color: '#8D93A8',
+                            fontSize: 12,
+                            lineHeight: '18px',
+                            fontWeight: 500,
+                          }}
+                        >
+                          Tap the star on any ship or port detail page to add it
+                          instantly.
+                        </Text>
+                      </Box>
+                    )}
                   </>
                 )}
                 <Box style={{ flex: 1, minHeight: 0 }}>
@@ -2386,7 +2768,7 @@ const SecondaryNav = ({
                   height: '100%',
                 }}
               >
-                {isVersion7 && isVersion4Or5 && (
+                {isVersion7 && isVersion4Or5 && showQuickAddBanner && (
                   <Box
                     style={{
                       marginBottom: 10,
@@ -2397,6 +2779,7 @@ const SecondaryNav = ({
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: 10,
+                      position: 'relative',
                     }}
                   >
                     <Box
@@ -2439,7 +2822,7 @@ const SecondaryNav = ({
                         />
                       </svg>
                     </Box>
-                    <Box style={{ minWidth: 0 }}>
+                    <Box style={{ minWidth: 0, paddingRight: 22 }}>
                       <Text
                         style={{
                           color: '#FFFFFF',
@@ -2461,10 +2844,35 @@ const SecondaryNav = ({
                           lineHeight: '16px',
                           fontWeight: 500,
                           textAlign: 'left',
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        Tap star on ship or port details to bookmark.
+                        Tap star on ship/port details to bookmark.
                       </Text>
+                    </Box>
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={() => setShowQuickAddBanner(false)}
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 10,
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#FFFFFF',
+                        width: 16,
+                        height: 16,
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      aria-label="Dismiss quick add banner"
+                    >
+                      <XClose size={14} color="#FFFFFF" />
                     </Box>
                   </Box>
                 )}
@@ -2877,6 +3285,37 @@ const SecondaryNav = ({
                     </Box>
                   </Box>
                 )}
+                {isVersion3Or4Or5 && hasAnyBookmarkedItems && (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'center',
+                      marginTop: 'auto',
+                      paddingTop: 14,
+                    }}
+                  >
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={returnToBookmarksList}
+                      style={{
+                        height: 30,
+                        borderRadius: 4,
+                        border: '1px solid #FFFFFF',
+                        background: 'transparent',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        lineHeight: '14px',
+                        padding: '0 10px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </Box>
+                  </Box>
+                )}
               </Box>
             ) : activeTopTab === 'my-watchlist' &&
               (version2Mode === 'ships-list' ||
@@ -2885,7 +3324,7 @@ const SecondaryNav = ({
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 12,
+                  gap: 8,
                   padding: 20,
                 }}
               >
@@ -2924,7 +3363,7 @@ const SecondaryNav = ({
                     }}
                   >
                     <Plus size={14} color="#FFFFFF" />
-                    {`Add to ${listCollectionLabel}`}
+                    {`Add ${listCollectionLabelLower}`}
                   </Box>
                 </Box>
                 {(!isVersion4Or5 || version2MyWatchlistShipRows.length > 0) && (
@@ -2952,6 +3391,7 @@ const SecondaryNav = ({
                       rows={version2MyWatchlistShipRows}
                       columns={getColumnsByTab('ships')}
                       emptyMessage={`No ships in ${listCollectionLabelLower} yet.`}
+                      onRowClick={handleShipRowClick}
                     />
                   </>
                 )}
@@ -3122,7 +3562,7 @@ const SecondaryNav = ({
                     }}
                   >
                     <Plus size={14} color="#FFFFFF" />
-                    {`Add to ${listCollectionLabel}`}
+                    {`Add ${listCollectionLabelLower}`}
                   </Box>
                 )}
                 {activeTopTab === 'my-watchlist' && (
@@ -3396,6 +3836,7 @@ const SecondaryNav = ({
                     rows={section.rows}
                     columns={getColumnsByTab(section.id)}
                     emptyMessage={`No ${section.title.toLowerCase()} in ${listCollectionLabelLower} yet.`}
+                    onRowClick={section.id === 'ships' ? handleShipRowClick : undefined}
                   />
                 </Box>
               ))}
@@ -3411,16 +3852,47 @@ const SecondaryNav = ({
             >
               {recentlyViewedSections.map((section) => (
                 <Box key={`recent-${section.id}`}>
-                  <Text
+                  <Box
                     style={{
-                      color: '#FFFFFF',
-                      fontSize: 14,
-                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
                       marginBottom: 8,
                     }}
                   >
-                    {section.rows.length} {section.title}
-                  </Text>
+                    {section.id === 'ships' ? (
+                      <ShipIcon
+                        style={{
+                          width: 16,
+                          height: 16,
+                        }}
+                      />
+                    ) : section.id === 'ports' ? (
+                      <Box
+                        component="img"
+                        src={AnchorIcon}
+                        alt=""
+                        style={{
+                          width: 16,
+                          height: 16,
+                          display: 'block',
+                        }}
+                      />
+                    ) : section.id === 'polygons' ? (
+                      <BezierCurve03 size={16} color="#FFFFFF" />
+                    ) : section.id === 'events' ? (
+                      <List size={16} color="#FFFFFF" />
+                    ) : null}
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 14,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {section.rows.length} {section.title}
+                    </Text>
+                  </Box>
                   <DataTable
                     rows={section.rows}
                     columns={getColumnsByTab(section.id)}
@@ -3450,6 +3922,11 @@ const SecondaryNav = ({
               <DataTable
                 rows={activeRows}
                 columns={columns}
+                onRowClick={
+                  activeTopTab === 'my-watchlist' && activeWatchlistTab === 'ships'
+                    ? handleShipRowClick
+                    : undefined
+                }
                 emptyMessage={
                   activeTopTab === 'recently-viewed'
                     ? isVersion5

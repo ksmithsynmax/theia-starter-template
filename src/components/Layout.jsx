@@ -137,6 +137,24 @@ function Layout() {
     [navigate, selectDetection]
   )
 
+  const handleShipSelectFromBookmarks = useCallback(
+    (shipId) => {
+      if (!shipId) return
+      const shipDetections = runtimeDetections.filter(
+        (detection) => String(detection.shipId) === String(shipId)
+      )
+      if (shipDetections.length === 0) return
+      const selectedDetection = [...shipDetections].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      )[0]
+      selectDetection(selectedDetection, { source: 'map', allowTabSwitch: true })
+      setSecondaryNavOpen(true)
+      setPanelOpen(true)
+      navigate('/myships')
+    },
+    [navigate, runtimeDetections, selectDetection]
+  )
+
   const handleRemoveTimelineEvent = useCallback((eventId) => {
     setTimelineEvents((prev) => prev.filter((event) => String(event.id) !== String(eventId)))
     setSelectedTimelineEventId((prev) => (String(prev) === String(eventId) ? null : prev))
@@ -291,6 +309,7 @@ function Layout() {
                 onClose={() => setSecondaryNavOpen(false)}
                 currentPath={location.pathname}
                 watchlistVersion={watchlistVersion}
+                onShipSelect={handleShipSelectFromBookmarks}
               />
 
               <Box className={`slide-panel ${slidePanelClass}`}>
