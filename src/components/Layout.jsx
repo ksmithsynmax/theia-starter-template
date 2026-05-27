@@ -5,7 +5,6 @@ import { Plus, Minus, XClose } from '@untitledui/icons'
 import TopNav from './TopNav'
 import LeftNav from './LeftNav'
 import Map from './Map'
-import CollapseButton from '../custom-icons/CollapseButton'
 import ExpandButton from '../custom-icons/ExpandButton'
 import ShipFilterIcon from '../custom-icons/ShipFilterIcon.svg'
 import ShipFiltersPanel from './ShipFiltersPanel'
@@ -18,7 +17,6 @@ function Layout() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
-  const [collapseBtnHovered, setCollapseBtnHovered] = useState(false)
   const [expandPanelHovered, setExpandPanelHovered] = useState(false)
   const [timelinePanelOpen, setTimelinePanelOpen] = useState(true)
   const [timelineEvents, setTimelineEvents] = useState([])
@@ -86,9 +84,9 @@ function Layout() {
     (to) => {
       if (location.pathname === to) {
         if (to === '/timeline') {
-          setTimelinePanelOpen((prev) => !prev)
+          setTimelinePanelOpen(true)
         } else {
-          setSecondaryNavOpen((prev) => !prev)
+          setSecondaryNavOpen(true)
         }
       } else {
         if (to === '/timeline') {
@@ -304,7 +302,7 @@ function Layout() {
                       style={{
                         position: 'absolute',
                         right: 0,
-                        top: 71,
+                        top: 12,
                         cursor: 'pointer',
                         pointerEvents: 'auto',
                         zIndex: 10,
@@ -316,26 +314,6 @@ function Layout() {
                     </Box>
                   )}
 
-                  {panelOpen && (
-                    <Box onClick={closePanel} style={{ position: 'relative' }}>
-                      <Box
-                        style={{
-                          position: 'absolute',
-                          right: 0,
-                          top: 71,
-                          cursor: 'pointer',
-                          pointerEvents: 'auto',
-                        }}
-                        onMouseEnter={() => setCollapseBtnHovered(true)}
-                        onMouseLeave={() => setCollapseBtnHovered(false)}
-                      >
-                        <CollapseButton
-                          backgroundColor={collapseBtnHovered ? '#4C5070' : '#393C56'}
-                        />
-                      </Box>
-                    </Box>
-                  )}
-
                   <Box
                     className="slide-panel-content"
                     style={{
@@ -344,7 +322,9 @@ function Layout() {
                       transition: 'opacity 0.2s ease',
                     }}
                   >
-                    <Outlet />
+                    <Outlet
+                      context={{ collapsePanel: closePanel, watchlistVersion }}
+                    />
                   </Box>
               </Box>
             </>

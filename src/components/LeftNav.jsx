@@ -17,7 +17,10 @@ const timelineNavItem = { icon: <Clock color="white" size={20} />, to: '/timelin
 const LeftNav = ({ onNavClick, watchlistVersion = 'grouped' }) => {
   const isVersion2 = watchlistVersion === 'version2'
   const isVersion4Or5 =
-    watchlistVersion === 'version4' || watchlistVersion === 'version5'
+    watchlistVersion === 'version4' ||
+    watchlistVersion === 'version5' ||
+    watchlistVersion === 'version6' ||
+    watchlistVersion === 'version7'
   const primaryNavItems = [
     {
       icon: isVersion4Or5 ? (

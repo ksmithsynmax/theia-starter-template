@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
   Box,
   Text,
@@ -31,6 +31,7 @@ import STSAisIcon from '../custom-icons/STSAisIcon'
 import ShipIcon from '../custom-icons/ShipIcon'
 import EnlargeVerticalIcon from '../custom-icons/EnlargeVerticalIcon'
 import TransferIcon from '../custom-icons/TransferIcon.svg'
+import CollapseButton from '../custom-icons/CollapseButton'
 import ShipDetailsPanel from '../components/ShipDetails/ShipDetailsPanel'
 import EventTimelineCard from '../components/ShipDetails/EventTimelineCard'
 import SanctionDetailsVersionB from '../components/SanctionDetailsVersionB'
@@ -255,6 +256,7 @@ function Myships() {
   const [detailTabsOverflowLeft, setDetailTabsOverflowLeft] = useState(false)
   const [detailTabsOverflowRight, setDetailTabsOverflowRight] = useState(false)
   const [menuOpened, setMenuOpened] = useState(false)
+  const [collapsePanelHovered, setCollapsePanelHovered] = useState(false)
   const [isResizingTimeline, setIsResizingTimeline] = useState(false)
   const [isDragHandleHovered, setIsDragHandleHovered] = useState(false)
   const [topSectionHeight, setTopSectionHeight] = useState(null)
@@ -314,6 +316,12 @@ function Myships() {
     }, 0) + 1000
   )
   const allDetections = useMemo(() => runtimeDetections, [runtimeDetections])
+  const { collapsePanel, watchlistVersion } = useOutletContext() || {}
+  const isBookmarkVersion =
+    watchlistVersion === 'version4' ||
+    watchlistVersion === 'version5' ||
+    watchlistVersion === 'version6' ||
+    watchlistVersion === 'version7'
 
   const updateOverflow = useCallback(() => {
     const el = tabScrollRef.current
@@ -1996,6 +2004,28 @@ function Myships() {
             )}
           </Menu.Dropdown>
         </Menu>
+        <Box
+          onClick={() => collapsePanel?.()}
+          onMouseEnter={() => setCollapsePanelHovered(true)}
+          onMouseLeave={() => setCollapsePanelHovered(false)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            width: 40,
+            height: 50,
+            cursor: 'pointer',
+            background: '#24263C',
+            borderBottom: '1px solid #393C56',
+            borderLeft: '1px solid #393C56',
+            flexShrink: 0,
+            paddingRight: 0,
+          }}
+        >
+          <CollapseButton
+            backgroundColor={collapsePanelHovered ? '#4C5070' : '#393C56'}
+          />
+        </Box>
       </Box>
 
       {activeShip && loading && (
@@ -2298,12 +2328,25 @@ function Myships() {
                 */}
                 <Tooltip
                   label={
-                    isActiveShipFavorite
-                      ? 'Remove from My Ships'
-                      : 'Add to My Ships'
+                    isBookmarkVersion
+                      ? 'Bookmark'
+                      : isActiveShipFavorite
+                        ? 'Remove from My Ships'
+                        : 'Add to My Ships'
                   }
                   withArrow
                   openDelay={200}
+                  styles={{
+                    tooltip: {
+                      backgroundColor: '#000',
+                      color: '#fff',
+                      border: '1px solid #000',
+                    },
+                    arrow: {
+                      backgroundColor: '#000',
+                      border: '1px solid #000',
+                    },
+                  }}
                 >
                   <Box
                     onClick={() => {
@@ -2335,7 +2378,22 @@ function Myships() {
                     />
                   </Box>
                 </Tooltip>
-                <Tooltip label="Expand/collapse" withArrow openDelay={200}>
+                <Tooltip
+                  label="Expand/collapse"
+                  withArrow
+                  openDelay={200}
+                  styles={{
+                    tooltip: {
+                      backgroundColor: '#000',
+                      color: '#fff',
+                      border: '1px solid #000',
+                    },
+                    arrow: {
+                      backgroundColor: '#000',
+                      border: '1px solid #000',
+                    },
+                  }}
+                >
                   <Box
                     onClick={handleTopSummaryToggle}
                     onMouseEnter={() => setHoveredTopAction('resize')}

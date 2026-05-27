@@ -91,7 +91,10 @@ const parseTypedDate = (rawValue) => {
 
 const TopNav = ({ watchlistVersion = 'grouped', onWatchlistVersionChange }) => {
   const isVersion4Or5 =
-    watchlistVersion === 'version4' || watchlistVersion === 'version5'
+    watchlistVersion === 'version4' ||
+    watchlistVersion === 'version5' ||
+    watchlistVersion === 'version6' ||
+    watchlistVersion === 'version7'
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [isEditingCalendarDate, setIsEditingCalendarDate] = useState(false)
@@ -218,6 +221,8 @@ const TopNav = ({ watchlistVersion = 'grouped', onWatchlistVersionChange }) => {
             <option value="version3">Version 3</option>
             <option value="version4">Version 4</option>
             <option value="version5">Version 5</option>
+            <option value="version6">Version 6</option>
+            <option value="version7">Version 7</option>
           </Box>
         </Box>
         <Box component="button" type="button" className="topnav-icon-btn">

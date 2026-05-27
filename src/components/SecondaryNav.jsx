@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Loader, Text } from '@mantine/core'
 import {
   Plus,
@@ -262,7 +262,9 @@ const SecondaryNav = ({
   const [version2Mode, setVersion2Mode] = useState(
     watchlistVersion === 'version3' ||
       watchlistVersion === 'version4' ||
-      watchlistVersion === 'version5'
+      watchlistVersion === 'version5' ||
+      watchlistVersion === 'version6' ||
+      watchlistVersion === 'version7'
       ? 'add-options'
       : 'empty'
   )
@@ -280,6 +282,9 @@ const SecondaryNav = ({
     useState('')
   const [version2AlertMyShipValue, setVersion2AlertMyShipValue] = useState('')
   const [version2UploadedFileName, setVersion2UploadedFileName] = useState('')
+  const [version2UploadError, setVersion2UploadError] = useState('')
+  const [version2UploadTarget, setVersion2UploadTarget] = useState('ships-ports')
+  const [version6RecentActivityRows, setVersion6RecentActivityRows] = useState([])
   const [version2PrototypeShipRows, setVersion2PrototypeShipRows] = useState([])
   const [version2PrototypePortRows, setVersion2PrototypePortRows] = useState([])
   const [collapseHovered, setCollapseHovered] = useState(false)
@@ -290,15 +295,26 @@ const SecondaryNav = ({
   const resizeStartWidthRef = useRef(SECONDARY_NAV_DEFAULT_WIDTH)
   const version2SearchTimerRef = useRef(null)
   const version2UploadInputRef = useRef(null)
+  const version6LastSelectedDetectionRef = useRef(null)
   const navigate = useNavigate()
-  const { shipTabs, favoriteShipIds, toggleFavoriteShip } = useShipContext()
+  const {
+    shipTabs,
+    favoriteShipIds,
+    toggleFavoriteShip,
+    runtimeDetections,
+    selectedDetectionId,
+  } = useShipContext()
 
   const isWatchlistView = currentPath === '/watchlist'
   const isGroupedVersion = watchlistVersion === 'grouped'
   const isVersion2 = watchlistVersion === 'version2'
   const isVersion3 = watchlistVersion === 'version3'
   const isVersion4 = watchlistVersion === 'version4'
-  const isVersion5 = watchlistVersion === 'version5'
+  const isVersion7 = watchlistVersion === 'version7'
+  const isVersion6 =
+    watchlistVersion === 'version6' || isVersion7
+  const isVersion5 =
+    watchlistVersion === 'version5' || isVersion6
   const isVersion4Or5 = isVersion4 || isVersion5
   const isVersion3Or4Or5 = isVersion3 || isVersion4Or5
   const isVersion2Or3Or4Or5 = isVersion2 || isVersion3Or4Or5
@@ -309,6 +325,9 @@ const SecondaryNav = ({
   const polygonEntityLabelPlural = isVersion5 ? 'Shapes' : 'Polygons'
   const polygonEntityLabelLowerPlural = isVersion5 ? 'shapes' : 'polygons'
   const isVersion3UploadHovered = version2HoveredFlow === 'upload-file'
+  const isVersion3EntityUploadHovered =
+    version2HoveredFlow === 'upload-file-entities'
+  const isVersion3ShapeUploadHovered = version2HoveredFlow === 'upload-file-shapes'
   const version2AddOptions = useMemo(
     () => {
       const baseOptions = isVersion5
@@ -514,6 +533,112 @@ const SecondaryNav = ({
     ]
   )
 
+  const version6RecentShipRows = useMemo(
+    () =>
+      version6RecentActivityRows
+        .filter((row) => row.entityType === 'Ship')
+        .map((row, index) => ({
+          id: row.id || `v6-recent-ship-${index}`,
+          name: row.name || 'No info',
+          ctry: row.ctry || 'No info',
+          imo: row.imo || 'No info',
+          mmsi: row.mmsi || 'No info',
+          event: row.event || 'No info',
+        })),
+    [version6RecentActivityRows]
+  )
+
+  const version6RecentPortRows = useMemo(
+    () =>
+      version6RecentActivityRows
+        .filter((row) => row.entityType === 'Port')
+        .map((row, index) => ({
+          id: row.id || `v6-recent-port-${index}`,
+          name: row.name || 'No info',
+          ctry: row.ctry || 'No info',
+          locode: row.locode || 'No info',
+          type: row.type || 'No info',
+          status: row.status || 'No info',
+        })),
+    [version6RecentActivityRows]
+  )
+
+  const version6RecentShapeRows = useMemo(
+    () =>
+      version6RecentActivityRows
+        .filter((row) => row.entityType === 'Shape')
+        .map((row, index) => ({
+          id: row.id || `v6-recent-shape-${index}`,
+          shapeName: row.shapeName || row.name || 'No info',
+          area: row.area || 'No info',
+          createdDate: row.createdDate || 'No info',
+        })),
+    [version6RecentActivityRows]
+  )
+
+  const version6RecentEventRows = useMemo(
+    () =>
+      version6RecentActivityRows
+        .filter((row) => row.entityType === 'Event')
+        .map((row, index) => ({
+          id: row.id || `v6-recent-event-${index}`,
+          event: row.event || row.name || 'No info',
+          ship: row.ship || 'No info',
+          flag: row.flag || 'No info',
+          date: row.date || 'No info',
+        })),
+    [version6RecentActivityRows]
+  )
+
+  const version6RecentlyViewedSections = useMemo(
+    () => [
+      { id: 'ships', title: 'Ships', rows: version6RecentShipRows },
+      { id: 'ports', title: 'Ports', rows: version6RecentPortRows },
+      { id: 'polygons', title: polygonEntityLabelPlural, rows: version6RecentShapeRows },
+      { id: 'events', title: 'Events', rows: version6RecentEventRows },
+    ],
+    [
+      polygonEntityLabelPlural,
+      version6RecentEventRows,
+      version6RecentPortRows,
+      version6RecentShapeRows,
+      version6RecentShipRows,
+    ]
+  )
+
+  const version6RecentlyViewedColumnsBySection = useMemo(
+    () => ({
+      ships: [
+        { key: 'name', label: 'Name', width: 'minmax(0, 1.2fr)' },
+        { key: 'ctry', label: 'Ctry', width: '90px' },
+        { key: 'imo', label: 'IMO', width: 'minmax(0, 1fr)' },
+        { key: 'mmsi', label: 'MMSI', width: 'minmax(0, 1fr)' },
+        { key: 'event', label: 'Event', width: 'minmax(0, 1fr)' },
+      ],
+      ports: [
+        { key: 'name', label: 'Name', width: 'minmax(0, 1.2fr)' },
+        { key: 'ctry', label: 'Ctry', width: '90px' },
+        { key: 'locode', label: 'Locode', width: 'minmax(0, 1fr)' },
+        { key: 'type', label: 'Type', width: 'minmax(0, 1fr)' },
+        { key: 'status', label: 'Status', width: 'minmax(0, 1fr)' },
+      ],
+      polygons: [
+        { key: 'shapeName', label: 'Shape Name', width: 'minmax(0, 1.5fr)' },
+        { key: 'area', label: 'Area', width: 'minmax(0, 1fr)' },
+        { key: 'createdDate', label: 'Created Date', width: 'minmax(0, 1fr)' },
+      ],
+      events: [
+        { key: 'event', label: 'Event', width: 'minmax(0, 1.2fr)' },
+        { key: 'ship', label: 'Ship', width: 'minmax(0, 1.1fr)' },
+        { key: 'flag', label: 'Flag', width: '90px' },
+        { key: 'date', label: 'Date', width: 'minmax(0, 1fr)' },
+      ],
+    }),
+    []
+  )
+
+  const version6HasRecentActivity = version6RecentActivityRows.length > 0
+
   const activeRows =
     activeTopTab === 'my-watchlist' && activeWatchlistTab === 'all'
       ? isGroupedVersion
@@ -604,7 +729,97 @@ const SecondaryNav = ({
     version2PendingPortCount > 0
       ? `Add ${version2PendingPortCount} Port${version2PendingPortCount === 1 ? '' : 's'}`
       : `Add to ${listCollectionLabel}`
+  const isVersion5ShapeMode = isVersion5 && version2Mode === 'polygons'
+  const isVersion5MixedUploadMode = isVersion5 && version2Mode === 'add-options'
+  const uploadTarget = isVersion5ShapeMode
+    ? 'shapes'
+    : isVersion5MixedUploadMode
+      ? version2UploadTarget
+      : 'ships-ports'
+  const uploadAccept =
+    uploadTarget === 'shapes'
+      ? '.json,.geojson,application/json,application/geo+json'
+      : '.csv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  const uploadAcceptLabel =
+    uploadTarget === 'shapes' ? '(.json, .geojson)' : '(.csv, .xls, .xlsx)'
+  const uploadTargetLabel = uploadTarget === 'shapes' ? 'Shapes' : 'Ships/Ports'
+  const version2AddOptionIconSize = isVersion6 ? 16 : 20
   const canProceedVersion2 = Boolean(version2SelectedFlow)
+
+  const openVersion2UploadPicker = (target = uploadTarget) => {
+    setVersion2UploadTarget(target)
+    setVersion2UploadError('')
+    version2UploadInputRef.current?.click()
+  }
+
+  const pushVersion6RecentActivity = useCallback((row) => {
+    if (!row?.activityKey) return
+    setVersion6RecentActivityRows((prev) => {
+      const deduped = prev.filter(
+        (existingRow) => existingRow.activityKey !== row.activityKey
+      )
+      return [{ ...row, lastViewed: row.lastViewed || 'Just now' }, ...deduped].slice(
+        0,
+        30
+      )
+    })
+  }, [])
+
+  const renderVersion2UploadIcon = () =>
+    isVersion6 ? (
+      <Box
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 4,
+          background: '#181926',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <Upload01 size={16} color="#FFFFFF" />
+      </Box>
+    ) : (
+      <Upload01 size={16} color="#FFFFFF" />
+    )
+
+  const renderVersion2TipStarIcon = () =>
+    isVersion6 ? (
+      <Box
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 4,
+          background: '#181926',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <Star01
+          style={{
+            color: '#F7C948',
+            fill: '#F7C948',
+            width: 16,
+            height: 16,
+          }}
+        />
+      </Box>
+    ) : (
+      <Star01
+        style={{
+          color: '#F7C948',
+          fill: '#F7C948',
+          width: 18,
+          height: 18,
+          flexShrink: 0,
+          marginTop: 1,
+        }}
+      />
+    )
 
   const handleVersion2Next = (selectedFlow = version2SelectedFlow) => {
     if (!selectedFlow) return
@@ -754,6 +969,25 @@ const SecondaryNav = ({
       ])
     }
 
+    if (isVersion6) {
+      version2PendingShips.forEach((ship) => {
+        const baseShip = ship.baseShipId ? shipLookup[ship.baseShipId] : null
+        const shipName = ship.name || baseShip?.name || 'Unknown ship'
+        pushVersion6RecentActivity({
+          activityKey: `ship-${ship.baseShipId || ship.optionId}`,
+          id: `recent-v6-ship-${ship.baseShipId || ship.optionId}`,
+          entityType: 'Ship',
+          name: shipName,
+          ctry: baseShip?.flag || ship.flag || '-',
+          imo: ship.imo || baseShip?.imo || baseShip?.aisInfo?.imo || 'No info',
+          mmsi:
+            ship.mmsi || baseShip?.mmsi || baseShip?.aisInfo?.mmsi || 'No info',
+          event: baseShip?.latestEvent || 'Manual',
+          lastViewed: 'Just now',
+        })
+      })
+    }
+
     setVersion2PendingShips([])
     setVersion2ShipQuery('')
     setVersion2SearchResults([])
@@ -814,6 +1048,25 @@ const SecondaryNav = ({
       ])
     }
 
+    if (isVersion6) {
+      version2PendingPorts.forEach((port) => {
+        const portName = port.name || 'Unknown port'
+        const country = port.country || 'Unknown'
+        const activity = port.activity || 'Monitoring'
+        pushVersion6RecentActivity({
+          activityKey: `port-${port.optionId}`,
+          id: `recent-v6-port-${port.optionId}`,
+          entityType: 'Port',
+          name: portName,
+          ctry: country,
+          locode: port.locode || 'No info',
+          type: activity,
+          status: 'Monitoring',
+          lastViewed: 'Just now',
+        })
+      })
+    }
+
     setVersion2PendingPorts([])
     setVersion2PortQuery('')
     setVersion2PortSearchResults([])
@@ -855,6 +1108,55 @@ const SecondaryNav = ({
       setVersion2Mode('add-options')
     }
   }, [isVersion5, version2Mode])
+
+  useEffect(() => {
+    setVersion2UploadError('')
+    setVersion2UploadedFileName('')
+    if (isVersion5ShapeMode) {
+      setVersion2UploadTarget('shapes')
+      return
+    }
+    setVersion2UploadTarget('ships-ports')
+  }, [isVersion5ShapeMode, version2Mode])
+
+  useEffect(() => {
+    if (isVersion6) return
+    setVersion6RecentActivityRows([])
+    version6LastSelectedDetectionRef.current = null
+  }, [isVersion6])
+
+  useEffect(() => {
+    if (!isVersion6 || !selectedDetectionId) return
+    if (version6LastSelectedDetectionRef.current === selectedDetectionId) return
+    version6LastSelectedDetectionRef.current = selectedDetectionId
+
+    const selectedDetection = runtimeDetections.find(
+      (detection) => String(detection.id) === String(selectedDetectionId)
+    )
+    if (!selectedDetection) return
+
+    pushVersion6RecentActivity({
+      activityKey: `event-${selectedDetection.id}`,
+      id: `recent-v6-event-${selectedDetection.id}`,
+      entityType: 'Event',
+      event: `${String(selectedDetection.type || 'event')
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase())} Event`,
+      ship:
+        shipLookup[selectedDetection.shipId]?.name ||
+        selectedDetection.shipId ||
+        'Unknown ship',
+      flag: shipLookup[selectedDetection.shipId]?.flag || '-',
+      date: selectedDetection.date || 'Just now',
+      lastViewed: 'Just now',
+    })
+  }, [
+    isVersion6,
+    pushVersion6RecentActivity,
+    runtimeDetections,
+    selectedDetectionId,
+    shipLookup,
+  ])
 
   useEffect(
     () => () => {
@@ -913,7 +1215,7 @@ const SecondaryNav = ({
           style={{
             position: 'absolute',
             right: 0,
-            top: 71,
+            top: 12,
             cursor: 'pointer',
             zIndex: 10,
           }}
@@ -1045,7 +1347,40 @@ const SecondaryNav = ({
           }}
         >
           {isVersion2Or3Or4Or5 ? (
-            activeTopTab === 'my-watchlist' && version2Mode === 'ships' ? (
+            activeTopTab === 'recently-viewed' &&
+            isVersion6 &&
+            version6HasRecentActivity ? (
+              <Box
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                  padding: 20,
+                }}
+              >
+                {version6RecentlyViewedSections
+                  .filter((section) => section.rows.length > 0)
+                  .map((section) => (
+                    <Box key={`v6-recent-${section.id}`}>
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          marginBottom: 8,
+                        }}
+                      >
+                        {section.rows.length} {section.title}
+                      </Text>
+                      <DataTable
+                        rows={section.rows}
+                        columns={version6RecentlyViewedColumnsBySection[section.id]}
+                        emptyMessage={`No recently viewed ${section.title.toLowerCase()} yet.`}
+                      />
+                    </Box>
+                  ))}
+              </Box>
+            ) : activeTopTab === 'my-watchlist' && version2Mode === 'ships' ? (
               <Box
                 style={{
                   padding: 20,
@@ -1160,7 +1495,8 @@ const SecondaryNav = ({
                     </Box>
                   )}
                 </Box>
-                {isVersion5 && (
+                {isVersion5 &&
+                  (!isVersion6 || version2DisplaySearchRows.length === 0) && (
                   <>
                     <Box
                       style={{
@@ -1188,13 +1524,13 @@ const SecondaryNav = ({
                       type="button"
                       onMouseEnter={() => setVersion2HoveredFlow('upload-file')}
                       onMouseLeave={() => setVersion2HoveredFlow(null)}
-                      onClick={() => version2UploadInputRef.current?.click()}
+                      onClick={() => openVersion2UploadPicker('ships-ports')}
                       style={{
                         display: 'flex',
                         width: '100%',
                         justifyContent: 'flex-start',
                         alignItems: 'center',
-                        gap: 10,
+                        gap: isVersion6 ? 14 : 10,
                         border: `1px solid ${isVersion3UploadHovered ? '#006CD7' : '#393C56'}`,
                         borderRadius: 6,
                         background: isVersion3UploadHovered
@@ -1204,12 +1540,12 @@ const SecondaryNav = ({
                         fontSize: 12,
                         fontWeight: 600,
                         lineHeight: '14px',
-                        padding: '12px 14px',
+                        padding: isVersion6 ? 8 : '12px 14px',
                         cursor: 'pointer',
                         marginBottom: 6,
                       }}
                     >
-                      <Upload01 size={14} color="#FFFFFF" />
+                      {renderVersion2UploadIcon()}
                       Upload a file
                       <Text
                         component="span"
@@ -1219,7 +1555,7 @@ const SecondaryNav = ({
                           fontWeight: 600,
                         }}
                       >
-                        (.csv, .xls, .xlsx)
+                        {uploadAcceptLabel}
                       </Text>
                     </Box>
                     {version2UploadedFileName && (
@@ -1231,7 +1567,19 @@ const SecondaryNav = ({
                           marginBottom: 8,
                         }}
                       >
-                        Selected: {version2UploadedFileName}
+                        Selected for {uploadTargetLabel}: {version2UploadedFileName}
+                      </Text>
+                    )}
+                    {version2UploadError && (
+                      <Text
+                        style={{
+                          color: '#FF8B8B',
+                          fontSize: 11,
+                          lineHeight: '16px',
+                          marginBottom: 8,
+                        }}
+                      >
+                        {version2UploadError}
                       </Text>
                     )}
                     <Box
@@ -1240,22 +1588,13 @@ const SecondaryNav = ({
                         borderRadius: 6,
                         border: '1px solid #393C56',
                         background: '#24263C',
-                        padding: '12px 14px',
+                        padding: isVersion6 ? 8 : '12px 14px',
                         display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 10,
+                        alignItems: isVersion6 ? 'center' : 'flex-start',
+                        gap: isVersion6 ? 14 : 10,
                       }}
                     >
-                      <Star01
-                        style={{
-                          color: '#F7C948',
-                          fill: '#F7C948',
-                          width: 18,
-                          height: 18,
-                          flexShrink: 0,
-                          marginTop: 1,
-                        }}
-                      />
+                      {renderVersion2TipStarIcon()}
                       <Text
                         style={{
                           color: '#8D93A8',
@@ -1596,6 +1935,94 @@ const SecondaryNav = ({
                     ))}
                   </Box>
                 )}
+                {isVersion5 && version2Mode === 'polygons' && (
+                  <>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        marginTop: 2,
+                        marginBottom: 10,
+                      }}
+                    >
+                      <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 11,
+                          lineHeight: '12px',
+                        }}
+                      >
+                        or
+                      </Text>
+                      <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
+                    </Box>
+                    <Box
+                      component="button"
+                      type="button"
+                      onMouseEnter={() => setVersion2HoveredFlow('upload-file')}
+                      onMouseLeave={() => setVersion2HoveredFlow(null)}
+                      onClick={() => openVersion2UploadPicker('shapes')}
+                      style={{
+                        display: 'flex',
+                        width: '100%',
+                        justifyContent: 'flex-start',
+                        alignItems: 'center',
+                        gap: isVersion6 ? 14 : 10,
+                        border: `1px solid ${isVersion3UploadHovered ? '#006CD7' : '#393C56'}`,
+                        borderRadius: 6,
+                        background: isVersion3UploadHovered
+                          ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                          : '#24263C',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        lineHeight: '14px',
+                        padding: isVersion6 ? 8 : '12px 14px',
+                        cursor: 'pointer',
+                        marginBottom: 6,
+                      }}
+                    >
+                      {renderVersion2UploadIcon()}
+                      Upload a file
+                      <Text
+                        component="span"
+                        style={{
+                          color: '#8D93A8',
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {uploadAcceptLabel}
+                      </Text>
+                    </Box>
+                    {version2UploadedFileName && (
+                      <Text
+                        style={{
+                          color: '#A0A6BC',
+                          fontSize: 11,
+                          lineHeight: '16px',
+                          marginBottom: 8,
+                        }}
+                      >
+                        Selected for {uploadTargetLabel}: {version2UploadedFileName}
+                      </Text>
+                    )}
+                    {version2UploadError && (
+                      <Text
+                        style={{
+                          color: '#FF8B8B',
+                          fontSize: 11,
+                          lineHeight: '16px',
+                          marginBottom: 8,
+                        }}
+                      >
+                        {version2UploadError}
+                      </Text>
+                    )}
+                  </>
+                )}
                 {version2Mode === 'ports' && (
                   <Box
                     style={{
@@ -1664,7 +2091,9 @@ const SecondaryNav = ({
                     )}
                   </Box>
                 )}
-                {isVersion5 && version2Mode === 'ports' && (
+                {isVersion5 &&
+                  version2Mode === 'ports' &&
+                  (!isVersion6 || version2DisplayPortSearchRows.length === 0) && (
                   <>
                     <Box
                       style={{
@@ -1692,13 +2121,13 @@ const SecondaryNav = ({
                       type="button"
                       onMouseEnter={() => setVersion2HoveredFlow('upload-file')}
                       onMouseLeave={() => setVersion2HoveredFlow(null)}
-                      onClick={() => version2UploadInputRef.current?.click()}
+                      onClick={() => openVersion2UploadPicker('ships-ports')}
                       style={{
                         display: 'flex',
                         width: '100%',
                         justifyContent: 'flex-start',
                         alignItems: 'center',
-                        gap: 10,
+                        gap: isVersion6 ? 14 : 10,
                         border: `1px solid ${isVersion3UploadHovered ? '#006CD7' : '#393C56'}`,
                         borderRadius: 6,
                         background: isVersion3UploadHovered
@@ -1708,12 +2137,12 @@ const SecondaryNav = ({
                         fontSize: 12,
                         fontWeight: 600,
                         lineHeight: '14px',
-                        padding: '12px 14px',
+                        padding: isVersion6 ? 8 : '12px 14px',
                         cursor: 'pointer',
                         marginBottom: 6,
                       }}
                     >
-                      <Upload01 size={14} color="#FFFFFF" />
+                      {renderVersion2UploadIcon()}
                       Upload a file
                       <Text
                         component="span"
@@ -1723,7 +2152,7 @@ const SecondaryNav = ({
                           fontWeight: 600,
                         }}
                       >
-                        (.csv, .xls, .xlsx)
+                        {uploadAcceptLabel}
                       </Text>
                     </Box>
                     {version2UploadedFileName && (
@@ -1735,7 +2164,19 @@ const SecondaryNav = ({
                           marginBottom: 8,
                         }}
                       >
-                        Selected: {version2UploadedFileName}
+                        Selected for {uploadTargetLabel}: {version2UploadedFileName}
+                      </Text>
+                    )}
+                    {version2UploadError && (
+                      <Text
+                        style={{
+                          color: '#FF8B8B',
+                          fontSize: 11,
+                          lineHeight: '16px',
+                          marginBottom: 8,
+                        }}
+                      >
+                        {version2UploadError}
                       </Text>
                     )}
                     <Box
@@ -1744,22 +2185,13 @@ const SecondaryNav = ({
                         borderRadius: 6,
                         border: '1px solid #393C56',
                         background: '#24263C',
-                        padding: '12px 14px',
+                        padding: isVersion6 ? 8 : '12px 14px',
                         display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 10,
+                        alignItems: isVersion6 ? 'center' : 'flex-start',
+                        gap: isVersion6 ? 14 : 10,
                       }}
                     >
-                      <Star01
-                        style={{
-                          color: '#F7C948',
-                          fill: '#F7C948',
-                          width: 18,
-                          height: 18,
-                          flexShrink: 0,
-                          marginTop: 1,
-                        }}
-                      />
+                      {renderVersion2TipStarIcon()}
                       <Text
                         style={{
                           color: '#8D93A8',
@@ -1954,6 +2386,88 @@ const SecondaryNav = ({
                   height: '100%',
                 }}
               >
+                {isVersion7 && isVersion4Or5 && (
+                  <Box
+                    style={{
+                      marginBottom: 10,
+                      borderRadius: 6,
+                      border: '1px solid #FFCF5C',
+                      background: 'rgba(255, 207, 92, 0.1)',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                    }}
+                  >
+                    <Box
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 4,
+                        background: '#181926',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        position: 'relative',
+                        overflow: 'visible',
+                      }}
+                    >
+                      <Star01
+                        className="quick-add-banner-star"
+                        style={{
+                          width: 16,
+                          height: 16,
+                        }}
+                      />
+                      <svg
+                        className="quick-add-banner-cursor"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M2.15823 1.16501C1.69998 1.03023 1.47086 0.962837 1.31485 1.02099C1.1789 1.07167 1.07167 1.1789 1.02099 1.31485C0.962837 1.47086 1.03023 1.69998 1.16501 2.15823L5.37091 16.4583C5.49615 16.8841 5.55878 17.097 5.68517 17.1959C5.79546 17.2821 5.93686 17.3182 6.07499 17.2953C6.23328 17.269 6.39022 17.1121 6.70408 16.7982L9.75116 13.7512L14.1855 18.1855C14.3835 18.3835 14.4825 18.4825 14.5967 18.5196C14.6971 18.5522 14.8052 18.5522 14.9057 18.5196C15.0198 18.4825 15.1188 18.3835 15.3168 18.1855L18.1855 15.3168C18.3835 15.1188 18.4825 15.0198 18.5196 14.9057C18.5522 14.8052 18.5522 14.6971 18.5196 14.5967C18.4825 14.4825 18.3835 14.3835 18.1855 14.1855L13.7512 9.75116L16.7982 6.70408C17.1121 6.39022 17.269 6.23328 17.2953 6.07499C17.3182 5.93686 17.2821 5.79546 17.1959 5.68517C17.097 5.55878 16.8841 5.49615 16.4583 5.37091L2.15823 1.16501Z"
+                          fill="white"
+                          stroke="black"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </Box>
+                    <Box style={{ minWidth: 0 }}>
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 13,
+                          lineHeight: '18px',
+                          fontWeight: 600,
+                          letterSpacing: 0.4,
+                          textTransform: 'none',
+                          textAlign: 'left',
+                          marginBottom: 2,
+                        }}
+                      >
+                        Quick add
+                      </Text>
+                      <Text
+                        style={{
+                          color: '#8D93A8',
+                          fontSize: 12,
+                          lineHeight: '16px',
+                          fontWeight: 500,
+                          textAlign: 'left',
+                        }}
+                      >
+                        Tap star on ship or port details to bookmark.
+                      </Text>
+                    </Box>
+                  </Box>
+                )}
                 <Text
                   style={{
                     color: '#FFFFFF',
@@ -2001,13 +2515,13 @@ const SecondaryNav = ({
                     const isHovered = version2HoveredFlow === option.id
                     const icon =
                       option.id === 'ships' ? (
-                        <ShipIcon size={20} color="#FFFFFF" />
+                        <ShipIcon size={version2AddOptionIconSize} color="#FFFFFF" />
                       ) : option.id === 'ports' ? (
-                        <Anchor size={20} color="#FFFFFF" />
+                        <Anchor size={version2AddOptionIconSize} color="#FFFFFF" />
                       ) : option.id === 'polygons' ? (
-                        <BezierCurve03 size={20} color="#FFFFFF" />
+                        <BezierCurve03 size={version2AddOptionIconSize} color="#FFFFFF" />
                       ) : (
-                        <Bell02 size={20} color="#FFFFFF" />
+                        <Bell02 size={version2AddOptionIconSize} color="#FFFFFF" />
                       )
 
                     return (
@@ -2125,13 +2639,124 @@ const SecondaryNav = ({
                     <Box style={{ flex: 1, height: 1, background: '#393C56' }} />
                   </Box>
                 )}
-                {isVersion3Or4Or5 && (
+                {isVersion3Or4Or5 && isVersion5MixedUploadMode ? (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <Box
+                      component="button"
+                      type="button"
+                      onMouseEnter={() => setVersion2HoveredFlow('upload-file-entities')}
+                      onMouseLeave={() => setVersion2HoveredFlow(null)}
+                      onClick={() => openVersion2UploadPicker('ships-ports')}
+                      style={{
+                        display: 'flex',
+                        width: '100%',
+                        justifyContent: 'flex-start',
+                        alignItems: 'center',
+                        gap: 10,
+                        border: `1px solid ${
+                          isVersion3EntityUploadHovered ? '#006CD7' : '#393C56'
+                        }`,
+                        borderRadius: 6,
+                        background: isVersion3EntityUploadHovered
+                          ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                          : '#24263C',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        lineHeight: '14px',
+                        padding: 8,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {renderVersion2UploadIcon()}
+                      <Box style={{ minWidth: 0, textAlign: 'left' }}>
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: '16px',
+                          }}
+                        >
+                          Upload file for Ships/Ports
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#8D93A8',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            lineHeight: '14px',
+                          }}
+                        >
+                          .csv, .xls, .xlsx
+                        </Text>
+                      </Box>
+                    </Box>
+                    <Box
+                      component="button"
+                      type="button"
+                      onMouseEnter={() => setVersion2HoveredFlow('upload-file-shapes')}
+                      onMouseLeave={() => setVersion2HoveredFlow(null)}
+                      onClick={() => openVersion2UploadPicker('shapes')}
+                      style={{
+                        display: 'flex',
+                        width: '100%',
+                        justifyContent: 'flex-start',
+                        alignItems: 'center',
+                        gap: 14,
+                        border: `1px solid ${
+                          isVersion3ShapeUploadHovered ? '#006CD7' : '#393C56'
+                        }`,
+                        borderRadius: 6,
+                        background: isVersion3ShapeUploadHovered
+                          ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                          : '#24263C',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        lineHeight: '14px',
+                        padding: 8,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {renderVersion2UploadIcon()}
+                      <Box style={{ minWidth: 0, textAlign: 'left' }}>
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: '16px',
+                          }}
+                        >
+                          Upload file for Shapes
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#8D93A8',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            lineHeight: '14px',
+                          }}
+                        >
+                          .json, .geojson
+                        </Text>
+                      </Box>
+                    </Box>
+                  </Box>
+                ) : isVersion3Or4Or5 && (
                   <Box
                     component="button"
                     type="button"
                     onMouseEnter={() => setVersion2HoveredFlow('upload-file')}
                     onMouseLeave={() => setVersion2HoveredFlow(null)}
-                    onClick={() => version2UploadInputRef.current?.click()}
+                    onClick={() => openVersion2UploadPicker()}
                     style={{
                       display: 'flex',
                       width: '100%',
@@ -2151,7 +2776,7 @@ const SecondaryNav = ({
                       cursor: 'pointer',
                     }}
                   >
-                    <Upload01 size={14} color="#FFFFFF" />
+                    {renderVersion2UploadIcon()}
                     Upload a file
                     <Text
                       component="span"
@@ -2161,7 +2786,7 @@ const SecondaryNav = ({
                         fontWeight: 600,
                       }}
                     >
-                      (.csv, .xls, .xlsx)
+                      {uploadAcceptLabel}
                     </Text>
                   </Box>
                 )}
@@ -2174,32 +2799,35 @@ const SecondaryNav = ({
                       marginTop: 6,
                     }}
                   >
-                    Selected: {version2UploadedFileName}
+                    Selected for {uploadTargetLabel}: {version2UploadedFileName}
                   </Text>
                 )}
-                {isVersion3Or4Or5 && (
+                {isVersion3Or4Or5 && version2UploadError && (
+                  <Text
+                    style={{
+                      color: '#FF8B8B',
+                      fontSize: 11,
+                      lineHeight: '16px',
+                      marginTop: 6,
+                    }}
+                  >
+                    {version2UploadError}
+                  </Text>
+                )}
+                {isVersion3Or4Or5 && !isVersion7 && (
                   <Box
                     style={{
                       marginTop: 4,
                       borderRadius: 6,
                       border: '1px solid #393C56',
                       background: '#24263C',
-                      padding: '12px 14px',
+                      padding: isVersion6 ? 8 : '12px 14px',
                       display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 10,
+                      alignItems: isVersion6 ? 'center' : 'flex-start',
+                      gap: isVersion6 ? 14 : 10,
                     }}
                   >
-                    <Star01
-                      style={{
-                        color: '#F7C948',
-                        fill: '#F7C948',
-                        width: 18,
-                        height: 18,
-                        flexShrink: 0,
-                        marginTop: 1,
-                      }}
-                    />
+                    {renderVersion2TipStarIcon()}
                     <Text
                       style={{
                         color: '#8D93A8',
@@ -2528,7 +3156,7 @@ const SecondaryNav = ({
                   <Box
                     component="button"
                     type="button"
-                    onClick={() => version2UploadInputRef.current?.click()}
+                    onClick={() => openVersion2UploadPicker()}
                     style={{
                       display: 'flex',
                       width: '100%',
@@ -2547,7 +3175,7 @@ const SecondaryNav = ({
                       cursor: 'pointer',
                     }}
                   >
-                    <Upload01 size={14} color="#FFFFFF" />
+                    {renderVersion2UploadIcon()}
                     Upload a file
                     <Text
                       component="span"
@@ -2557,7 +3185,7 @@ const SecondaryNav = ({
                         fontWeight: 600,
                       }}
                     >
-                      (.csv, .xls, .xlsx)
+                      {uploadAcceptLabel}
                     </Text>
                   </Box>
                 )}
@@ -2571,9 +3199,21 @@ const SecondaryNav = ({
                         marginTop: 6,
                       }}
                     >
-                      Selected: {version2UploadedFileName}
+                      Selected for {uploadTargetLabel}: {version2UploadedFileName}
                     </Text>
                   )}
+                {activeTopTab === 'my-watchlist' && version2UploadError && (
+                  <Text
+                    style={{
+                      color: '#FF8B8B',
+                      fontSize: 11,
+                      lineHeight: '16px',
+                      marginTop: 6,
+                    }}
+                  >
+                    {version2UploadError}
+                  </Text>
+                )}
                 {activeTopTab === 'my-watchlist' && (
                   <Box
                     style={{
@@ -2581,23 +3221,14 @@ const SecondaryNav = ({
                       borderRadius: 6,
                       border: '1px solid #393C56',
                       background: '#24263C',
-                      padding: '12px 14px',
+                      padding: isVersion6 ? 8 : '12px 14px',
                       display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 10,
+                      alignItems: isVersion6 ? 'center' : 'flex-start',
+                      gap: isVersion6 ? 14 : 10,
                       maxWidth: 560,
                     }}
                   >
-                    <Star01
-                      style={{
-                        color: '#F7C948',
-                        fill: '#F7C948',
-                        width: 18,
-                        height: 18,
-                        flexShrink: 0,
-                        marginTop: 1,
-                      }}
-                    />
+                    {renderVersion2TipStarIcon()}
                     <Text
                       style={{
                         color: '#8D93A8',
@@ -2830,6 +3461,52 @@ const SecondaryNav = ({
             </Box>
           )}
         </Box>
+        <Box
+          component="input"
+          type="file"
+          ref={version2UploadInputRef}
+          accept={uploadAccept}
+          onChange={(event) => {
+            const selectedFile = event.currentTarget.files?.[0]
+            const selectedFileName = selectedFile?.name || ''
+            if (!selectedFileName) {
+              setVersion2UploadedFileName('')
+              setVersion2UploadError('')
+              event.currentTarget.value = ''
+              return
+            }
+
+            const normalizedFileName = selectedFileName.toLowerCase()
+            const isSpreadsheetFile =
+              normalizedFileName.endsWith('.csv') ||
+              normalizedFileName.endsWith('.xls') ||
+              normalizedFileName.endsWith('.xlsx')
+            const isShapeFile =
+              normalizedFileName.endsWith('.geojson') ||
+              normalizedFileName.endsWith('.json')
+            const isShapeUploadTarget = uploadTarget === 'shapes'
+            const isValidForTarget = isShapeUploadTarget
+              ? isShapeFile
+              : isSpreadsheetFile
+
+            if (!isValidForTarget) {
+              setVersion2UploadedFileName('')
+              setVersion2UploadError(
+                isShapeUploadTarget
+                  ? 'Shapes imports support .json and .geojson only.'
+                  : 'Ships/Ports imports support .csv, .xls, and .xlsx only.'
+              )
+              event.currentTarget.value = ''
+              return
+            }
+
+            setVersion2UploadedFileName(selectedFileName)
+            setVersion2UploadError('')
+            // Allow selecting the same file again.
+            event.currentTarget.value = ''
+          }}
+          style={{ display: 'none' }}
+        />
       </Box>
 
       {isOpen && isWatchlistView && (
