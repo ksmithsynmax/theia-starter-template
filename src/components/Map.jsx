@@ -134,25 +134,25 @@ const BASE_PORT_BOUNDARY_CENTER = getFeatureCenterNoMapbox(
   mockPortFeatures.features.find((feature) => feature?.properties?.id === 'port-boundary')
 )
 
+// Shoelace centroid — center of mass of the outer ring.
+// More accurate than a bounding-box midpoint for irregular polygons where
+// more area sits on one side (e.g. a harbor shape wider at the top).
 const getPolygonCenter = (feature) => {
-  const coordinates = feature?.geometry?.coordinates
-  if (!Array.isArray(coordinates)) return null
-  const points = coordinates
-    .flatMap((ring) => ring || [])
-    .filter(
-      (coord) =>
-        Array.isArray(coord) &&
-        coord.length >= 2 &&
-        Number.isFinite(coord[0]) &&
-        Number.isFinite(coord[1])
-    )
-  if (points.length === 0) return null
-  const bounds = points.reduce(
-    (acc, coord) => acc.extend(coord),
-    new mapboxgl.LngLatBounds(points[0], points[0])
-  )
-  const center = bounds.getCenter()
-  return [center.lng, center.lat]
+  const ring = feature?.geometry?.coordinates?.[0]
+  if (!Array.isArray(ring) || ring.length < 3) return null
+  let area = 0, cx = 0, cy = 0
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x0, y0] = ring[i]
+    const [x1, y1] = ring[i + 1]
+    const f = x0 * y1 - x1 * y0
+    area += f
+    cx += (x0 + x1) * f
+    cy += (y0 + y1) * f
+  }
+  area /= 2
+  if (Math.abs(area) < 1e-12) return null
+  const k = 1 / (6 * area)
+  return [cx * k, cy * k]
 }
 
 const ALERT_PREVIEW_AREAS = {
@@ -260,8 +260,7 @@ const Map = forwardRef(function Map(
   const detectionByIdRef = useRef(new globalThis.Map())
   const lastPreviewAreaSignatureRef = useRef('')
   const lastFocusedPortViewportKeyRef = useRef('')
-  const pendingPortMarkerRevealRef = useRef(null)
-  const portMarkerRevealTimeoutRef = useRef(null)
+  const portAnimatingRef = useRef(false)
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
@@ -273,22 +272,6 @@ const Map = forwardRef(function Map(
   onDetectionClickRef.current = onDetectionClick
   onPortClickRef.current = onPortClick
   const openToolPanels = openMapToolPanelsByTab['__global__'] || []
-  const revealPortMarker = (portId) => {
-    if (!portId) return
-    const marker = portMarkersRef.current[portId]
-    if (!marker) return
-    const markerElement = marker.getElement()
-    const markerIcon = markerElement.querySelector('svg')
-    if (markerIcon) {
-      markerIcon.style.opacity = '1'
-      markerIcon.style.transform = 'scale(1)'
-    }
-    const markerTooltip = markerElement.querySelector('[data-port-tooltip="true"]')
-    if (markerTooltip && markerElement.dataset.selected === 'true') {
-      markerTooltip.style.opacity = '1'
-      markerTooltip.style.transform = 'translate(0, -50%)'
-    }
-  }
   const panelAwareFocusOffsetX = useMemo(() => {
     const viewportWidth = mapDimensions.width || 0
     if (viewportWidth <= 0) return 0
@@ -312,15 +295,6 @@ const Map = forwardRef(function Map(
       runtimeDetections.map((detection) => [String(detection.id), detection])
     )
   }, [runtimeDetections])
-
-  useEffect(
-    () => () => {
-      if (portMarkerRevealTimeoutRef.current) {
-        window.clearTimeout(portMarkerRevealTimeoutRef.current)
-      }
-    },
-    []
-  )
 
   useImperativeHandle(ref, () => ({
     zoomIn: () => map.current?.zoomIn(),
@@ -526,14 +500,6 @@ const Map = forwardRef(function Map(
         }
 
         const focusKey = `${port.id}:${Math.round(leftPanelInset)}:${Math.round(mapDimensions.width)}`
-        const revealAfterCameraSettle = () => {
-          if (portMarkerRevealTimeoutRef.current) {
-            window.clearTimeout(portMarkerRevealTimeoutRef.current)
-            portMarkerRevealTimeoutRef.current = null
-          }
-          revealPortMarker(port.id)
-          pendingPortMarkerRevealRef.current = null
-        }
 
         if (lastFocusedPortViewportKeyRef.current !== focusKey) {
           const allPortCoords = translatedFeatures.features
@@ -555,6 +521,16 @@ const Map = forwardRef(function Map(
               new mapboxgl.LngLatBounds(allPortCoords[0], allPortCoords[0])
             )
 
+            // Keep shapes hidden during the zoom — they'll fade in on moveend.
+            portAnimatingRef.current = true
+            map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
+            map.current.setPaintProperty('port-outline', 'line-opacity', 0)
+            map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
+            map.current.setPaintProperty('terminal-outline', 'line-opacity', 0)
+            map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
+            map.current.setPaintProperty('berth-outline', 'line-opacity', 0)
+            map.current.setPaintProperty('port-labels', 'text-opacity', 0)
+
             map.current.fitBounds(bounds, {
               padding: {
                 top: 72,
@@ -566,25 +542,35 @@ const Map = forwardRef(function Map(
               duration: 1700,
               easing: (t) => 1 - (1 - t) ** 3,
             })
-            map.current.once('moveend', revealAfterCameraSettle)
+
+            // Fade shapes in once the camera has settled.
+            map.current.once('moveend', () => {
+              portAnimatingRef.current = false
+              if (!map.current) return
+              const fade = { duration: 500, delay: 0 }
+              map.current.setPaintProperty('port-fill', 'fill-opacity-transition', fade)
+              map.current.setPaintProperty('port-outline', 'line-opacity-transition', fade)
+              map.current.setPaintProperty('terminal-outline', 'line-opacity-transition', fade)
+              map.current.setPaintProperty('port-fill', 'fill-opacity', 0.2)
+              map.current.setPaintProperty('port-outline', 'line-opacity', 1)
+              map.current.setPaintProperty('port-outline', 'line-color', '#0094FF')
+              map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
+              map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
+              map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
+              map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
+              map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
+              map.current.setPaintProperty('berth-outline', 'line-opacity', 0.5)
+              map.current.setPaintProperty('berth-outline', 'line-color', '#FFFFFF')
+            })
+
             lastFocusedPortViewportKeyRef.current = focusKey
           }
-        } else if (pendingPortMarkerRevealRef.current === port.id) {
-          portMarkerRevealTimeoutRef.current = window.setTimeout(
-            revealAfterCameraSettle,
-            180
-          )
         }
       }
     }
 
     if (!isPortTabActive || !shouldShowSelectedPortContext) {
       lastFocusedPortViewportKeyRef.current = ''
-      pendingPortMarkerRevealRef.current = null
-      if (portMarkerRevealTimeoutRef.current) {
-        window.clearTimeout(portMarkerRevealTimeoutRef.current)
-        portMarkerRevealTimeoutRef.current = null
-      }
       PROTOTYPE_PORTS.forEach((port) => {
         const marker = portMarkersRef.current[port.id]
         if (!marker) return
@@ -600,6 +586,10 @@ const Map = forwardRef(function Map(
       map.current.setPaintProperty('port-labels', 'text-opacity', 0)
       return
     }
+
+    // Skip opacity updates while the zoom-to-port animation is running —
+    // the moveend callback above handles the initial fade-in.
+    if (portAnimatingRef.current) return
 
     // Port Details Active
     if (activePortLevel === 'Port Details') {
@@ -806,21 +796,7 @@ const Map = forwardRef(function Map(
             el.dataset.selected = 'true'
             const circle = el.querySelector('circle')
             if (circle) circle.setAttribute('stroke', '#0094FF')
-            const selectedIcon = el.querySelector('svg')
-            if (selectedIcon) {
-              selectedIcon.style.opacity = '0'
-              selectedIcon.style.transform = 'scale(0.88)'
-            }
-            tooltip.style.opacity = '0'
-            tooltip.style.transform = 'translate(4px, -50%)'
-            pendingPortMarkerRevealRef.current = port.id
             if (onPortClickRef.current) onPortClickRef.current(port)
-          } else {
-            pendingPortMarkerRevealRef.current = null
-            if (portMarkerRevealTimeoutRef.current) {
-              window.clearTimeout(portMarkerRevealTimeoutRef.current)
-              portMarkerRevealTimeoutRef.current = null
-            }
           }
         }
 
