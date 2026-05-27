@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   forwardRef,
@@ -177,7 +178,7 @@ const getAlertPreviewAreaKey = (areaLabel) => {
 }
 
 const Map = forwardRef(function Map(
-  { onDetectionClick, onPortClick, showPorts = false },
+  { onDetectionClick, onPortClick, showPorts = false, leftPanelInset = 0 },
   ref
 ) {
   const {
@@ -216,6 +217,19 @@ const Map = forwardRef(function Map(
   onDetectionClickRef.current = onDetectionClick
   onPortClickRef.current = onPortClick
   const openToolPanels = openMapToolPanelsByTab['__global__'] || []
+  const panelAwareFocusOffsetX = useMemo(() => {
+    const viewportWidth = mapDimensions.width || 0
+    if (viewportWidth <= 0) return 0
+
+    const inset = Math.max(0, Number(leftPanelInset) || 0)
+    if (inset < viewportWidth * 0.18) return 0
+
+    const availableWidth = Math.max(0, viewportWidth - inset)
+    const desiredFocusX = inset + availableWidth * 0.35
+    const centerX = viewportWidth / 2
+    const rawOffset = desiredFocusX - centerX
+    return Math.max(0, Math.min(520, rawOffset))
+  }, [leftPanelInset, mapDimensions.width])
 
   useEffect(() => {
     detectionByIdRef.current = new globalThis.Map(
@@ -391,7 +405,13 @@ const Map = forwardRef(function Map(
       const port = PROTOTYPE_PORTS.find(p => p.id === activeTab.id)
       if (port) {
         // Fly to port
-        map.current.flyTo({ center: [port.lng, port.lat], zoom: 13.5, essential: true })
+        map.current.flyTo({
+          center: [port.lng, port.lat],
+          zoom: 13.5,
+          essential: true,
+          offset: [panelAwareFocusOffsetX, 0],
+          duration: 1100,
+        })
 
         // Translate GeoJSON to the port's location
         // Base coordinates are roughly around [103.78, 1.25] (Bar Harbor / Singapore)
@@ -533,7 +553,15 @@ const Map = forwardRef(function Map(
         map.current.setPaintProperty('port-labels', 'text-opacity', 0)
       }
     }
-  }, [mapReady, activeShipTab, shipTabs, activePortLevel, selectedTerminal, selectedBerth])
+  }, [
+    mapReady,
+    activeShipTab,
+    shipTabs,
+    activePortLevel,
+    selectedTerminal,
+    selectedBerth,
+    panelAwareFocusOffsetX,
+  ])
 
   useEffect(() => {
     if (!map.current || !mapReady) return
@@ -551,20 +579,21 @@ const Map = forwardRef(function Map(
       if (!marker) {
         const el = document.createElement('div')
         el.setAttribute('aria-label', `${port.name} port`)
-        el.style.width = '40px'
-        el.style.height = '40px'
+        el.style.width = '30px'
+        el.style.height = '30px'
         el.style.cursor = 'pointer'
         el.style.pointerEvents = 'auto'
         el.style.position = 'relative'
 
         // Render the SVG exactly once to prevent any flicker
-        el.innerHTML = getPortIconSvg('#393C56', 40)
+        el.innerHTML = getPortIconSvg('#393C56', 30)
 
         // Add tooltip
         const tooltip = document.createElement('div')
+        tooltip.dataset.portTooltip = 'true'
         tooltip.innerText = port.name
         tooltip.style.position = 'absolute'
-        tooltip.style.left = '48px'
+        tooltip.style.left = '24px'
         tooltip.style.top = '50%'
         tooltip.style.transform = 'translateY(-50%)'
         tooltip.style.background = '#000'
@@ -623,6 +652,13 @@ const Map = forwardRef(function Map(
         portMarkersRef.current[port.id] = marker
       } else {
         marker.setLngLat([port.lng, port.lat])
+      }
+
+      const markerTooltip = marker
+        .getElement()
+        .querySelector('[data-port-tooltip="true"]')
+      if (markerTooltip) {
+        markerTooltip.style.left = '24px'
       }
     })
   }, [showPorts, mapReady])
@@ -900,12 +936,14 @@ const Map = forwardRef(function Map(
       center: [focusDet.lng, focusDet.lat],
       zoom: 6,
       duration: 1500,
+      offset: [panelAwareFocusOffsetX, 0],
     })
   }, [
     panelFocusDetectionId,
     activeDetectionId,
     previewDetectionId,
     runtimeDetections,
+    panelAwareFocusOffsetX,
   ])
 
   // Filter markers by date, but keep selected/preview detection visible

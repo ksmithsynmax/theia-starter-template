@@ -14,7 +14,7 @@ import SecondaryNav from './SecondaryNav'
 
 function Layout() {
   const TIMELINE_PANEL_HEIGHT = 172
-  const [watchlistVersion, setWatchlistVersion] = useState('version2')
+  const watchlistVersion = 'version7'
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
@@ -211,13 +211,15 @@ function Layout() {
     const sorted = [...visibleTimelineEvents].sort((a, b) => a.sortTs - b.sortTs)
     return timelineSortOrder === 'asc' ? sorted : sorted.reverse()
   }, [timelineSortOrder, visibleTimelineEvents])
+  const secondaryNavInset = secondaryNavOpen ? 386 : 32
+  const detailPanelInset = panelOpen ? 500 : shipTabs.length > 0 ? 32 : 0
+  const leftPanelInset = isTimelineView
+    ? 50
+    : 50 + secondaryNavInset + detailPanelInset
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TopNav
-        watchlistVersion={watchlistVersion}
-        onWatchlistVersionChange={setWatchlistVersion}
-      />
+      <TopNav />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
           ref={mapRef}
@@ -227,6 +229,7 @@ function Layout() {
             setPanelOpen(true)
           }}
           showPorts={portsLayerVisible}
+          leftPanelInset={leftPanelInset}
         />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />

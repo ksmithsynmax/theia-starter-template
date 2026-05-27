@@ -1642,14 +1642,18 @@ const SecondaryNav = ({
                       }}
                     >
                       <Star01
-                        className="quick-add-banner-star"
+                        className={`quick-add-banner-star${
+                          isOpen ? ' quick-add-banner-star--animate' : ''
+                        }`}
                         style={{
                           width: 16,
                           height: 16,
                         }}
                       />
                       <svg
-                        className="quick-add-banner-cursor"
+                        className={`quick-add-banner-cursor${
+                          isOpen ? ' quick-add-banner-cursor--animate' : ''
+                        }`}
                         width="20"
                         height="20"
                         viewBox="0 0 20 20"
@@ -2136,14 +2140,18 @@ const SecondaryNav = ({
                       }}
                     >
                       <Star01
-                        className="quick-add-banner-star"
+                        className={`quick-add-banner-star${
+                          isOpen ? ' quick-add-banner-star--animate' : ''
+                        }`}
                         style={{
                           width: 16,
                           height: 16,
                         }}
                       />
                       <svg
-                        className="quick-add-banner-cursor"
+                        className={`quick-add-banner-cursor${
+                          isOpen ? ' quick-add-banner-cursor--animate' : ''
+                        }`}
                         width="20"
                         height="20"
                         viewBox="0 0 20 20"
@@ -2872,14 +2880,18 @@ const SecondaryNav = ({
                       }}
                     >
                       <Star01
-                        className="quick-add-banner-star"
+                        className={`quick-add-banner-star${
+                          isOpen ? ' quick-add-banner-star--animate' : ''
+                        }`}
                         style={{
                           width: 16,
                           height: 16,
                         }}
                       />
                       <svg
-                        className="quick-add-banner-cursor"
+                        className={`quick-add-banner-cursor${
+                          isOpen ? ' quick-add-banner-cursor--animate' : ''
+                        }`}
                         width="20"
                         height="20"
                         viewBox="0 0 20 20"

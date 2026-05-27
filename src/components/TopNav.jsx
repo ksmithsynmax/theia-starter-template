@@ -89,12 +89,7 @@ const parseTypedDate = (rawValue) => {
   return { value: parsedDate, error: null }
 }
 
-const TopNav = ({ watchlistVersion = 'grouped', onWatchlistVersionChange }) => {
-  const isVersion4Or5 =
-    watchlistVersion === 'version4' ||
-    watchlistVersion === 'version5' ||
-    watchlistVersion === 'version6' ||
-    watchlistVersion === 'version7'
+const TopNav = () => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [isEditingCalendarDate, setIsEditingCalendarDate] = useState(false)
@@ -186,45 +181,6 @@ const TopNav = ({ watchlistVersion = 'grouped', onWatchlistVersionChange }) => {
           <Plus color="white" size={20} />
         </Box>
         <Box style={{ flex: 1 }}></Box>
-        <Box
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            marginRight: '8px',
-            gap: 8,
-          }}
-        >
-          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>
-            {isVersion4Or5 ? 'Bookmark Version' : 'Watchlist Version'}
-          </Text>
-          <Box
-            component="select"
-            value={watchlistVersion}
-            onChange={(event) =>
-              onWatchlistVersionChange?.(event.currentTarget.value)
-            }
-            style={{
-              height: 32,
-              background: '#24263C',
-              border: '1px solid #393C56',
-              color: '#FFFFFF',
-              borderRadius: 4,
-              padding: '0 40px 0 12px',
-              minWidth: 150,
-              fontSize: 12,
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="grouped">Version 1</option>
-            <option value="version2">Version 2</option>
-            <option value="version3">Version 3</option>
-            <option value="version4">Version 4</option>
-            <option value="version5">Version 5</option>
-            <option value="version6">Version 6</option>
-            <option value="version7">Version 7</option>
-          </Box>
-        </Box>
         <Box component="button" type="button" className="topnav-icon-btn">
           <Bell02 color="white" size={20} />
         </Box>
