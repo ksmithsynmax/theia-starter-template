@@ -2391,7 +2391,7 @@ const SecondaryNav = ({
                     style={{
                       marginBottom: 10,
                       borderRadius: 6,
-                      border: '1px solid #FFCF5C',
+                      border: '1px solid #AD8B37',
                       background: 'rgba(255, 207, 92, 0.1)',
                       padding: '8px 10px',
                       display: 'flex',
