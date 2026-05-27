@@ -107,6 +107,53 @@ const PROTOTYPE_PORTS = [
   { id: 'port-mumbai', name: 'Mumbai', lng: 72.8277, lat: 18.9360 },
   { id: 'port-bar-harbor', name: 'Bar Harbor', lng: 103.78, lat: 1.25, flag: '🇺🇸' },
 ]
+const PORT_FOCUS_MIN_GUTTER_PX = 180
+
+const getFeatureCenterNoMapbox = (feature) => {
+  const coordinates = feature?.geometry?.coordinates
+  if (!Array.isArray(coordinates)) return null
+  const points = coordinates
+    .flatMap((ring) => ring || [])
+    .filter(
+      (coord) =>
+        Array.isArray(coord) &&
+        coord.length >= 2 &&
+        Number.isFinite(coord[0]) &&
+        Number.isFinite(coord[1])
+    )
+  if (points.length === 0) return null
+  const lngs = points.map((point) => point[0])
+  const lats = points.map((point) => point[1])
+  return [
+    (Math.min(...lngs) + Math.max(...lngs)) / 2,
+    (Math.min(...lats) + Math.max(...lats)) / 2,
+  ]
+}
+
+const BASE_PORT_BOUNDARY_CENTER = getFeatureCenterNoMapbox(
+  mockPortFeatures.features.find((feature) => feature?.properties?.id === 'port-boundary')
+)
+
+const getPolygonCenter = (feature) => {
+  const coordinates = feature?.geometry?.coordinates
+  if (!Array.isArray(coordinates)) return null
+  const points = coordinates
+    .flatMap((ring) => ring || [])
+    .filter(
+      (coord) =>
+        Array.isArray(coord) &&
+        coord.length >= 2 &&
+        Number.isFinite(coord[0]) &&
+        Number.isFinite(coord[1])
+    )
+  if (points.length === 0) return null
+  const bounds = points.reduce(
+    (acc, coord) => acc.extend(coord),
+    new mapboxgl.LngLatBounds(points[0], points[0])
+  )
+  const center = bounds.getCenter()
+  return [center.lng, center.lat]
+}
 
 const ALERT_PREVIEW_AREAS = {
   persian_gulf: {
@@ -178,7 +225,13 @@ const getAlertPreviewAreaKey = (areaLabel) => {
 }
 
 const Map = forwardRef(function Map(
-  { onDetectionClick, onPortClick, showPorts = false, leftPanelInset = 0 },
+  {
+    onDetectionClick,
+    onPortClick,
+    showPorts = false,
+    leftPanelInset = 0,
+    portVisibilityBehavior = 'selected-context',
+  },
   ref
 ) {
   const {
@@ -206,6 +259,9 @@ const Map = forwardRef(function Map(
   const alertPreviewMarkersRef = useRef({})
   const detectionByIdRef = useRef(new globalThis.Map())
   const lastPreviewAreaSignatureRef = useRef('')
+  const lastFocusedPortViewportKeyRef = useRef('')
+  const pendingPortMarkerRevealRef = useRef(null)
+  const portMarkerRevealTimeoutRef = useRef(null)
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
@@ -217,15 +273,35 @@ const Map = forwardRef(function Map(
   onDetectionClickRef.current = onDetectionClick
   onPortClickRef.current = onPortClick
   const openToolPanels = openMapToolPanelsByTab['__global__'] || []
+  const revealPortMarker = (portId) => {
+    if (!portId) return
+    const marker = portMarkersRef.current[portId]
+    if (!marker) return
+    const markerElement = marker.getElement()
+    const markerIcon = markerElement.querySelector('svg')
+    if (markerIcon) {
+      markerIcon.style.opacity = '1'
+      markerIcon.style.transform = 'scale(1)'
+    }
+    const markerTooltip = markerElement.querySelector('[data-port-tooltip="true"]')
+    if (markerTooltip && markerElement.dataset.selected === 'true') {
+      markerTooltip.style.opacity = '1'
+      markerTooltip.style.transform = 'translate(0, -50%)'
+    }
+  }
   const panelAwareFocusOffsetX = useMemo(() => {
     const viewportWidth = mapDimensions.width || 0
     if (viewportWidth <= 0) return 0
 
     const inset = Math.max(0, Number(leftPanelInset) || 0)
-    if (inset < viewportWidth * 0.18) return 0
+    if (inset === 0) return 0
 
     const availableWidth = Math.max(0, viewportWidth - inset)
-    const desiredFocusX = inset + availableWidth * 0.35
+    const dynamicGutter = Math.max(PORT_FOCUS_MIN_GUTTER_PX, availableWidth * 0.45)
+    const desiredFocusX = Math.min(
+      viewportWidth * 0.82,
+      inset + dynamicGutter
+    )
     const centerX = viewportWidth / 2
     const rawOffset = desiredFocusX - centerX
     return Math.max(0, Math.min(520, rawOffset))
@@ -236,6 +312,15 @@ const Map = forwardRef(function Map(
       runtimeDetections.map((detection) => [String(detection.id), detection])
     )
   }, [runtimeDetections])
+
+  useEffect(
+    () => () => {
+      if (portMarkerRevealTimeoutRef.current) {
+        window.clearTimeout(portMarkerRevealTimeoutRef.current)
+      }
+    },
+    []
+  )
 
   useImperativeHandle(ref, () => ({
     zoomIn: () => map.current?.zoomIn(),
@@ -400,25 +485,18 @@ const Map = forwardRef(function Map(
 
     const activeTab = shipTabs.find((t) => t.id === activeShipTab)
     const isPortTabActive = activeTab?.type === 'port'
+    const shouldShowSelectedPortContext =
+      showPorts || portVisibilityBehavior === 'selected-context'
 
     if (isPortTabActive) {
       const port = PROTOTYPE_PORTS.find(p => p.id === activeTab.id)
       if (port) {
-        // Fly to port
-        map.current.flyTo({
-          center: [port.lng, port.lat],
-          zoom: 13.5,
-          essential: true,
-          offset: [panelAwareFocusOffsetX, 0],
-          duration: 1100,
-        })
-
         // Translate GeoJSON to the port's location
-        // Base coordinates are roughly around [103.78, 1.25] (Bar Harbor / Singapore)
-        const BASE_LNG = 103.78
-        const BASE_LAT = 1.25
-        const lngOffset = port.lng - BASE_LNG
-        const latOffset = port.lat - BASE_LAT
+        // Anchor translated geometry to the exact selected port marker coordinate.
+        const baseCenterLng = BASE_PORT_BOUNDARY_CENTER?.[0] ?? 103.78
+        const baseCenterLat = BASE_PORT_BOUNDARY_CENTER?.[1] ?? 1.25
+        const lngOffset = port.lng - baseCenterLng
+        const latOffset = port.lat - baseCenterLat
 
         const translatedFeatures = {
           ...mockPortFeatures,
@@ -437,10 +515,81 @@ const Map = forwardRef(function Map(
         if (source) {
           source.setData(translatedFeatures)
         }
+
+        const selectedPortFeature = translatedFeatures.features.find(
+          (feature) => feature?.properties?.type === 'port'
+        )
+        const selectedPortCenter = getPolygonCenter(selectedPortFeature)
+        const selectedMarker = portMarkersRef.current[port.id]
+        if (selectedMarker && selectedPortCenter) {
+          selectedMarker.setLngLat(selectedPortCenter)
+        }
+
+        const focusKey = `${port.id}:${Math.round(leftPanelInset)}:${Math.round(mapDimensions.width)}`
+        const revealAfterCameraSettle = () => {
+          if (portMarkerRevealTimeoutRef.current) {
+            window.clearTimeout(portMarkerRevealTimeoutRef.current)
+            portMarkerRevealTimeoutRef.current = null
+          }
+          revealPortMarker(port.id)
+          pendingPortMarkerRevealRef.current = null
+        }
+
+        if (lastFocusedPortViewportKeyRef.current !== focusKey) {
+          const allPortCoords = translatedFeatures.features
+            .filter((feature) => feature?.geometry?.type === 'Polygon')
+            .flatMap((feature) =>
+              (feature.geometry.coordinates || []).flatMap((ring) => ring || [])
+            )
+            .filter(
+              (coord) =>
+                Array.isArray(coord) &&
+                coord.length >= 2 &&
+                Number.isFinite(coord[0]) &&
+                Number.isFinite(coord[1])
+            )
+
+          if (allPortCoords.length > 1) {
+            const bounds = allPortCoords.reduce(
+              (acc, coord) => acc.extend(coord),
+              new mapboxgl.LngLatBounds(allPortCoords[0], allPortCoords[0])
+            )
+
+            map.current.fitBounds(bounds, {
+              padding: {
+                top: 72,
+                right: 72,
+                bottom: 72,
+                left: Math.max(72, leftPanelInset + 40),
+              },
+              maxZoom: 12.1,
+              duration: 1700,
+              easing: (t) => 1 - (1 - t) ** 3,
+            })
+            map.current.once('moveend', revealAfterCameraSettle)
+            lastFocusedPortViewportKeyRef.current = focusKey
+          }
+        } else if (pendingPortMarkerRevealRef.current === port.id) {
+          portMarkerRevealTimeoutRef.current = window.setTimeout(
+            revealAfterCameraSettle,
+            180
+          )
+        }
       }
     }
 
-    if (!isPortTabActive) {
+    if (!isPortTabActive || !shouldShowSelectedPortContext) {
+      lastFocusedPortViewportKeyRef.current = ''
+      pendingPortMarkerRevealRef.current = null
+      if (portMarkerRevealTimeoutRef.current) {
+        window.clearTimeout(portMarkerRevealTimeoutRef.current)
+        portMarkerRevealTimeoutRef.current = null
+      }
+      PROTOTYPE_PORTS.forEach((port) => {
+        const marker = portMarkersRef.current[port.id]
+        if (!marker) return
+        marker.setLngLat([port.lng, port.lat])
+      })
       // Hide all port features
       map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
       map.current.setPaintProperty('port-outline', 'line-opacity', 0)
@@ -560,7 +709,10 @@ const Map = forwardRef(function Map(
     activePortLevel,
     selectedTerminal,
     selectedBerth,
-    panelAwareFocusOffsetX,
+    showPorts,
+    portVisibilityBehavior,
+    leftPanelInset,
+    mapDimensions.width,
   ])
 
   useEffect(() => {
@@ -587,13 +739,20 @@ const Map = forwardRef(function Map(
 
         // Render the SVG exactly once to prevent any flicker
         el.innerHTML = getPortIconSvg('#393C56', 30)
+        const markerIcon = el.querySelector('svg')
+        if (markerIcon) {
+          markerIcon.style.opacity = '1'
+          markerIcon.style.transform = 'scale(1)'
+          markerIcon.style.transformOrigin = 'center'
+          markerIcon.style.transition = 'opacity 220ms ease, transform 240ms ease'
+        }
 
         // Add tooltip
         const tooltip = document.createElement('div')
         tooltip.dataset.portTooltip = 'true'
         tooltip.innerText = port.name
         tooltip.style.position = 'absolute'
-        tooltip.style.left = '24px'
+        tooltip.style.left = '36px'
         tooltip.style.top = '50%'
         tooltip.style.transform = 'translateY(-50%)'
         tooltip.style.background = '#000'
@@ -604,7 +763,8 @@ const Map = forwardRef(function Map(
         tooltip.style.whiteSpace = 'nowrap'
         tooltip.style.pointerEvents = 'none'
         tooltip.style.opacity = '0'
-        tooltip.style.transition = 'opacity 0.2s ease'
+        tooltip.style.transition = 'opacity 180ms ease, transform 220ms ease'
+        tooltip.style.transform = 'translate(0, -50%)'
         tooltip.style.border = '1px solid #393C56'
         el.appendChild(tooltip)
 
@@ -627,10 +787,18 @@ const Map = forwardRef(function Map(
           Object.values(portMarkersRef.current).forEach((m) => {
             const mEl = m.getElement()
             mEl.dataset.selected = 'false'
+            const mIcon = mEl.querySelector('svg')
+            if (mIcon) {
+              mIcon.style.opacity = '1'
+              mIcon.style.transform = 'scale(1)'
+            }
             const circle = mEl.querySelector('circle')
             if (circle) circle.setAttribute('stroke', '#393C56')
             const t = mEl.querySelector('div')
-            if (t) t.style.opacity = '0'
+            if (t) {
+              t.style.opacity = '0'
+              t.style.transform = 'translate(0, -50%)'
+            }
           })
 
           // If it wasn't selected before, select it now
@@ -638,8 +806,21 @@ const Map = forwardRef(function Map(
             el.dataset.selected = 'true'
             const circle = el.querySelector('circle')
             if (circle) circle.setAttribute('stroke', '#0094FF')
-            tooltip.style.opacity = '1'
+            const selectedIcon = el.querySelector('svg')
+            if (selectedIcon) {
+              selectedIcon.style.opacity = '0'
+              selectedIcon.style.transform = 'scale(0.88)'
+            }
+            tooltip.style.opacity = '0'
+            tooltip.style.transform = 'translate(4px, -50%)'
+            pendingPortMarkerRevealRef.current = port.id
             if (onPortClickRef.current) onPortClickRef.current(port)
+          } else {
+            pendingPortMarkerRevealRef.current = null
+            if (portMarkerRevealTimeoutRef.current) {
+              window.clearTimeout(portMarkerRevealTimeoutRef.current)
+              portMarkerRevealTimeoutRef.current = null
+            }
           }
         }
 
@@ -658,7 +839,7 @@ const Map = forwardRef(function Map(
         .getElement()
         .querySelector('[data-port-tooltip="true"]')
       if (markerTooltip) {
-        markerTooltip.style.left = '24px'
+        markerTooltip.style.left = '36px'
       }
     })
   }, [showPorts, mapReady])

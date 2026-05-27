@@ -15,6 +15,9 @@ import SecondaryNav from './SecondaryNav'
 function Layout() {
   const TIMELINE_PANEL_HEIGHT = 172
   const watchlistVersion = 'version7'
+  const [portVisibilityBehavior, setPortVisibilityBehavior] = useState(
+    'selected-context'
+  )
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
@@ -219,7 +222,10 @@ function Layout() {
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TopNav />
+      <TopNav
+        portVisibilityBehavior={portVisibilityBehavior}
+        onPortVisibilityBehaviorChange={setPortVisibilityBehavior}
+      />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
           ref={mapRef}
@@ -230,6 +236,7 @@ function Layout() {
           }}
           showPorts={portsLayerVisible}
           leftPanelInset={leftPanelInset}
+          portVisibilityBehavior={portVisibilityBehavior}
         />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
