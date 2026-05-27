@@ -340,10 +340,13 @@ const SecondaryNav = ({
   const version2SearchTimerRef = useRef(null)
   const version2UploadInputRef = useRef(null)
   const version6LastSelectedDetectionRef = useRef(null)
+  const previousFavoriteShipCountRef = useRef(0)
+  const previousFavoritePortCountRef = useRef(0)
   const navigate = useNavigate()
   const {
     shipTabs,
     favoriteShipIds,
+    favoritePorts,
     toggleFavoriteShip,
     runtimeDetections,
     selectedDetectionId,
@@ -423,12 +426,34 @@ const SecondaryNav = ({
   const portRows = useMemo(
     () =>
       watchedPorts.map((port) => ({
-        ...port,
-        entityType: 'Port',
-        description: `${port.country} • ${port.activity}`,
-        status: port.risk,
+      id: port.id,
+      name: port.name || 'No info',
+      country: port.country || 'No info',
+      activity: port.activity || port.type || 'No info',
+      risk: port.risk || port.status || 'Monitoring',
+      updatedAt: port.updatedAt || 'Just now',
+      entityType: 'Port',
+      description: `${port.country || 'No info'} • ${port.activity || port.type || 'No info'}`,
+      status: port.risk || port.status || 'Monitoring',
       })),
     []
+  )
+
+  const favoritePortRows = useMemo(
+    () =>
+      favoritePorts.map((port) => ({
+        id: `favorite-port-row-${port.id}`,
+        sourcePortId: String(port.id),
+        name: port.name || 'No info',
+        country: port.country || 'No info',
+        activity: port.activity || 'No info',
+        risk: port.risk || 'Monitoring',
+        updatedAt: port.updatedAt || 'Just now',
+        entityType: 'Port',
+        description: `${port.country || 'No info'} • ${port.activity || 'No info'}`,
+        status: port.risk || 'Monitoring',
+      })),
+    [favoritePorts]
   )
 
   const polygonRows = useMemo(
@@ -713,10 +738,19 @@ const SecondaryNav = ({
     () => [...myShipRows, ...version2PrototypeShipRows],
     [myShipRows, version2PrototypeShipRows]
   )
-  const version2MyWatchlistPortRows = useMemo(
-    () => [...portRows, ...version2PrototypePortRows],
-    [portRows, version2PrototypePortRows]
-  )
+  const version2MyWatchlistPortRows = useMemo(() => {
+    const mergedRows = [...portRows, ...favoritePortRows, ...version2PrototypePortRows]
+    const seenKeys = new Set()
+
+    return mergedRows.filter((row) => {
+      const identity =
+        String(row?.sourcePortId || row?.id || '').trim().toLowerCase() ||
+        String(row?.name || '').trim().toLowerCase()
+      if (!identity || seenKeys.has(identity)) return false
+      seenKeys.add(identity)
+      return true
+    })
+  }, [favoritePortRows, portRows, version2PrototypePortRows])
   const version4BookmarkedPolygonRows = useMemo(() => [], [])
   const version4BookmarkedAlertRows = useMemo(() => [], [])
   const hasAnyBookmarkedItems = version2HasAddedBookmarks
@@ -1252,6 +1286,47 @@ const SecondaryNav = ({
     selectedDetectionId,
     shipLookup,
   ])
+
+  useEffect(() => {
+    if (!isVersion3Or4Or5) {
+      previousFavoriteShipCountRef.current = favoriteShipIds.length
+      previousFavoritePortCountRef.current = favoritePorts.length
+      return
+    }
+
+    const previousCount = previousFavoritePortCountRef.current
+    const currentCount = favoritePorts.length
+    previousFavoritePortCountRef.current = currentCount
+
+    if (currentCount <= previousCount) return
+
+    setVersion2HasAddedBookmarks(true)
+    setVersion2SelectedFlow(null)
+    setVersion2HoveredFlow(null)
+    setVersion2Mode('ports-list')
+    setActiveTopTab('my-watchlist')
+    setActiveWatchlistTab('ports')
+  }, [favoritePorts, isVersion3Or4Or5])
+
+  useEffect(() => {
+    if (!isVersion3Or4Or5) {
+      previousFavoriteShipCountRef.current = favoriteShipIds.length
+      return
+    }
+
+    const previousCount = previousFavoriteShipCountRef.current
+    const currentCount = favoriteShipIds.length
+    previousFavoriteShipCountRef.current = currentCount
+
+    if (currentCount <= previousCount) return
+
+    setVersion2HasAddedBookmarks(true)
+    setVersion2SelectedFlow(null)
+    setVersion2HoveredFlow(null)
+    setVersion2Mode('ships-list')
+    setActiveTopTab('my-watchlist')
+    setActiveWatchlistTab('ships')
+  }, [favoriteShipIds, isVersion3Or4Or5])
 
   useEffect(
     () => () => {
@@ -3985,7 +4060,6 @@ const SecondaryNav = ({
           style={{ display: 'none' }}
         />
       </Box>
-
       {isOpen && isWatchlistView && (
         <Box
           onMouseDown={(event) => {

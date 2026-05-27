@@ -1,13 +1,14 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Box, ActionIcon, Text } from '@mantine/core'
-import { Plus, Minus, XClose } from '@untitledui/icons'
+import { Plus, Minus, XClose, LayersThree01 } from '@untitledui/icons'
 import TopNav from './TopNav'
 import LeftNav from './LeftNav'
 import Map from './Map'
 import ExpandButton from '../custom-icons/ExpandButton'
 import ShipFilterIcon from '../custom-icons/ShipFilterIcon.svg'
 import ShipFiltersPanel from './ShipFiltersPanel'
+import MapLayersPanel from './MapLayersPanel'
 import { useShipContext } from '../context/ShipContext'
 import SecondaryNav from './SecondaryNav'
 
@@ -17,6 +18,8 @@ function Layout() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
+  const [mapLayersOpen, setMapLayersOpen] = useState(false)
+  const [portsLayerVisible, setPortsLayerVisible] = useState(false)
   const [expandPanelHovered, setExpandPanelHovered] = useState(false)
   const [timelinePanelOpen, setTimelinePanelOpen] = useState(true)
   const [timelineEvents, setTimelineEvents] = useState([])
@@ -25,7 +28,14 @@ function Layout() {
   const mapRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
-  const { selectDetection, shipTabs, enabledDetectionTypes, mapDate, runtimeDetections } =
+  const {
+    selectDetection,
+    shipTabs,
+    enabledDetectionTypes,
+    mapDate,
+    runtimeDetections,
+    openPortTab,
+  } =
     useShipContext()
 
   const getDetectionDateKey = useCallback((dateStr) => {
@@ -212,9 +222,21 @@ function Layout() {
         <Map
           ref={mapRef}
           onDetectionClick={handleDetectionClick}
+          onPortClick={(port) => {
+            openPortTab(port)
+            setPanelOpen(true)
+          }}
+          showPorts={portsLayerVisible}
         />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
+        )}
+        {mapLayersOpen && (
+          <MapLayersPanel
+            onClose={() => setMapLayersOpen(false)}
+            portsChecked={portsLayerVisible}
+            onPortsCheckedChange={setPortsLayerVisible}
+          />
         )}
         <Box
           style={{
@@ -286,6 +308,21 @@ function Layout() {
             }}
           >
             <img src={ShipFilterIcon} alt="" style={{ width: 20, height: 20 }} />
+          </ActionIcon>
+          <ActionIcon
+            className="map-layer-action-icon"
+            variant="filled"
+            aria-label="Layers"
+            onClick={() => setMapLayersOpen((prev) => !prev)}
+            style={{
+              width: 46,
+              height: 46,
+              backgroundColor: '#24263c',
+              border: '1px solid #393C56',
+              borderRadius: 4,
+            }}
+          >
+            <LayersThree01 size={20} color="white" />
           </ActionIcon>
         </Box>
         <Box

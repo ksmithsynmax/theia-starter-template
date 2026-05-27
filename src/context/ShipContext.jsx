@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+} from 'react'
 import { ships, detections as seedDetections } from '../data/mockData'
 import {
   SHIP_FILTER_DEFAULTS,
@@ -11,6 +17,7 @@ const ShipContext = createContext()
 export function ShipProvider({ children }) {
   const [shipTabs, setShipTabs] = useState([])
   const [favoriteShipIds, setFavoriteShipIds] = useState([])
+  const [favoritePorts, setFavoritePorts] = useState([])
   const [activeShipTab, setActiveShipTab] = useState(null)
   const [openMapToolPanelsByTab, setOpenMapToolPanelsByTab] = useState({})
   const [detailPanelOpen, setDetailPanelOpen] = useState(false)
@@ -25,6 +32,12 @@ export function ShipProvider({ children }) {
   const [runtimeDetections, setRuntimeDetections] = useState(seedDetections)
   const [shipFilters, setShipFilters] = useState(SHIP_FILTER_DEFAULTS)
   const [showLegendOnMap, setShowLegendOnMap] = useState(false)
+  const [alertPreviewAreas, setAlertPreviewAreas] = useState([])
+
+  // Port specific state
+  const [activePortLevel, setActivePortLevel] = useState('Port Details')
+  const [selectedTerminal, setSelectedTerminal] = useState(null)
+  const [selectedBerth, setSelectedBerth] = useState(null)
 
   const openShipTab = useCallback((detection) => {
     if (!detection?.shipId) return
@@ -41,29 +54,55 @@ export function ShipProvider({ children }) {
     }
   }, [])
 
-  const openStsTab = useCallback((shipId, partnerShipId, detectionType = 'sts', detectionId = null) => {
-    const ship = ships[shipId]
-    const partner = ships[partnerShipId]
-    if (!ship || !partner) return
+  const openPortTab = useCallback((port) => {
+    if (!port?.id) return
 
-    const stsTabId = `sts-${shipId}-${partnerShipId}`
     setShipTabs((prev) => {
-      if (prev.some((tab) => tab.id === stsTabId)) return prev
-      // Add STS tab but keep existing ship tabs so user can switch back
+      if (prev.some((tab) => tab.id === port.id)) return prev
       return [
         ...prev,
         {
-          id: stsTabId,
-          name: 'Ship-to-Ship',
-          type: 'sts',
-          stsType: detectionType,
-          shipIds: [shipId, partnerShipId],
+          ...port,
+          id: port.id,
+          type: 'port',
+          name: port.name,
+          flag: port.flag,
         },
       ]
     })
-    setActiveShipTab(stsTabId)
-    if (detectionId) setSelectedDetectionId(detectionId)
+    setActiveShipTab(port.id)
+    setActivePortLevel('Port Details')
+    setSelectedTerminal(null)
+    setSelectedBerth(null)
+    setDetailPanelOpen(true)
   }, [])
+
+  const openStsTab = useCallback(
+    (shipId, partnerShipId, detectionType = 'sts', detectionId = null) => {
+      const ship = ships[shipId]
+      const partner = ships[partnerShipId]
+      if (!ship || !partner) return
+
+      const stsTabId = `sts-${shipId}-${partnerShipId}`
+      setShipTabs((prev) => {
+        if (prev.some((tab) => tab.id === stsTabId)) return prev
+        // Add STS tab but keep existing ship tabs so user can switch back
+        return [
+          ...prev,
+          {
+            id: stsTabId,
+            name: 'Ship-to-Ship',
+            type: 'sts',
+            stsType: detectionType,
+            shipIds: [shipId, partnerShipId],
+          },
+        ]
+      })
+      setActiveShipTab(stsTabId)
+      if (detectionId) setSelectedDetectionId(detectionId)
+    },
+    []
+  )
 
   const selectDetection = useCallback(
     (detection, options = {}) => {
@@ -100,18 +139,21 @@ export function ShipProvider({ children }) {
     [openShipTab, openStsTab]
   )
 
-  const closeShipTab = useCallback((id) => {
-    setShipTabs((prev) => {
-      const updated = prev.filter((t) => t.id !== id)
-      if (id === activeShipTab && updated.length > 0) {
-        setActiveShipTab(updated[0].id)
-      } else if (updated.length === 0) {
-        setActiveShipTab(null)
-        setDetailPanelOpen(false)
-      }
-      return updated
-    })
-  }, [activeShipTab])
+  const closeShipTab = useCallback(
+    (id) => {
+      setShipTabs((prev) => {
+        const updated = prev.filter((t) => t.id !== id)
+        if (id === activeShipTab && updated.length > 0) {
+          setActiveShipTab(updated[0].id)
+        } else if (updated.length === 0) {
+          setActiveShipTab(null)
+          setDetailPanelOpen(false)
+        }
+        return updated
+      })
+    },
+    [activeShipTab]
+  )
 
   const closeAllTabs = useCallback(() => {
     setShipTabs([])
@@ -151,6 +193,17 @@ export function ShipProvider({ children }) {
     )
   }, [])
 
+  const toggleFavoritePort = useCallback((port) => {
+    if (!port?.id) return
+    setFavoritePorts((prev) => {
+      const alreadyFavorited = prev.some((favoritePort) => favoritePort.id === port.id)
+      if (alreadyFavorited) {
+        return prev.filter((favoritePort) => favoritePort.id !== port.id)
+      }
+      return [...prev, { ...port }]
+    })
+  }, [])
+
   const setShipFilterChecked = useCallback((filterId, isChecked) => {
     setShipFilters((prev) => ({ ...prev, [filterId]: isChecked }))
   }, [])
@@ -186,13 +239,16 @@ export function ShipProvider({ children }) {
       value={{
         shipTabs,
         favoriteShipIds,
+        favoritePorts,
         activeShipTab,
         setActiveShipTab,
         openMapToolPanelsByTab,
         toggleMapToolPanel,
         closeMapToolPanel,
         toggleFavoriteShip,
+        toggleFavoritePort,
         openShipTab,
+        openPortTab,
         openStsTab,
         selectDetection,
         closeShipTab,
@@ -217,8 +273,16 @@ export function ShipProvider({ children }) {
         resetShipFilters,
         showLegendOnMap,
         setShowLegendOnMap,
+        alertPreviewAreas,
+        setAlertPreviewAreas,
         enabledDetectionTypes,
         filteredRuntimeDetections,
+        activePortLevel,
+        setActivePortLevel,
+        selectedTerminal,
+        setSelectedTerminal,
+        selectedBerth,
+        setSelectedBerth,
       }}
     >
       {children}
