@@ -366,7 +366,7 @@ function Myships() {
     }, 0) + 1000
   )
   const allDetections = useMemo(() => runtimeDetections, [runtimeDetections])
-  const { collapsePanel, watchlistVersion } = useOutletContext() || {}
+  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange } = useOutletContext() || {}
   const isBookmarkVersion =
     watchlistVersion === 'version4' ||
     watchlistVersion === 'version5' ||
@@ -4237,6 +4237,80 @@ function Myships() {
               </Tooltip>
             </Box>
           </Box>
+
+          {portVisibilityBehavior === 'selected-context' && !portsLayerVisible && (
+            <Box
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '9px 14px',
+                marginBottom: 16,
+                background: forceHideSelectedPortContext ? 'rgba(0, 148, 255, 0.08)' : 'rgba(255, 207, 92, 0.1)',
+                border: forceHideSelectedPortContext ? '1px solid #0094FF' : '1px solid #AD8B37',
+                borderRadius: 6,
+                gap: 8,
+              }}
+            >
+              <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MarkerPin01 size={15} color={forceHideSelectedPortContext ? '#0094FF' : '#ffffff'} />
+                <Text style={{ fontSize: 12, color: forceHideSelectedPortContext ? '#ffffff' : '#ffffff' }}>
+                  {forceHideSelectedPortContext
+                    ? 'Port shape hidden on map'
+                    : 'Port shape visible on map for context'}
+                </Text>
+              </Box>
+              <Box
+                onClick={() => onForceHideSelectedPortContextChange?.(!forceHideSelectedPortContext)}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: forceHideSelectedPortContext ? '#0094FF' : '#F7C948',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {forceHideSelectedPortContext ? 'Show' : 'Hide'}
+              </Box>
+            </Box>
+          )}
+
+          {portVisibilityBehavior === 'strict-layer-toggle' && (
+            <Box
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '9px 14px',
+                marginBottom: 16,
+                background: portsLayerVisible ? 'rgba(0, 148, 255, 0.08)' : '#060a14',
+                border: portsLayerVisible ? '1px solid #0094FF' : '1px solid #1e293b',
+                borderRadius: 6,
+                gap: 8,
+              }}
+            >
+              <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MarkerPin01 size={15} color={portsLayerVisible ? '#0094FF' : '#888F9E'} />
+                <Text style={{ fontSize: 12, color: portsLayerVisible ? '#ffffff' : '#888F9E' }}>
+                  {portsLayerVisible ? 'Port shape visible on map' : 'Port shape hidden — Ports layer is off'}
+                </Text>
+              </Box>
+              <Box
+                onClick={() => onPortsLayerVisibleChange?.(!portsLayerVisible)}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: portsLayerVisible ? '#888F9E' : '#0094FF',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {portsLayerVisible ? 'Hide' : 'Show on map'}
+              </Box>
+            </Box>
+          )}
 
           <Box
             style={{

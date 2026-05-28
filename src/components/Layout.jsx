@@ -18,6 +18,7 @@ function Layout() {
   const [portVisibilityBehavior, setPortVisibilityBehavior] = useState(
     'selected-context'
   )
+  const [forceHideSelectedPortContext, setForceHideSelectedPortContext] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
@@ -237,6 +238,7 @@ function Layout() {
           showPorts={portsLayerVisible}
           leftPanelInset={leftPanelInset}
           portVisibilityBehavior={portVisibilityBehavior}
+          forceHideSelectedPortContext={forceHideSelectedPortContext}
         />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
@@ -245,7 +247,10 @@ function Layout() {
           <MapLayersPanel
             onClose={() => setMapLayersOpen(false)}
             portsChecked={portsLayerVisible}
-            onPortsCheckedChange={setPortsLayerVisible}
+            onPortsCheckedChange={(val) => {
+              setPortsLayerVisible(val)
+              if (val) setForceHideSelectedPortContext(false)
+            }}
           />
         )}
         <Box
@@ -389,7 +394,18 @@ function Layout() {
                     }}
                   >
                     <Outlet
-                      context={{ collapsePanel: closePanel, watchlistVersion }}
+                      context={{
+                        collapsePanel: closePanel,
+                        watchlistVersion,
+                        portsLayerVisible,
+                        onPortsLayerVisibleChange: (val) => {
+                          setPortsLayerVisible(val)
+                          if (val) setForceHideSelectedPortContext(false)
+                        },
+                        portVisibilityBehavior,
+                        forceHideSelectedPortContext,
+                        onForceHideSelectedPortContextChange: setForceHideSelectedPortContext,
+                      }}
                     />
                   </Box>
               </Box>

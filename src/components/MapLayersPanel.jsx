@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Box, Text, Checkbox } from '@mantine/core'
 import { XClose } from '@untitledui/icons'
-
 function MapLayersPanel({ onClose, portsChecked = false, onPortsCheckedChange }) {
   const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
   const [dragState, setDragState] = useState(null)

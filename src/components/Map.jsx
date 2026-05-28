@@ -231,6 +231,7 @@ const Map = forwardRef(function Map(
     showPorts = false,
     leftPanelInset = 0,
     portVisibilityBehavior = 'selected-context',
+    forceHideSelectedPortContext = false,
   },
   ref
 ) {
@@ -261,6 +262,7 @@ const Map = forwardRef(function Map(
   const lastPreviewAreaSignatureRef = useRef('')
   const lastFocusedPortViewportKeyRef = useRef('')
   const portAnimatingRef = useRef(false)
+  const portShapeExplicitlyShownRef = useRef(false)
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
@@ -460,7 +462,7 @@ const Map = forwardRef(function Map(
     const activeTab = shipTabs.find((t) => t.id === activeShipTab)
     const isPortTabActive = activeTab?.type === 'port'
     const shouldShowSelectedPortContext =
-      showPorts || portVisibilityBehavior === 'selected-context'
+      showPorts || (portVisibilityBehavior === 'selected-context' && !forceHideSelectedPortContext)
 
     if (isPortTabActive) {
       const port = PROTOTYPE_PORTS.find(p => p.id === activeTab.id)
@@ -521,15 +523,46 @@ const Map = forwardRef(function Map(
               new mapboxgl.LngLatBounds(allPortCoords[0], allPortCoords[0])
             )
 
-            // Keep shapes hidden during the zoom — they'll fade in on moveend.
-            portAnimatingRef.current = true
-            map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
-            map.current.setPaintProperty('port-outline', 'line-opacity', 0)
-            map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
-            map.current.setPaintProperty('terminal-outline', 'line-opacity', 0)
-            map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
-            map.current.setPaintProperty('berth-outline', 'line-opacity', 0)
-            map.current.setPaintProperty('port-labels', 'text-opacity', 0)
+            const applyPortShapeOpacities = () => {
+              if (!map.current) return
+              portShapeExplicitlyShownRef.current = true
+              map.current.setPaintProperty('port-fill', 'fill-opacity', 0.2)
+              map.current.setPaintProperty('port-outline', 'line-opacity', 1)
+              map.current.setPaintProperty('port-outline', 'line-color', '#0094FF')
+              map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
+              map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
+              map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
+              map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
+              map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
+              map.current.setPaintProperty('berth-outline', 'line-opacity', 0.5)
+              map.current.setPaintProperty('berth-outline', 'line-color', '#FFFFFF')
+            }
+
+            if (portVisibilityBehavior === 'strict-layer-toggle') {
+              // In strict mode: show shapes immediately, no hide/fade sequence.
+              applyPortShapeOpacities()
+              portAnimatingRef.current = false
+            } else {
+              // In selected-context mode: hide shapes during zoom, fade in on moveend.
+              portAnimatingRef.current = true
+              map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
+              map.current.setPaintProperty('port-outline', 'line-opacity', 0)
+              map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
+              map.current.setPaintProperty('terminal-outline', 'line-opacity', 0)
+              map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
+              map.current.setPaintProperty('berth-outline', 'line-opacity', 0)
+              map.current.setPaintProperty('port-labels', 'text-opacity', 0)
+
+              map.current.once('moveend', () => {
+                portAnimatingRef.current = false
+                if (!map.current) return
+                const fade = { duration: 500, delay: 0 }
+                map.current.setPaintProperty('port-fill', 'fill-opacity-transition', fade)
+                map.current.setPaintProperty('port-outline', 'line-opacity-transition', fade)
+                map.current.setPaintProperty('terminal-outline', 'line-opacity-transition', fade)
+                applyPortShapeOpacities()
+              })
+            }
 
             map.current.fitBounds(bounds, {
               padding: {
@@ -543,26 +576,6 @@ const Map = forwardRef(function Map(
               easing: (t) => 1 - (1 - t) ** 3,
             })
 
-            // Fade shapes in once the camera has settled.
-            map.current.once('moveend', () => {
-              portAnimatingRef.current = false
-              if (!map.current) return
-              const fade = { duration: 500, delay: 0 }
-              map.current.setPaintProperty('port-fill', 'fill-opacity-transition', fade)
-              map.current.setPaintProperty('port-outline', 'line-opacity-transition', fade)
-              map.current.setPaintProperty('terminal-outline', 'line-opacity-transition', fade)
-              map.current.setPaintProperty('port-fill', 'fill-opacity', 0.2)
-              map.current.setPaintProperty('port-outline', 'line-opacity', 1)
-              map.current.setPaintProperty('port-outline', 'line-color', '#0094FF')
-              map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
-              map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
-              map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
-              map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
-              map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
-              map.current.setPaintProperty('berth-outline', 'line-opacity', 0.5)
-              map.current.setPaintProperty('berth-outline', 'line-color', '#FFFFFF')
-            })
-
             lastFocusedPortViewportKeyRef.current = focusKey
           }
         }
@@ -571,10 +584,16 @@ const Map = forwardRef(function Map(
 
     if (!isPortTabActive || !shouldShowSelectedPortContext) {
       lastFocusedPortViewportKeyRef.current = ''
+      portShapeExplicitlyShownRef.current = false
+      // Reset all port markers to deselected state
       PROTOTYPE_PORTS.forEach((port) => {
         const marker = portMarkersRef.current[port.id]
         if (!marker) return
         marker.setLngLat([port.lng, port.lat])
+        const el = marker.getElement()
+        el.dataset.selected = 'false'
+        const circle = el.querySelector('circle')
+        if (circle) circle.setAttribute('stroke', '#393C56')
       })
       // Hide all port features
       map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
@@ -590,6 +609,10 @@ const Map = forwardRef(function Map(
     // Skip opacity updates while the zoom-to-port animation is running —
     // the moveend callback above handles the initial fade-in.
     if (portAnimatingRef.current) return
+
+    // In strict mode, only apply shape opacities if they were explicitly revealed
+    // via a port icon click. Prevents re-enabling the checkbox from auto-showing shapes.
+    if (portVisibilityBehavior === 'strict-layer-toggle' && !portShapeExplicitlyShownRef.current) return
 
     // Port Details Active
     if (activePortLevel === 'Port Details') {
@@ -701,6 +724,7 @@ const Map = forwardRef(function Map(
     selectedBerth,
     showPorts,
     portVisibilityBehavior,
+    forceHideSelectedPortContext,
     leftPanelInset,
     mapDimensions.width,
   ])
@@ -771,9 +795,10 @@ const Map = forwardRef(function Map(
           event.preventDefault()
           event.stopPropagation()
 
-          const isCurrentlySelected = el.dataset.selected === 'true'
+          // Already active — do nothing, same as ship/detection behavior
+          if (el.dataset.selected === 'true') return
 
-          // Reset all ports to default border
+          // Deselect all other port markers
           Object.values(portMarkersRef.current).forEach((m) => {
             const mEl = m.getElement()
             mEl.dataset.selected = 'false'
@@ -791,13 +816,11 @@ const Map = forwardRef(function Map(
             }
           })
 
-          // If it wasn't selected before, select it now
-          if (!isCurrentlySelected) {
-            el.dataset.selected = 'true'
-            const circle = el.querySelector('circle')
-            if (circle) circle.setAttribute('stroke', '#0094FF')
-            if (onPortClickRef.current) onPortClickRef.current(port)
-          }
+          // Select this port
+          el.dataset.selected = 'true'
+          const circle = el.querySelector('circle')
+          if (circle) circle.setAttribute('stroke', '#0094FF')
+          if (onPortClickRef.current) onPortClickRef.current(port)
         }
 
         el.addEventListener('click', onClick)
@@ -807,6 +830,14 @@ const Map = forwardRef(function Map(
           .addTo(map.current)
 
         portMarkersRef.current[port.id] = marker
+
+        // If this port is already the active tab, restore the active state visually.
+        const activeTab = shipTabs.find((t) => t.id === activeShipTab)
+        if (activeTab?.type === 'port' && activeTab.id === port.id) {
+          el.dataset.selected = 'true'
+          const circle = el.querySelector('circle')
+          if (circle) circle.setAttribute('stroke', '#0094FF')
+        }
       } else {
         marker.setLngLat([port.lng, port.lat])
       }
@@ -818,7 +849,7 @@ const Map = forwardRef(function Map(
         markerTooltip.style.left = '36px'
       }
     })
-  }, [showPorts, mapReady])
+  }, [showPorts, mapReady, activeShipTab, shipTabs])
 
   useEffect(() => {
     if (!map.current || !mapReady) return
