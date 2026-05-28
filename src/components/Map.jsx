@@ -110,10 +110,40 @@ const PROTOTYPE_PORTS = [
 const PORT_FOCUS_MIN_GUTTER_PX = 180
 
 const getFeatureCenterNoMapbox = (feature) => {
+  // Prefer geometric centroid for polygons so translation anchor matches
+  // the same center logic used for marker alignment.
+  const ring = feature?.geometry?.coordinates?.[0]
+  if (Array.isArray(ring) && ring.length >= 3) {
+    let area = 0
+    let cx = 0
+    let cy = 0
+    for (let i = 0; i < ring.length - 1; i++) {
+      const [x0, y0] = ring[i]
+      const [x1, y1] = ring[i + 1]
+      if (
+        !Number.isFinite(x0) ||
+        !Number.isFinite(y0) ||
+        !Number.isFinite(x1) ||
+        !Number.isFinite(y1)
+      ) {
+        continue
+      }
+      const f = x0 * y1 - x1 * y0
+      area += f
+      cx += (x0 + x1) * f
+      cy += (y0 + y1) * f
+    }
+    area /= 2
+    if (Math.abs(area) > 1e-12) {
+      const k = 1 / (6 * area)
+      return [cx * k, cy * k]
+    }
+  }
+
   const coordinates = feature?.geometry?.coordinates
   if (!Array.isArray(coordinates)) return null
   const points = coordinates
-    .flatMap((ring) => ring || [])
+    .flatMap((polyRing) => polyRing || [])
     .filter(
       (coord) =>
         Array.isArray(coord) &&
@@ -224,6 +254,8 @@ const getAlertPreviewAreaKey = (areaLabel) => {
   return null
 }
 
+const EMPTY_FEATURE_COLLECTION = { type: 'FeatureCollection', features: [] }
+
 const Map = forwardRef(function Map(
   {
     onDetectionClick,
@@ -263,6 +295,7 @@ const Map = forwardRef(function Map(
   const lastFocusedPortViewportKeyRef = useRef('')
   const portAnimatingRef = useRef(false)
   const portShapeExplicitlyShownRef = useRef(false)
+  const activePortCenterRef = useRef(null)
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
@@ -453,6 +486,38 @@ const Map = forwardRef(function Map(
           'text-opacity': 0, // Default hidden
         },
       })
+
+      map.current.addSource('active-port-marker', {
+        type: 'geojson',
+        data: EMPTY_FEATURE_COLLECTION,
+      })
+
+      if (!map.current.hasImage('active-port-custom')) {
+        const activePortIcon = new Image(30, 30)
+        activePortIcon.onload = () => {
+          if (!map.current || map.current.hasImage('active-port-custom')) return
+          map.current.addImage('active-port-custom', activePortIcon, { pixelRatio: 1 })
+        }
+        activePortIcon.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+          getPortIconSvg('#0094FF', 30)
+        )}`
+      }
+
+      map.current.addLayer({
+        id: 'active-port-marker-anchor',
+        type: 'symbol',
+        source: 'active-port-marker',
+        layout: {
+          'icon-image': 'active-port-custom',
+          'icon-size': 1,
+          'icon-anchor': 'center',
+          'icon-ignore-placement': true,
+          'icon-allow-overlap': true,
+        },
+        paint: {
+          'icon-opacity': 0,
+        },
+      })
     }
   }, [mapReady])
 
@@ -463,6 +528,15 @@ const Map = forwardRef(function Map(
     const isPortTabActive = activeTab?.type === 'port'
     const shouldShowSelectedPortContext =
       showPorts || (portVisibilityBehavior === 'selected-context' && !forceHideSelectedPortContext)
+    const shouldShowActivePortMarker = isPortTabActive && showPorts
+
+    const setActivePortMarkerVisibility = (visible) => {
+      if (!map.current.getLayer('active-port-marker-anchor')) {
+        return
+      }
+      const iconOpacity = visible ? 1 : 0
+      map.current.setPaintProperty('active-port-marker-anchor', 'icon-opacity', iconOpacity)
+    }
 
     if (isPortTabActive) {
       const port = PROTOTYPE_PORTS.find(p => p.id === activeTab.id)
@@ -496,10 +570,32 @@ const Map = forwardRef(function Map(
           (feature) => feature?.properties?.type === 'port'
         )
         const selectedPortCenter = getPolygonCenter(selectedPortFeature)
+        activePortCenterRef.current = selectedPortCenter || null
         const selectedMarker = portMarkersRef.current[port.id]
         if (selectedMarker && selectedPortCenter) {
           selectedMarker.setLngLat(selectedPortCenter)
         }
+        const activePortMarkerSource = map.current.getSource('active-port-marker')
+        if (activePortMarkerSource) {
+          activePortMarkerSource.setData(
+            selectedPortCenter
+              ? {
+                  type: 'FeatureCollection',
+                  features: [
+                    {
+                      type: 'Feature',
+                      geometry: {
+                        type: 'Point',
+                        coordinates: selectedPortCenter,
+                      },
+                      properties: {},
+                    },
+                  ],
+                }
+              : EMPTY_FEATURE_COLLECTION
+          )
+        }
+        setActivePortMarkerVisibility(shouldShowActivePortMarker && Boolean(selectedPortCenter))
 
         const focusKey = `${port.id}:${Math.round(leftPanelInset)}:${Math.round(mapDimensions.width)}`
 
@@ -585,6 +681,12 @@ const Map = forwardRef(function Map(
     if (!isPortTabActive || !shouldShowSelectedPortContext) {
       lastFocusedPortViewportKeyRef.current = ''
       portShapeExplicitlyShownRef.current = false
+      activePortCenterRef.current = null
+      const activePortMarkerSource = map.current.getSource('active-port-marker')
+      if (activePortMarkerSource) {
+        activePortMarkerSource.setData(EMPTY_FEATURE_COLLECTION)
+      }
+      setActivePortMarkerVisibility(false)
       // Reset all port markers to deselected state
       PROTOTYPE_PORTS.forEach((port) => {
         const marker = portMarkersRef.current[port.id]
@@ -616,6 +718,7 @@ const Map = forwardRef(function Map(
 
     // Port Details Active
     if (activePortLevel === 'Port Details') {
+      setActivePortMarkerVisibility(shouldShowActivePortMarker)
       map.current.setPaintProperty('port-fill', 'fill-opacity', 0.2)
       map.current.setPaintProperty('port-outline', 'line-opacity', 1)
       map.current.setPaintProperty('port-outline', 'line-color', '#0094FF')
@@ -631,6 +734,7 @@ const Map = forwardRef(function Map(
     } 
     // Terminal Details Active
     else if (activePortLevel === 'Terminal Details') {
+      setActivePortMarkerVisibility(shouldShowActivePortMarker)
       map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
       map.current.setPaintProperty('port-outline', 'line-opacity', 0.5)
       map.current.setPaintProperty('port-outline', 'line-color', '#FFFFFF')
@@ -677,6 +781,7 @@ const Map = forwardRef(function Map(
     }
     // Berth Details Active
     else if (activePortLevel === 'Berth Details') {
+      setActivePortMarkerVisibility(shouldShowActivePortMarker)
       map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
       map.current.setPaintProperty('port-outline', 'line-opacity', 0.5)
       map.current.setPaintProperty('port-outline', 'line-color', '#FFFFFF')
@@ -740,7 +845,16 @@ const Map = forwardRef(function Map(
       return
     }
 
+    const activeTab = shipTabs.find((t) => t.id === activeShipTab)
+    const activePortId = activeTab?.type === 'port' ? activeTab.id : null
+
     PROTOTYPE_PORTS.forEach((port) => {
+      const isActivePort = activePortId === port.id
+      const targetLngLat =
+        isActivePort && activePortCenterRef.current
+          ? activePortCenterRef.current
+          : [port.lng, port.lat]
+
       let marker = portMarkersRef.current[port.id]
       if (!marker) {
         const el = document.createElement('div')
@@ -826,20 +940,19 @@ const Map = forwardRef(function Map(
         el.addEventListener('click', onClick)
 
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([port.lng, port.lat])
+          .setLngLat(targetLngLat)
           .addTo(map.current)
 
         portMarkersRef.current[port.id] = marker
 
         // If this port is already the active tab, restore the active state visually.
-        const activeTab = shipTabs.find((t) => t.id === activeShipTab)
         if (activeTab?.type === 'port' && activeTab.id === port.id) {
           el.dataset.selected = 'true'
           const circle = el.querySelector('circle')
           if (circle) circle.setAttribute('stroke', '#0094FF')
         }
       } else {
-        marker.setLngLat([port.lng, port.lat])
+        marker.setLngLat(targetLngLat)
       }
 
       const markerTooltip = marker
@@ -848,6 +961,7 @@ const Map = forwardRef(function Map(
       if (markerTooltip) {
         markerTooltip.style.left = '36px'
       }
+      marker.getElement().style.display = isActivePort ? 'none' : ''
     })
   }, [showPorts, mapReady, activeShipTab, shipTabs])
 
