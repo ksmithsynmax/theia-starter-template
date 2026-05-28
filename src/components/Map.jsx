@@ -279,8 +279,11 @@ const Map = forwardRef(function Map(
     openMapToolPanelsByTab,
     closeMapToolPanel,
     activePortLevel,
+    setActivePortLevel,
     selectedTerminal,
+    setSelectedTerminal,
     selectedBerth,
+    setSelectedBerth,
     alertPreviewAreas,
   } = useShipContext()
   const mapContainer = useRef(null)
@@ -631,6 +634,80 @@ const Map = forwardRef(function Map(
   useEffect(() => {
     if (!map.current || !mapReady) return
 
+    const interactiveLayers = [
+      'port-fill',
+      'port-outline',
+      'terminal-fill',
+      'terminal-outline',
+      'berth-fill',
+      'berth-outline',
+    ]
+
+    const setPointerCursor = () => {
+      if (!map.current) return
+      map.current.getCanvas().style.cursor = 'pointer'
+    }
+
+    const clearCursor = () => {
+      if (!map.current) return
+      map.current.getCanvas().style.cursor = ''
+    }
+
+    const handlePortLayerClick = (event) => {
+      const activeTab = shipTabs.find((tab) => tab.id === activeShipTab)
+      if (activeTab?.type !== 'port') return
+
+      const feature = event?.features?.[0]
+      const featureType = feature?.properties?.type
+      const featureId = feature?.properties?.id || null
+
+      if (featureType === 'berth') {
+        setActivePortLevel('Berth Details')
+        setSelectedBerth(featureId)
+        setSelectedTerminal(null)
+        return
+      }
+
+      if (featureType === 'terminal') {
+        setActivePortLevel('Terminal Details')
+        setSelectedTerminal(featureId)
+        setSelectedBerth(null)
+        return
+      }
+
+      setActivePortLevel('Port Details')
+      setSelectedTerminal(null)
+      setSelectedBerth(null)
+    }
+
+    interactiveLayers.forEach((layerId) => {
+      if (!map.current.getLayer(layerId)) return
+      map.current.on('click', layerId, handlePortLayerClick)
+      map.current.on('mouseenter', layerId, setPointerCursor)
+      map.current.on('mouseleave', layerId, clearCursor)
+    })
+
+    return () => {
+      if (!map.current) return
+      interactiveLayers.forEach((layerId) => {
+        if (!map.current.getLayer(layerId)) return
+        map.current.off('click', layerId, handlePortLayerClick)
+        map.current.off('mouseenter', layerId, setPointerCursor)
+        map.current.off('mouseleave', layerId, clearCursor)
+      })
+    }
+  }, [
+    mapReady,
+    shipTabs,
+    activeShipTab,
+    setActivePortLevel,
+    setSelectedTerminal,
+    setSelectedBerth,
+  ])
+
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+
     const activeTab = shipTabs.find((t) => t.id === activeShipTab)
     const isPortTabActive = activeTab?.type === 'port'
     const openPortTabs = shipTabs.filter((t) => t?.type === 'port')
@@ -954,10 +1031,11 @@ const Map = forwardRef(function Map(
           0
         ])
       } else {
-        // No terminal selected, show all dashed
-        map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
-        map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
-        map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
+        // No terminal selected: highlight all terminals as the active context.
+        map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0.16)
+        map.current.setPaintProperty('terminal-fill', 'fill-color', '#0094FF')
+        map.current.setPaintProperty('terminal-outline', 'line-opacity', 1)
+        map.current.setPaintProperty('terminal-outline', 'line-color', '#0094FF')
         map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
         map.current.setPaintProperty('port-labels', 'text-opacity', 0)
       }

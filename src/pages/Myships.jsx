@@ -4361,6 +4361,16 @@ function Myships() {
                   <Button
                     onClick={() => {
                       setActivePortLevel(level)
+                      if (level === 'Port Details') {
+                        setSelectedTerminal(null)
+                        setSelectedBerth(null)
+                      } else if (level === 'Terminal Details') {
+                        setSelectedTerminal(null)
+                        setSelectedBerth(null)
+                      } else if (level === 'Berth Details') {
+                        setSelectedBerth(null)
+                        setSelectedTerminal(null)
+                      }
                       if (
                         level === 'Terminal Details' &&
                         (activePortTab === 'Ships In Port' ||
