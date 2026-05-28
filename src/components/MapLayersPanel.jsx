@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Box, Text, Checkbox, Switch } from '@mantine/core'
-import { ChevronLeft, Sliders04, XClose } from '@untitledui/icons'
+import { Box, Text, Checkbox, Switch, Select } from '@mantine/core'
+import { ChevronDown, ChevronLeft, Sliders04, XClose } from '@untitledui/icons'
 function MapLayersPanel({
   onClose,
   portsChecked = false,
@@ -19,6 +19,12 @@ function MapLayersPanel({
     highRiskAreas: false,
     aoiRestrictions: false,
   })
+  const [selectedPortShipSizeClasses, setSelectedPortShipSizeClasses] = useState(
+    'Handysize, Panamax, Aframax, Suezmax'
+  )
+  const [selectedPortCargoTypes, setSelectedPortCargoTypes] = useState(
+    'LNG, Oil, Container, Bulk/Grain'
+  )
   const handleUnwiredLayerToggle = (layerKey) => (event) => {
     const checked = event.currentTarget.checked
     setUnwiredLayerChecks((prev) => ({
@@ -102,7 +108,7 @@ function MapLayersPanel({
             />
           )}
           <Text style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>
-            {portSettingsOpen ? 'Port Settings' : 'Map Layers'}
+            {portSettingsOpen ? 'Port Filters' : 'Map Layers'}
           </Text>
         </Box>
         <XClose
@@ -213,7 +219,73 @@ function MapLayersPanel({
             </Box>
           </Box>
         ) : (
-          <Box style={{ minHeight: 36, display: 'flex', alignItems: 'center' }}>
+          <Box style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 6 }}>
+            <Box>
+              <Text style={{ color: '#E8EBF2', fontSize: 13, marginBottom: 6 }}>
+                Show ports with below ship size classes:
+              </Text>
+              <Select
+                value={selectedPortShipSizeClasses}
+                onChange={(value) => setSelectedPortShipSizeClasses(value || '')}
+                data={[
+                  'Handysize, Panamax, Aframax, Suezmax',
+                  'Handysize, Panamax',
+                  'Aframax, Suezmax',
+                  'VLCC, ULCC',
+                ]}
+                rightSection={<ChevronDown size={14} color="#FFFFFF" />}
+                styles={{
+                  input: {
+                    background: '#070B14',
+                    borderColor: '#5A607E',
+                    color: '#FFFFFF',
+                    fontSize: 13,
+                    height: 40,
+                  },
+                  dropdown: {
+                    background: '#111326',
+                    borderColor: '#393C56',
+                  },
+                  option: {
+                    color: '#FFFFFF',
+                  },
+                }}
+              />
+            </Box>
+
+            <Box>
+              <Text style={{ color: '#E8EBF2', fontSize: 13, marginBottom: 6 }}>
+                Show ports with below cargo/terminal types:
+              </Text>
+              <Select
+                value={selectedPortCargoTypes}
+                onChange={(value) => setSelectedPortCargoTypes(value || '')}
+                data={[
+                  'LNG, Oil, Container, Bulk/Grain',
+                  'LNG, Oil',
+                  'Container, Bulk/Grain',
+                  'Dry Bulk, LPG',
+                ]}
+                rightSection={<ChevronDown size={14} color="#FFFFFF" />}
+                styles={{
+                  input: {
+                    background: '#070B14',
+                    borderColor: '#5A607E',
+                    color: '#FFFFFF',
+                    fontSize: 13,
+                    height: 40,
+                  },
+                  dropdown: {
+                    background: '#111326',
+                    borderColor: '#393C56',
+                  },
+                  option: {
+                    color: '#FFFFFF',
+                  },
+                }}
+              />
+            </Box>
+
             <Switch
               className="port-hover-card-switch"
               checked={portHoverCardEnabled}
@@ -224,7 +296,7 @@ function MapLayersPanel({
               color="#006CD7"
               size="sm"
               styles={{
-                root: { display: 'flex', padding: '4px 0 6px' },
+                root: { display: 'flex', padding: '0' },
                 body: { display: 'flex', alignItems: 'center', gap: 12 },
                 track: {
                   border: 'none',
