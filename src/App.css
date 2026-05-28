@@ -427,8 +427,8 @@ button:active,
 
 .ship-filter-checkbox .mantine-Checkbox-input:checked,
 .ship-filter-checkbox .mantine-Checkbox-input[data-checked] {
-  background-color: #0094ff;
-  border-color: #0094ff;
+  background-color: #006cd7;
+  border-color: #006cd7;
 }
 
 .ship-filter-checkbox .mantine-Checkbox-icon {
@@ -451,4 +451,55 @@ button:active,
   border-radius: 8px;
   background: #24263c;
   padding: 20px;
+}
+
+/* Remove default Mapbox popup chrome for custom hover cards */
+.port-hover-card-popup {
+  pointer-events: none;
+}
+
+.port-hover-card-popup .mapboxgl-popup-content {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  border: none;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.port-hover-card-popup .mapboxgl-popup-tip {
+  display: none;
+}
+
+.port-hover-card-shell::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 10px solid #393c56;
+}
+
+.port-hover-card-shell::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 8px solid #181926;
+}
+
+/* Remove Mantine switch inner thumb marker for port setting */
+.port-hover-card-switch .mantine-Switch-thumb::before,
+.port-hover-card-switch .mantine-Switch-thumb::after {
+  display: none !important;
+  content: none !important;
 }

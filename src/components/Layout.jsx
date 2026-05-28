@@ -24,6 +24,7 @@ function Layout() {
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
   const [mapLayersOpen, setMapLayersOpen] = useState(false)
   const [portsLayerVisible, setPortsLayerVisible] = useState(false)
+  const [portHoverCardEnabled, setPortHoverCardEnabled] = useState(true)
   const [expandPanelHovered, setExpandPanelHovered] = useState(false)
   const [timelinePanelOpen, setTimelinePanelOpen] = useState(true)
   const [timelineEvents, setTimelineEvents] = useState([])
@@ -239,6 +240,7 @@ function Layout() {
           leftPanelInset={leftPanelInset}
           portVisibilityBehavior={portVisibilityBehavior}
           forceHideSelectedPortContext={forceHideSelectedPortContext}
+          portHoverCardEnabled={portHoverCardEnabled}
         />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
@@ -251,6 +253,8 @@ function Layout() {
               setPortsLayerVisible(val)
               if (val) setForceHideSelectedPortContext(false)
             }}
+            portHoverCardEnabled={portHoverCardEnabled}
+            onPortHoverCardEnabledChange={setPortHoverCardEnabled}
           />
         )}
         <Box

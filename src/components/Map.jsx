@@ -255,6 +255,29 @@ const getAlertPreviewAreaKey = (areaLabel) => {
 }
 
 const EMPTY_FEATURE_COLLECTION = { type: 'FeatureCollection', features: [] }
+const HOVER_CARD_BY_TYPE = {
+  port: {
+    title: 'Port Summary',
+    ships: 24,
+    cargoTypes: 6,
+    products: ['Crude Oil', 'Containers', 'LNG'],
+    handles: ['Container', 'Bulk Carrier', 'Tanker'],
+  },
+  terminal: {
+    title: 'Terminal Summary',
+    ships: 9,
+    cargoTypes: 4,
+    products: ['Containers', 'Refined Products', 'Chemicals'],
+    handles: ['Container', 'Tanker'],
+  },
+  berth: {
+    title: 'Berth Summary',
+    ships: 3,
+    cargoTypes: 2,
+    products: ['Containers', 'Dry Bulk'],
+    handles: ['Container'],
+  },
+}
 
 const Map = forwardRef(function Map(
   {
@@ -264,6 +287,7 @@ const Map = forwardRef(function Map(
     leftPanelInset = 0,
     portVisibilityBehavior = 'selected-context',
     forceHideSelectedPortContext = false,
+    portHoverCardEnabled = true,
   },
   ref
 ) {
@@ -299,6 +323,7 @@ const Map = forwardRef(function Map(
   const portAnimatingRef = useRef(false)
   const portShapeExplicitlyShownRef = useRef(false)
   const activePortCenterRef = useRef(null)
+  const portHoverPopupRef = useRef(null)
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
@@ -596,6 +621,123 @@ const Map = forwardRef(function Map(
       })
     }
   }, [mapReady])
+
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+
+    if (!portHoverCardEnabled) {
+      if (portHoverPopupRef.current) {
+        portHoverPopupRef.current.remove()
+        portHoverPopupRef.current = null
+      }
+      return
+    }
+
+    const interactiveHoverLayers = [
+      'port-fill',
+      'port-outline',
+      'terminal-fill',
+      'terminal-outline',
+      'berth-fill',
+      'berth-outline',
+      'inactive-port-fill',
+      'inactive-port-outline',
+      'inactive-port-inner-outline',
+    ]
+
+    const closeHoverCard = () => {
+      if (!portHoverPopupRef.current) return
+      portHoverPopupRef.current.remove()
+      portHoverPopupRef.current = null
+    }
+
+    const renderHoverCardHtml = (feature) => {
+      const type = feature?.properties?.type
+      const info = HOVER_CARD_BY_TYPE[type] || HOVER_CARD_BY_TYPE.port
+      const products = info.products.slice(0, 2).join(', ')
+      const productsMore = Math.max(0, info.products.length - 2)
+      const handles = info.handles.slice(0, 2).join(', ')
+      const handlesMore = Math.max(0, info.handles.length - 2)
+      const entityLabel =
+        feature?.properties?.name || feature?.properties?.id || type || 'Area'
+
+      return `
+        <div class="port-hover-card-shell" style="
+          position:relative;
+          overflow:visible;
+          background:#181926;
+          border:1px solid #393C56;
+          border-radius:6px;
+          color:#FFFFFF;
+          min-width:240px;
+          max-width:280px;
+          padding:10px 12px;
+          font-family:Inter,sans-serif;
+          box-shadow:0 10px 24px rgba(0,0,0,0.35);
+        ">
+          <div style="font-size:12px;font-weight:600;line-height:1.2;margin-bottom:4px;">${info.title}</div>
+          <div style="font-size:11px;color:#A8B0C2;line-height:1.2;margin-bottom:8px;">${entityLabel}</div>
+          <div style="display:flex;gap:12px;margin-bottom:8px;">
+            <div style="font-size:11px;color:#A8B0C2;">Ships</div>
+            <div style="font-size:11px;color:#FFFFFF;font-weight:600;">${info.ships}</div>
+            <div style="font-size:11px;color:#A8B0C2;">Cargo Types</div>
+            <div style="font-size:11px;color:#FFFFFF;font-weight:600;">${info.cargoTypes}</div>
+          </div>
+          <div style="font-size:11px;color:#A8B0C2;line-height:1.4;">
+            Products: <span style="color:#FFFFFF">${products}${productsMore > 0 ? ` +${productsMore}` : ''}</span>
+          </div>
+          <div style="font-size:11px;color:#A8B0C2;line-height:1.4;">
+            Handles: <span style="color:#FFFFFF">${handles}${handlesMore > 0 ? ` +${handlesMore}` : ''}</span>
+          </div>
+        </div>
+      `
+    }
+
+    const handleHoverMove = (event) => {
+      // Prevent hover cards from showing during fly-in while shapes are still
+      // transitioning into view.
+      if (portAnimatingRef.current) {
+        closeHoverCard()
+        return
+      }
+      const feature = event?.features?.[0]
+      if (!feature) return
+      const lngLat = event.lngLat
+      if (!lngLat) return
+
+      const html = renderHoverCardHtml(feature)
+      if (!portHoverPopupRef.current) {
+        portHoverPopupRef.current = new mapboxgl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          anchor: 'bottom',
+          offset: [0, -18],
+          className: 'port-hover-card-popup',
+        })
+      }
+
+      portHoverPopupRef.current
+        .setLngLat(lngLat)
+        .setHTML(html)
+        .addTo(map.current)
+    }
+
+    interactiveHoverLayers.forEach((layerId) => {
+      if (!map.current.getLayer(layerId)) return
+      map.current.on('mousemove', layerId, handleHoverMove)
+      map.current.on('mouseleave', layerId, closeHoverCard)
+    })
+
+    return () => {
+      if (!map.current) return
+      interactiveHoverLayers.forEach((layerId) => {
+        if (!map.current.getLayer(layerId)) return
+        map.current.off('mousemove', layerId, handleHoverMove)
+        map.current.off('mouseleave', layerId, closeHoverCard)
+      })
+      closeHoverCard()
+    }
+  }, [mapReady, portHoverCardEnabled])
 
   useEffect(() => {
     if (!map.current || !mapReady) return

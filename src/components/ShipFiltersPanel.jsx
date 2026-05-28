@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Box, Text, Checkbox } from '@mantine/core'
 import { ChevronDown, RefreshCcw01, Sliders04, XClose } from '@untitledui/icons'
 import AisIcon from '../custom-icons/AisIcon'
@@ -67,6 +67,32 @@ const ShipFiltersPanel = ({ onClose }) => {
   } = useShipContext()
   const [dataTypesOpen, setDataTypesOpen] = useState(true)
   const [analyticsOpen, setAnalyticsOpen] = useState(true)
+  const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
+  const [dragState, setDragState] = useState(null)
+
+  useEffect(() => {
+    if (!dragState) return undefined
+
+    const handleMouseMove = (event) => {
+      const deltaX = event.clientX - dragState.startX
+      const deltaY = event.clientY - dragState.startY
+      setPanelOffset({
+        x: dragState.originX + deltaX,
+        y: dragState.originY + deltaY,
+      })
+    }
+
+    const handleMouseUp = () => {
+      setDragState(null)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [dragState])
 
   const dataTypesAllSelected = useMemo(
     () => dataTypeRows.every((row) => shipFilters[row.id]),
@@ -134,7 +160,7 @@ const ShipFiltersPanel = ({ onClose }) => {
         position: 'absolute',
         right: 90,
         bottom: 24,
-        width: 318,
+        width: 365,
         maxHeight: 'calc(100vh - 130px)',
         overflowY: 'auto',
         borderRadius: 4,
@@ -143,9 +169,20 @@ const ShipFiltersPanel = ({ onClose }) => {
         zIndex: 3,
         boxShadow: '0 16px 32px rgba(0,0,0,0.35)',
         pointerEvents: 'auto',
+        transform: `translate(${panelOffset.x}px, ${panelOffset.y}px)`,
       }}
     >
       <Box
+        onMouseDown={(event) => {
+          if (event.button !== 0) return
+          event.preventDefault()
+          setDragState({
+            startX: event.clientX,
+            startY: event.clientY,
+            originX: panelOffset.x,
+            originY: panelOffset.y,
+          })
+        }}
         style={{
           height: 60,
           display: 'flex',
@@ -153,18 +190,26 @@ const ShipFiltersPanel = ({ onClose }) => {
           justifyContent: 'space-between',
           borderBottom: '1px solid #2D314A',
           padding: '0 14px',
+          cursor: dragState ? 'grabbing' : 'grab',
         }}
       >
         <Text style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>Ship Filters</Text>
         <Box style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Box
+            onMouseDown={(event) => event.stopPropagation()}
             onClick={resetFilters}
             style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
           >
             <RefreshCcw01 color="white" size={16} />
             <Text style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>RESET</Text>
           </Box>
-          <XClose onClick={onClose} color="white" size={18} style={{ cursor: 'pointer' }} />
+          <XClose
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={onClose}
+            color="white"
+            size={18}
+            style={{ cursor: 'pointer' }}
+          />
         </Box>
       </Box>
 
