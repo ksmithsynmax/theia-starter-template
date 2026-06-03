@@ -271,6 +271,27 @@ const getAlertPreviewAreaKey = (areaLabel) => {
 }
 
 const EMPTY_FEATURE_COLLECTION = { type: 'FeatureCollection', features: [] }
+
+// Build a closed-ring Polygon feature from a stored shape's coordinates.
+const shapeToPolygonFeature = (shape, kind) => {
+  const coords = Array.isArray(shape?.coordinates) ? shape.coordinates : []
+  if (coords.length < 3) return null
+  const ring = [...coords]
+  const first = ring[0]
+  const last = ring[ring.length - 1]
+  if (!first || !last || first[0] !== last[0] || first[1] !== last[1]) {
+    ring.push(first)
+  }
+  return {
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [ring] },
+    properties: {
+      kind,
+      id: shape?.id || 'shape',
+      name: shape?.name || '',
+    },
+  }
+}
 const HOVER_CARD_BY_TYPE = {
   port: {
     title: 'Port Summary',
@@ -416,6 +437,13 @@ const Map = forwardRef(function Map(
     selectedBerth,
     setSelectedBerth,
     alertPreviewAreas,
+    shapeDrawMode,
+    pendingShape,
+    bookmarkedShapes,
+    visibleShapeIds,
+    completeShapeDraw,
+    cancelShapeDraw,
+    hideShape,
   } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -431,6 +459,8 @@ const Map = forwardRef(function Map(
   const portShapeExplicitlyShownRef = useRef(false)
   const activePortCenterRef = useRef(null)
   const portHoverPopupRef = useRef(null)
+  const shapeMarkersRef = useRef({})
+  const lastVisibleShapeIdsRef = useRef([])
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
@@ -518,6 +548,10 @@ const Map = forwardRef(function Map(
         marker.remove()
       })
       portMarkersRef.current = {}
+      Object.values(shapeMarkersRef.current).forEach((marker) => {
+        marker.remove()
+      })
+      shapeMarkersRef.current = {}
       map.current.remove()
       map.current = null
     }
@@ -1880,6 +1914,300 @@ const Map = forwardRef(function Map(
     previewDetectionId,
     runtimeDetections,
   ])
+
+  // Create the sources/layers used for user-drawn shapes (saved + in-progress draft).
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    const m = map.current
+
+    if (!m.getSource('user-shapes')) {
+      m.addSource('user-shapes', {
+        type: 'geojson',
+        data: EMPTY_FEATURE_COLLECTION,
+      })
+      m.addLayer({
+        id: 'user-shapes-fill',
+        type: 'fill',
+        source: 'user-shapes',
+        paint: {
+          'fill-color': '#006CD7',
+          'fill-opacity': 0.18,
+        },
+      })
+      m.addLayer({
+        id: 'user-shapes-outline',
+        type: 'line',
+        source: 'user-shapes',
+        paint: {
+          'line-color': '#006CD7',
+          'line-width': 2,
+        },
+      })
+    }
+
+    if (!m.getSource('shape-draft')) {
+      m.addSource('shape-draft', {
+        type: 'geojson',
+        data: EMPTY_FEATURE_COLLECTION,
+      })
+      m.addLayer({
+        id: 'shape-draft-fill',
+        type: 'fill',
+        source: 'shape-draft',
+        filter: ['==', '$type', 'Polygon'],
+        paint: { 'fill-color': '#006CD7', 'fill-opacity': 0.12 },
+      })
+      m.addLayer({
+        id: 'shape-draft-line',
+        type: 'line',
+        source: 'shape-draft',
+        filter: ['==', '$type', 'LineString'],
+        paint: {
+          'line-color': '#006CD7',
+          'line-width': 2,
+          'line-dasharray': [2, 1],
+        },
+      })
+      m.addLayer({
+        id: 'shape-draft-vertices',
+        type: 'circle',
+        source: 'shape-draft',
+        filter: ['==', '$type', 'Point'],
+        paint: {
+          'circle-radius': 4,
+          'circle-color': '#FFFFFF',
+          'circle-stroke-color': '#006CD7',
+          'circle-stroke-width': 2,
+        },
+      })
+    }
+  }, [mapReady])
+
+  // Keep visible saved shapes + the in-progress pending shape rendered, with a
+  // small floating label/close control per visible saved shape.
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    const m = map.current
+    const source = m.getSource('user-shapes')
+    if (!source) return
+
+    const visibleIdSet = new Set(visibleShapeIds || [])
+    const visibleShapes = (bookmarkedShapes || []).filter((shape) =>
+      visibleIdSet.has(shape.id)
+    )
+
+    const features = []
+    visibleShapes.forEach((shape) => {
+      const feature = shapeToPolygonFeature(shape, 'saved')
+      if (feature) features.push(feature)
+    })
+    if (pendingShape) {
+      const pendingFeature = shapeToPolygonFeature(pendingShape, 'pending')
+      if (pendingFeature) features.push(pendingFeature)
+    }
+    source.setData({ type: 'FeatureCollection', features })
+
+    // Sync close-label markers with the set of visible shapes.
+    const nextIds = new Set(visibleShapes.map((shape) => shape.id))
+    Object.entries(shapeMarkersRef.current).forEach(([id, marker]) => {
+      if (nextIds.has(id)) return
+      marker.remove()
+      delete shapeMarkersRef.current[id]
+    })
+
+    visibleShapes.forEach((shape) => {
+      const center = getPolygonCenter(shapeToPolygonFeature(shape, 'saved'))
+      if (!center) return
+
+      let marker = shapeMarkersRef.current[shape.id]
+      if (!marker) {
+        const el = document.createElement('div')
+        el.style.display = 'flex'
+        el.style.alignItems = 'center'
+        el.style.gap = '6px'
+        el.style.padding = '4px 6px 4px 10px'
+        el.style.background = '#181926'
+        el.style.border = '1px solid #393C56'
+        el.style.borderRadius = '6px'
+        el.style.color = '#FFFFFF'
+        el.style.fontFamily = 'Inter, sans-serif'
+        el.style.fontSize = '12px'
+        el.style.fontWeight = '600'
+        el.style.whiteSpace = 'nowrap'
+
+        const label = document.createElement('span')
+        label.dataset.shapeLabel = 'true'
+        el.appendChild(label)
+
+        const closeButton = document.createElement('button')
+        closeButton.type = 'button'
+        closeButton.setAttribute('aria-label', 'Close shape')
+        closeButton.style.display = 'inline-flex'
+        closeButton.style.alignItems = 'center'
+        closeButton.style.justifyContent = 'center'
+        closeButton.style.width = '16px'
+        closeButton.style.height = '16px'
+        closeButton.style.border = 'none'
+        closeButton.style.background = 'transparent'
+        closeButton.style.color = '#A4ABBE'
+        closeButton.style.cursor = 'pointer'
+        closeButton.style.padding = '0'
+        closeButton.innerHTML =
+          '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+        closeButton.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          hideShape(shape.id)
+        })
+        el.appendChild(closeButton)
+
+        marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat(center)
+          .addTo(m)
+        shapeMarkersRef.current[shape.id] = marker
+      } else {
+        marker.setLngLat(center)
+      }
+
+      const labelEl = marker
+        .getElement()
+        .querySelector('[data-shape-label="true"]')
+      if (labelEl) labelEl.textContent = shape.name || 'Shape'
+    })
+
+    // Fly to a shape the first time it becomes visible.
+    const previousIds = new Set(lastVisibleShapeIdsRef.current)
+    const newlyVisible = visibleShapes.filter(
+      (shape) => !previousIds.has(shape.id)
+    )
+    if (newlyVisible.length > 0) {
+      const coords = newlyVisible
+        .map((shape) => shapeToPolygonFeature(shape, 'saved'))
+        .filter(Boolean)
+        .flatMap((feature) => feature.geometry.coordinates[0])
+        .filter(
+          (coord) =>
+            Array.isArray(coord) &&
+            Number.isFinite(coord[0]) &&
+            Number.isFinite(coord[1])
+        )
+      if (coords.length > 1) {
+        const bounds = coords.reduce(
+          (acc, coord) => acc.extend(coord),
+          new mapboxgl.LngLatBounds(coords[0], coords[0])
+        )
+        m.fitBounds(bounds, {
+          padding: { top: 120, right: 120, bottom: 120, left: 160 },
+          maxZoom: 9,
+          duration: 1000,
+        })
+      }
+    }
+    lastVisibleShapeIdsRef.current = visibleShapes.map((shape) => shape.id)
+  }, [mapReady, bookmarkedShapes, pendingShape, visibleShapeIds, hideShape])
+
+  // Interactive polygon drawing while a shape draw tool is active.
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    if (shapeDrawMode !== 'polygon') return
+
+    const m = map.current
+    let points = []
+
+    const draftSource = () => m.getSource('shape-draft')
+
+    m.getCanvas().style.cursor = 'crosshair'
+    m.doubleClickZoom.disable()
+
+    const renderDraft = () => {
+      const features = []
+      if (points.length >= 3) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'Polygon', coordinates: [[...points, points[0]]] },
+          properties: {},
+        })
+      }
+      if (points.length >= 2) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: points },
+          properties: {},
+        })
+      }
+      points.forEach((point, index) => {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: point },
+          properties: { index },
+        })
+      })
+      draftSource()?.setData({ type: 'FeatureCollection', features })
+    }
+
+    const clearDraft = () => {
+      points = []
+      draftSource()?.setData(EMPTY_FEATURE_COLLECTION)
+    }
+
+    const finish = () => {
+      if (points.length >= 3) {
+        completeShapeDraw({ type: 'polygon', coordinates: [...points] })
+      }
+      clearDraft()
+    }
+
+    const handleClick = (event) => {
+      // Closing the loop: click near the first vertex finishes the shape.
+      if (points.length >= 3) {
+        const firstPixel = m.project(points[0])
+        const distance = Math.hypot(
+          firstPixel.x - event.point.x,
+          firstPixel.y - event.point.y
+        )
+        if (distance <= 12) {
+          finish()
+          return
+        }
+      }
+      points = [...points, [event.lngLat.lng, event.lngLat.lat]]
+      renderDraft()
+    }
+
+    const handleDoubleClick = (event) => {
+      event.preventDefault?.()
+      // The two clicks preceding a double-click each add a vertex; drop the
+      // duplicate so the closing point isn't doubled up.
+      if (points.length > 0) {
+        points = points.slice(0, -1)
+      }
+      finish()
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Enter') {
+        finish()
+      } else if (event.key === 'Escape') {
+        clearDraft()
+        cancelShapeDraw()
+      }
+    }
+
+    m.on('click', handleClick)
+    m.on('dblclick', handleDoubleClick)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      m.off('click', handleClick)
+      m.off('dblclick', handleDoubleClick)
+      window.removeEventListener('keydown', handleKeyDown)
+      if (map.current) {
+        m.getCanvas().style.cursor = ''
+        m.doubleClickZoom.enable()
+        draftSource()?.setData(EMPTY_FEATURE_COLLECTION)
+      }
+    }
+  }, [mapReady, shapeDrawMode, completeShapeDraw, cancelShapeDraw])
 
   useEffect(() => {
     popupPositionsRef.current = popupPositions

@@ -12,6 +12,7 @@ import {
   Sliders04,
   SearchMd,
   SwitchVertical01,
+  Trash01,
   XClose,
 } from '@untitledui/icons'
 import { useNavigate } from 'react-router-dom'
@@ -184,8 +185,13 @@ const DataTable = ({
   emptyMessage,
   onRowClick,
   activeRowId,
+  onRemoveRow,
 }) => {
-  const gridTemplateColumns = columns.map((column) => column.width).join(' ')
+  const hasRemove = typeof onRemoveRow === 'function'
+  const gridTemplateColumns = [
+    ...columns.map((column) => column.width),
+    ...(hasRemove ? ['32px'] : []),
+  ].join(' ')
   const isInteractive = typeof onRowClick === 'function'
   const [hoveredRowId, setHoveredRowId] = useState(null)
   const [localActiveRowId, setLocalActiveRowId] = useState(null)
@@ -325,6 +331,7 @@ const DataTable = ({
             </Box>
           </Text>
         ))}
+        {hasRemove && <Box style={{ width: 32 }} />}
       </Box>
 
       {rows.length === 0 ? (
@@ -412,6 +419,32 @@ const DataTable = ({
                 {row[column.key] || 'No info'}
               </Text>
             ))}
+            {hasRemove && (
+              <Box
+                component="button"
+                type="button"
+                aria-label="Remove"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onRemoveRow(row)
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 24,
+                  height: 24,
+                  border: 'none',
+                  background: 'transparent',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: '#A4ABBE',
+                  justifySelf: 'center',
+                }}
+              >
+                <Trash01 size={14} color="#A4ABBE" />
+              </Box>
+            )}
           </Box>
         ))
       )}
@@ -465,6 +498,8 @@ const SecondaryNav = ({
     useState(false)
   const [version2BookmarkSearchQuery, setVersion2BookmarkSearchQuery] =
     useState('')
+  const [shapeNameInput, setShapeNameInput] = useState('')
+  const [activeShapeRowId, setActiveShapeRowId] = useState(null)
   const [openTableFilterId, setOpenTableFilterId] = useState(null)
   const [shipTableFilters, setShipTableFilters] = useState({
     type: 'all',
@@ -499,6 +534,15 @@ const SecondaryNav = ({
     selectedDetectionId,
     panelFocusDetectionId,
     activeDetectionId,
+    shapeDrawMode,
+    pendingShape,
+    bookmarkedShapes,
+    startShapeDraw,
+    cancelShapeDraw,
+    saveShape,
+    removeShape,
+    showShape,
+    visibleShapeIds,
   } = useShipContext()
 
   const isWatchlistView =
@@ -954,7 +998,29 @@ const SecondaryNav = ({
       return true
     })
   }, [favoritePortRows, portRows, version2PrototypePortRows])
-  const version4BookmarkedPolygonRows = useMemo(() => [], [])
+  const version4BookmarkedPolygonRows = useMemo(
+    () =>
+      (bookmarkedShapes || []).map((shape) => {
+        const createdDate = shape.createdAt ? new Date(shape.createdAt) : null
+        const updatedAt =
+          createdDate && !Number.isNaN(createdDate.getTime())
+            ? createdDate.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })
+            : 'Just now'
+        return {
+          id: shape.id,
+          name: shape.name || 'Untitled shape',
+          polygonType: isVersion5 ? 'Shape' : 'Polygon',
+          region: 'Custom',
+          rule: 'None',
+          updatedAt,
+        }
+      }),
+    [bookmarkedShapes, isVersion5]
+  )
   const version4BookmarkedAlertRows = useMemo(() => [], [])
   const activeShipRowId = useMemo(() => {
     const activeTab = shipTabs.find(
@@ -1297,6 +1363,73 @@ const SecondaryNav = ({
     setActiveTopTab('my-watchlist')
     setActiveWatchlistTab('all')
   }
+
+  const handleSaveShape = () => {
+    const saved = saveShape(shapeNameInput)
+    if (!saved) return
+    setShapeNameInput('')
+    setVersion2HasAddedBookmarks(true)
+    setVersion2SelectedFlow(null)
+    setVersion2HoveredFlow(null)
+    setActiveTopTab('my-watchlist')
+    setActiveWatchlistTab('all')
+    setVersion2Mode('ships-list')
+  }
+
+  const handleCancelShapeDraw = () => {
+    setShapeNameInput('')
+    cancelShapeDraw()
+  }
+
+  const handleRemoveShipBookmark = (row) => {
+    if (!row) return
+    const sourceShipId = String(row.sourceShipId || '').trim()
+    if (sourceShipId && favoriteShipIds.includes(sourceShipId)) {
+      toggleFavoriteShip(sourceShipId)
+    }
+    setVersion2PrototypeShipRows((prev) =>
+      prev.filter((prototypeRow) => {
+        const sameId = String(prototypeRow.id) === String(row.id)
+        const sameShip =
+          sourceShipId &&
+          String(prototypeRow.sourceShipId || '').trim() === sourceShipId
+        return !sameId && !sameShip
+      })
+    )
+  }
+
+  const handleRemovePortBookmark = (row) => {
+    if (!row) return
+    const sourcePortId = String(row.sourcePortId || '').trim()
+    const favoritePort = favoritePorts.find(
+      (port) => String(port.id) === sourcePortId
+    )
+    if (favoritePort) {
+      toggleFavoritePort(favoritePort)
+    }
+    setVersion2PrototypePortRows((prev) =>
+      prev.filter((prototypeRow) => {
+        const sameId = String(prototypeRow.id) === String(row.id)
+        const samePort =
+          sourcePortId &&
+          String(prototypeRow.sourcePortId || '').trim() === sourcePortId
+        return !sameId && !samePort
+      })
+    )
+  }
+
+  const handleShapeRowClick = (row) => {
+    if (!row) return
+    showShape(row.id)
+    setActiveShapeRowId(String(row.id))
+  }
+
+  useEffect(() => {
+    if (!activeShapeRowId) return
+    if (!(visibleShapeIds || []).includes(activeShapeRowId)) {
+      setActiveShapeRowId(null)
+    }
+  }, [visibleShapeIds, activeShapeRowId])
 
   const handleShipRowClick = useCallback(
     (row) => {
@@ -3005,7 +3138,11 @@ const SecondaryNav = ({
                   {version2Mode === 'alerts'
                     ? 'Select the ship(s) you’d like to be alerted with.'
                     : version2Mode === 'polygons'
-                      ? `Create a ${polygonEntityLabelLowerPlural.slice(0, -1)} by:`
+                      ? pendingShape
+                        ? `Name your ${polygonEntityLabelSingular.toLowerCase()} and save it to bookmarks.`
+                        : shapeDrawMode
+                          ? `Draw your ${polygonEntityLabelSingular.toLowerCase()} on the map.`
+                          : `Create a ${polygonEntityLabelLowerPlural.slice(0, -1)} by:`
                       : 'Search by port name, Locode, or country and choose ports to watch.'}
                 </Text>
                 {version2Mode === 'alerts' && (
@@ -3106,7 +3243,167 @@ const SecondaryNav = ({
                     </Box>
                   </Box>
                 )}
-                {version2Mode === 'polygons' && (
+                {version2Mode === 'polygons' &&
+                  shapeDrawMode &&
+                  !pendingShape && (
+                    <Box
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <Box
+                        style={{
+                          borderRadius: 6,
+                          border: '1px solid #006CD7',
+                          background: 'rgba(0,108,215,0.1)',
+                          padding: '12px 14px',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            lineHeight: '18px',
+                            marginBottom: 6,
+                          }}
+                        >
+                          Drawing on the map
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#8D93A8',
+                            fontSize: 12,
+                            lineHeight: '17px',
+                          }}
+                        >
+                          Click on the map to drop points. Click the first point
+                          again or double-click to finish. Press Esc to cancel.
+                        </Text>
+                      </Box>
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={handleCancelShapeDraw}
+                        style={{
+                          height: 34,
+                          borderRadius: 6,
+                          border: '1px solid #FFFFFF',
+                          background: 'transparent',
+                          color: '#FFFFFF',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          lineHeight: '14px',
+                          padding: '0 12px',
+                          cursor: 'pointer',
+                          alignSelf: 'flex-start',
+                        }}
+                      >
+                        Cancel
+                      </Box>
+                    </Box>
+                  )}
+                {version2Mode === 'polygons' && pendingShape && (
+                  <Box
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        lineHeight: '18px',
+                      }}
+                    >
+                      {`${polygonEntityLabelSingular} name`}
+                    </Text>
+                    <Box
+                      style={{
+                        border: '1px solid #393C56',
+                        borderRadius: 6,
+                        background: '#0A0E19',
+                        padding: '0 10px',
+                      }}
+                    >
+                      <Box
+                        component="input"
+                        className="secondary-nav-text-input"
+                        autoFocus
+                        value={shapeNameInput}
+                        onChange={(event) =>
+                          setShapeNameInput(event.currentTarget.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            handleSaveShape()
+                          }
+                        }}
+                        placeholder={`Name your ${polygonEntityLabelSingular.toLowerCase()}`}
+                        style={{
+                          width: '100%',
+                          height: 34,
+                          border: 'none',
+                          outline: 'none',
+                          background: 'transparent',
+                          color: '#FFFFFF',
+                          fontSize: 12,
+                        }}
+                      />
+                    </Box>
+                    <Box style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={handleSaveShape}
+                        style={{
+                          height: 34,
+                          borderRadius: 6,
+                          border: 'none',
+                          background: '#006CD7',
+                          color: '#FFFFFF',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          lineHeight: '14px',
+                          padding: '0 14px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Save to bookmarks
+                      </Box>
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={handleCancelShapeDraw}
+                        style={{
+                          height: 34,
+                          borderRadius: 6,
+                          border: '1px solid #FFFFFF',
+                          background: 'transparent',
+                          color: '#FFFFFF',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          lineHeight: '14px',
+                          padding: '0 14px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Cancel
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+                {version2Mode === 'polygons' &&
+                  !shapeDrawMode &&
+                  !pendingShape && (
                   <Box
                     style={{
                       display: 'flex',
@@ -3149,6 +3446,12 @@ const SecondaryNav = ({
                             setVersion2HoveredFlow(drawCardHoverId)
                           }
                           onMouseLeave={() => setVersion2HoveredFlow(null)}
+                          onClick={() => {
+                            if (item.id === 'shape') {
+                              setShapeNameInput('')
+                              startShapeDraw('polygon')
+                            }
+                          }}
                           style={{
                             display: 'flex',
                             width: '100%',
@@ -3206,7 +3509,10 @@ const SecondaryNav = ({
                     })}
                   </Box>
                 )}
-                {isVersion5 && version2Mode === 'polygons' && (
+                {isVersion5 &&
+                  version2Mode === 'polygons' &&
+                  !shapeDrawMode &&
+                  !pendingShape && (
                   <>
                     <Box
                       style={{
@@ -4643,6 +4949,7 @@ const SecondaryNav = ({
                       emptyMessage={`No ships in ${listCollectionLabelLower} yet.`}
                       onRowClick={handleShipRowClick}
                       activeRowId={activeShipRowId}
+                      onRemoveRow={handleRemoveShipBookmark}
                     />
                   </>
                 )}
@@ -4877,6 +5184,7 @@ const SecondaryNav = ({
                       emptyMessage={`No ports in ${listCollectionLabelLower} yet.`}
                       onRowClick={handlePortRowClick}
                       activeRowId={activePortRowId}
+                      onRemoveRow={handleRemovePortBookmark}
                     />
                   </>
                 )}
@@ -4934,6 +5242,9 @@ const SecondaryNav = ({
                           : getColumnsByTab('polygons')
                       }
                       emptyMessage={`No ${polygonEntityLabelLowerPlural} in ${listCollectionLabelLower} yet.`}
+                      onRowClick={handleShapeRowClick}
+                      activeRowId={activeShapeRowId}
+                      onRemoveRow={(row) => removeShape(row.id)}
                     />
                   </>
                 )}

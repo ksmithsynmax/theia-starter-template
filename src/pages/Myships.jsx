@@ -2353,7 +2353,6 @@ function Myships() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 16,
-                  marginRight: 24,
                 }}
               >
                 {/* Temporarily hidden until Add ship notes feature is implemented. */}
@@ -2483,8 +2482,9 @@ function Myships() {
                       height: 28,
                       borderRadius: 4,
                       cursor: 'pointer',
-                      background:
-                        hoveredTopAction === 'resize'
+                      background: isTopSummaryCollapsed
+                        ? '#006CD7'
+                        : hoveredTopAction === 'resize'
                           ? '#24263C'
                           : 'transparent',
                     }}

@@ -39,11 +39,88 @@ export function ShipProvider({ children }) {
   const [selectedTerminal, setSelectedTerminal] = useState(null)
   const [selectedBerth, setSelectedBerth] = useState(null)
 
+  // Shape drawing / bookmarked shapes state
+  // shapeDrawMode: null | 'polygon' (active drawing tool on the map)
+  // pendingShape: a freshly drawn geometry awaiting a name before saving
+  // bookmarkedShapes: shapes saved to bookmarks
+  const [shapeDrawMode, setShapeDrawMode] = useState(null)
+  const [pendingShape, setPendingShape] = useState(null)
+  const [bookmarkedShapes, setBookmarkedShapes] = useState([])
+  // IDs of saved shapes currently shown on the map. Saved shapes are hidden by
+  // default and re-shown by clicking their row in the bookmarks table.
+  const [visibleShapeIds, setVisibleShapeIds] = useState([])
+
+  const showShape = useCallback((shapeId) => {
+    if (!shapeId) return
+    setVisibleShapeIds((prev) =>
+      prev.includes(shapeId) ? prev : [...prev, shapeId]
+    )
+  }, [])
+
+  const hideShape = useCallback((shapeId) => {
+    if (!shapeId) return
+    setVisibleShapeIds((prev) => prev.filter((id) => id !== shapeId))
+  }, [])
+
+  const toggleShapeVisibility = useCallback((shapeId) => {
+    if (!shapeId) return
+    setVisibleShapeIds((prev) =>
+      prev.includes(shapeId)
+        ? prev.filter((id) => id !== shapeId)
+        : [...prev, shapeId]
+    )
+  }, [])
+
+  const startShapeDraw = useCallback((type = 'polygon') => {
+    setPendingShape(null)
+    setShapeDrawMode(type)
+  }, [])
+
+  const cancelShapeDraw = useCallback(() => {
+    setShapeDrawMode(null)
+    setPendingShape(null)
+  }, [])
+
+  // Called by the map once the user finishes drawing a shape.
+  const completeShapeDraw = useCallback((shape) => {
+    if (!shape) return
+    setShapeDrawMode(null)
+    setPendingShape(shape)
+  }, [])
+
+  const saveShape = useCallback(
+    (name) => {
+      if (!pendingShape) return null
+      const trimmedName = String(name || '').trim() || 'Untitled shape'
+      const savedShape = {
+        id: `shape-${Date.now()}`,
+        name: trimmedName,
+        createdAt: new Date().toISOString(),
+        ...pendingShape,
+      }
+      setBookmarkedShapes((prev) => [...prev, savedShape])
+      setVisibleShapeIds((prev) => [...prev, savedShape.id])
+      setPendingShape(null)
+      setShapeDrawMode(null)
+      return savedShape
+    },
+    [pendingShape]
+  )
+
+  const removeShape = useCallback((shapeId) => {
+    if (!shapeId) return
+    setBookmarkedShapes((prev) => prev.filter((shape) => shape.id !== shapeId))
+    setVisibleShapeIds((prev) => prev.filter((id) => id !== shapeId))
+  }, [])
+
   const openShipTab = useCallback((detection) => {
     if (!detection?.shipId) return
     const ship = ships[detection.shipId]
     if (!ship) return
 
+    // Ships and shapes are mutually exclusive on the map: opening a ship hides
+    // any shapes currently shown.
+    setVisibleShapeIds([])
     setShipTabs((prev) => {
       if (prev.some((tab) => tab.id === ship.id)) return prev
       return [...prev, { id: ship.id, name: ship.name }]
@@ -57,6 +134,8 @@ export function ShipProvider({ children }) {
   const openPortTab = useCallback((port) => {
     if (!port?.id) return
 
+    // Ports and shapes are mutually exclusive on the map.
+    setVisibleShapeIds([])
     setShipTabs((prev) => {
       if (prev.some((tab) => tab.id === port.id)) return prev
       return [
@@ -83,6 +162,8 @@ export function ShipProvider({ children }) {
       const partner = ships[partnerShipId]
       if (!ship || !partner) return
 
+      // Ships and shapes are mutually exclusive on the map.
+      setVisibleShapeIds([])
       const stsTabId = `sts-${shipId}-${partnerShipId}`
       setShipTabs((prev) => {
         if (prev.some((tab) => tab.id === stsTabId)) return prev
@@ -283,6 +364,18 @@ export function ShipProvider({ children }) {
         setSelectedTerminal,
         selectedBerth,
         setSelectedBerth,
+        shapeDrawMode,
+        pendingShape,
+        bookmarkedShapes,
+        visibleShapeIds,
+        startShapeDraw,
+        cancelShapeDraw,
+        completeShapeDraw,
+        saveShape,
+        removeShape,
+        showShape,
+        hideShape,
+        toggleShapeVisibility,
       }}
     >
       {children}
