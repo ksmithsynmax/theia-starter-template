@@ -9,13 +9,14 @@ import {
   Signal01,
   Star01,
   Upload01,
+  Sliders04,
+  SwitchVertical01,
   XClose,
 } from '@untitledui/icons'
 import { useNavigate } from 'react-router-dom'
 import CollapseButton from '../custom-icons/CollapseButton'
 import ExpandButton from '../custom-icons/ExpandButton'
 import ShipIcon from '../custom-icons/ShipIcon'
-import ShipPathPanelButton from './ShipDetails/ShipPathPanelButton'
 import CircleIcon from '../custom-icons/CircleIcon'
 import PolygonIcon from '../custom-icons/PolygonIcon'
 import RectangleIcon from '../custom-icons/RectangleIcon'
@@ -24,7 +25,7 @@ import { ships } from '../data/mockData'
 import { useShipContext } from '../context/ShipContext'
 
 const SECONDARY_NAV_DEFAULT_WIDTH = 386
-const SECONDARY_NAV_MIN_WIDTH = 340
+const SECONDARY_NAV_MIN_WIDTH = 360
 const SECONDARY_NAV_MAX_WIDTH = 720
 
 const TOP_LEVEL_TABS = [
@@ -39,6 +40,13 @@ const WATCHLIST_SUB_TABS = [
   { id: 'polygons', label: 'Polygons' },
   { id: 'events', label: 'Events' },
 ]
+
+const PROTOTYPE_PORT_ID_BY_NAME = {
+  dubai: 'port-dubai',
+  muscat: 'port-muscat',
+  mumbai: 'port-mumbai',
+  'bar harbor': 'port-bar-harbor',
+}
 
 const VERSION2_ADD_OPTIONS = [
   {
@@ -169,11 +177,47 @@ const getColumnsByTab = (tabId) => {
   ]
 }
 
-const DataTable = ({ rows, columns, emptyMessage, onRowClick }) => {
+const DataTable = ({ rows, columns, emptyMessage, onRowClick, activeRowId }) => {
   const gridTemplateColumns = columns.map((column) => column.width).join(' ')
   const isInteractive = typeof onRowClick === 'function'
   const [hoveredRowId, setHoveredRowId] = useState(null)
-  const [activeRowId, setActiveRowId] = useState(null)
+  const [localActiveRowId, setLocalActiveRowId] = useState(null)
+  const [sortConfig, setSortConfig] = useState(null)
+  const resolvedActiveRowId =
+    activeRowId !== undefined
+      ? activeRowId === null
+        ? null
+        : String(activeRowId)
+      : localActiveRowId
+  const sortedRows = useMemo(() => {
+    if (!sortConfig?.key) return rows
+    const sorted = [...rows]
+    const normalizeValue = (value) => {
+      if (value === null || value === undefined) return ''
+      const raw = String(value).trim()
+      if (!raw) return ''
+      const numeric = Number(raw)
+      if (!Number.isNaN(numeric) && /^-?\d+(\.\d+)?$/.test(raw)) return numeric
+      const parsedDate = Date.parse(raw)
+      if (!Number.isNaN(parsedDate)) return parsedDate
+      return raw.toLowerCase()
+    }
+    sorted.sort((a, b) => {
+      const aVal = normalizeValue(a?.[sortConfig.key])
+      const bVal = normalizeValue(b?.[sortConfig.key])
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal
+      }
+      const aStr = String(aVal)
+      const bStr = String(bVal)
+      const cmp = aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: 'base' })
+      return sortConfig.direction === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [rows, sortConfig])
+  const SortHeaderIcon = () => (
+    <SwitchVertical01 size={12} color="#FFFFFF" />
+  )
 
   return (
     <Box style={tableShellStyles}>
@@ -191,17 +235,85 @@ const DataTable = ({ rows, columns, emptyMessage, onRowClick }) => {
         {columns.map((column) => (
           <Text
             key={column.key}
+            component="span"
             style={{
               color: '#fff',
               fontSize: 12,
+              lineHeight: '16px',
               minWidth: 0,
-              textAlign: column.align || 'left',
+              textAlign: 'left',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
             }}
           >
-            {column.label}
+            <Box
+              component="button"
+              type="button"
+              onClick={() =>
+                setSortConfig((prev) => {
+                  if (!prev || prev.key !== column.key) {
+                    return { key: column.key, direction: 'asc' }
+                  }
+                  return {
+                    key: column.key,
+                    direction: prev.direction === 'asc' ? 'desc' : 'asc',
+                  }
+                })
+              }
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                gap: 4,
+                width: '100%',
+                minWidth: 0,
+                overflow: 'hidden',
+                border: 'none',
+                background: 'transparent',
+                padding: 0,
+                margin: 0,
+                color: 'inherit',
+                cursor: 'pointer',
+                lineHeight: '16px',
+              }}
+            >
+              <Box
+                component="span"
+                style={{
+                  display: 'block',
+                  flex: '0 1 auto',
+                  minWidth: 0,
+                  maxWidth: 'calc(100% - 16px)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  lineHeight: '16px',
+                }}
+              >
+                {column.label}
+              </Box>
+              <Box
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 12,
+                  height: 12,
+                  lineHeight: 0,
+                  flexShrink: 0,
+                  opacity: sortConfig?.key === column.key ? 1 : 0.65,
+                  transform:
+                    sortConfig?.key === column.key && sortConfig?.direction === 'desc'
+                      ? 'rotate(180deg)'
+                      : 'none',
+                  transition: 'transform 120ms ease, opacity 120ms ease',
+                }}
+              >
+                <SortHeaderIcon />
+              </Box>
+            </Box>
           </Text>
         ))}
       </Box>
@@ -218,7 +330,7 @@ const DataTable = ({ rows, columns, emptyMessage, onRowClick }) => {
           </Text>
         </Box>
       ) : (
-        rows.map((row, idx) => (
+        sortedRows.map((row, idx) => (
           <Box
             key={row.id}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -227,7 +339,7 @@ const DataTable = ({ rows, columns, emptyMessage, onRowClick }) => {
             }
             onMouseLeave={isInteractive ? () => setHoveredRowId(null) : undefined}
             onMouseDown={
-              isInteractive ? () => setActiveRowId(String(row.id)) : undefined
+              isInteractive ? () => setLocalActiveRowId(String(row.id)) : undefined
             }
             style={{
               display: 'grid',
@@ -236,29 +348,29 @@ const DataTable = ({ rows, columns, emptyMessage, onRowClick }) => {
               alignItems: 'center',
               padding: '8px',
               borderTop:
-                isInteractive && activeRowId === String(row.id)
+                isInteractive && resolvedActiveRowId === String(row.id)
                   ? '1px solid #006CD7'
                   : idx === 0 ||
                       (isInteractive &&
                         idx > 0 &&
-                        activeRowId === String(rows[idx - 1]?.id))
+                        resolvedActiveRowId === String(sortedRows[idx - 1]?.id))
                     ? 'none'
                     : '1px solid #393C56',
               borderRight:
-                isInteractive && activeRowId === String(row.id)
+                isInteractive && resolvedActiveRowId === String(row.id)
                   ? '1px solid #006CD7'
                   : 'none',
               borderBottom:
-                isInteractive && activeRowId === String(row.id)
+                isInteractive && resolvedActiveRowId === String(row.id)
                   ? '1px solid #006CD7'
                   : 'none',
               borderLeft:
-                isInteractive && activeRowId === String(row.id)
+                isInteractive && resolvedActiveRowId === String(row.id)
                   ? '1px solid #006CD7'
                   : 'none',
               borderRadius: 0,
               background:
-                isInteractive && activeRowId === String(row.id)
+                isInteractive && resolvedActiveRowId === String(row.id)
                   ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #181926'
                   : isInteractive && hoveredRowId === String(row.id)
                     ? '#0056AC'
@@ -273,6 +385,7 @@ const DataTable = ({ rows, columns, emptyMessage, onRowClick }) => {
                 style={{
                   color: '#fff',
                   fontSize: 12,
+                  lineHeight: '16px',
                   minWidth: 0,
                   textAlign: column.align || 'left',
                   whiteSpace: 'nowrap',
@@ -298,6 +411,7 @@ const SecondaryNav = ({
   currentPath,
   watchlistVersion = 'grouped',
   onShipSelect,
+  onPortSelect,
 }) => {
   const [activeTopTab, setActiveTopTab] = useState('my-watchlist')
   const [activeWatchlistTab, setActiveWatchlistTab] = useState('all')
@@ -348,8 +462,11 @@ const SecondaryNav = ({
     favoriteShipIds,
     favoritePorts,
     toggleFavoriteShip,
+    openPortTab,
     runtimeDetections,
     selectedDetectionId,
+    panelFocusDetectionId,
+    activeDetectionId,
   } = useShipContext()
 
   const isWatchlistView =
@@ -753,6 +870,47 @@ const SecondaryNav = ({
   }, [favoritePortRows, portRows, version2PrototypePortRows])
   const version4BookmarkedPolygonRows = useMemo(() => [], [])
   const version4BookmarkedAlertRows = useMemo(() => [], [])
+  const activeShipRowId = useMemo(() => {
+    const candidateDetectionIds = [
+      panelFocusDetectionId,
+      selectedDetectionId,
+      activeDetectionId,
+    ].filter((id) => id !== null && id !== undefined)
+    if (candidateDetectionIds.length === 0) return null
+
+    const activeDetection = candidateDetectionIds
+      .map((id) =>
+        runtimeDetections.find((detection) => String(detection.id) === String(id))
+      )
+      .find(Boolean)
+    const activeShipId = activeDetection?.shipId
+    if (!activeShipId) return null
+    const candidateRowId = `ship-${activeShipId}`
+    const idMatchedRow = version2MyWatchlistShipRows.find(
+      (row) => String(row?.id || '') === candidateRowId
+    )
+    if (idMatchedRow?.id) return String(idMatchedRow.id)
+
+    const activeShipName = String(shipLookup?.[activeShipId]?.name || '')
+      .trim()
+      .toLowerCase()
+    if (!activeShipName) return null
+
+    const nameMatchedRow = version2MyWatchlistShipRows.find(
+      (row) =>
+        String(row?.name || '')
+          .trim()
+          .toLowerCase() === activeShipName
+    )
+    return nameMatchedRow?.id ? String(nameMatchedRow.id) : null
+  }, [
+    runtimeDetections,
+    panelFocusDetectionId,
+    selectedDetectionId,
+    activeDetectionId,
+    shipLookup,
+    version2MyWatchlistShipRows,
+  ])
   const hasAnyBookmarkedItems = version2HasAddedBookmarks
   const version2PendingShipIds = useMemo(
     () => new Set(version2PendingShips.map((ship) => ship.optionId)),
@@ -869,13 +1027,96 @@ const SecondaryNav = ({
         .trim()
         .toLowerCase()
       if (!normalizedName) return
-      const matchedShip = Object.values(shipLookup).find(
+      const allShips = Object.values(shipLookup)
+      const matchedShip = allShips.find(
         (ship) => String(ship?.name || '').trim().toLowerCase() === normalizedName
       )
-      if (!matchedShip?.id) return
-      onShipSelect?.(matchedShip.id)
+      if (matchedShip?.id) {
+        onShipSelect?.(matchedShip.id)
+        return
+      }
+
+      const normalizeToken = (value) =>
+        String(value || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '')
+      const queryToken = normalizeToken(normalizedName)
+      if (!queryToken) return
+
+      const levenshteinDistance = (a, b) => {
+        const m = a.length
+        const n = b.length
+        if (m === 0) return n
+        if (n === 0) return m
+        const dp = Array.from({ length: m + 1 }, (_, i) =>
+          Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+        )
+        for (let i = 1; i <= m; i += 1) {
+          for (let j = 1; j <= n; j += 1) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1
+            dp[i][j] = Math.min(
+              dp[i - 1][j] + 1,
+              dp[i][j - 1] + 1,
+              dp[i - 1][j - 1] + cost
+            )
+          }
+        }
+        return dp[m][n]
+      }
+
+      let bestFuzzyMatch = null
+      let bestDistance = Number.POSITIVE_INFINITY
+      allShips.forEach((ship) => {
+        const shipToken = normalizeToken(ship?.name)
+        if (!shipToken) return
+        const distance = levenshteinDistance(queryToken, shipToken)
+        if (distance < bestDistance) {
+          bestDistance = distance
+          bestFuzzyMatch = ship
+        }
+      })
+
+      // Allow near matches like "invitcus" -> "invictus"
+      if (bestFuzzyMatch?.id && bestDistance <= 2) {
+        onShipSelect?.(bestFuzzyMatch.id)
+      }
     },
     [onShipSelect, shipLookup]
+  )
+
+  const handlePortRowClick = useCallback(
+    (row) => {
+      const sourcePortId = String(row?.sourcePortId || '').trim()
+      const rowPortId = String(row?.id || '').trim()
+      const resolvedPortName = String(row?.name || '').trim()
+      const normalizedPortName = resolvedPortName.toLowerCase()
+      const mappedPrototypePortId = PROTOTYPE_PORT_ID_BY_NAME[normalizedPortName] || ''
+      const resolvedPortId =
+        (sourcePortId.startsWith('port-') ? sourcePortId : '') ||
+        mappedPrototypePortId ||
+        sourcePortId ||
+        rowPortId
+      if (!resolvedPortId || !resolvedPortName) return
+
+      const portPayload = {
+        id: resolvedPortId,
+        type: 'port',
+        name: resolvedPortName,
+        country: row?.country || 'No info',
+        activity: row?.activity || 'No info',
+        risk: row?.risk || 'Monitoring',
+        updatedAt: row?.updatedAt || 'Just now',
+      }
+
+      if (typeof onPortSelect === 'function') {
+        onPortSelect(portPayload)
+        return
+      }
+
+      openPortTab?.(portPayload)
+      navigate('/myships')
+    },
+    [navigate, onPortSelect, openPortTab]
   )
 
   const pushVersion6RecentActivity = useCallback((row) => {
@@ -1014,20 +1255,27 @@ const SecondaryNav = ({
     return [
       {
         optionId: `typed-port-${normalizedQuery}-0`,
+        name: baseName,
+        country: 'India',
+        activity: 'Monitoring',
+        locode: `IN${String(100 + (seed % 900)).slice(-3)}`,
+      },
+      {
+        optionId: `typed-port-${normalizedQuery}-1`,
         name: `${baseName} Anchorage`,
         country: 'UAE',
         activity: 'Bunkering',
         locode: `AE${String(100 + (seed % 900)).slice(-3)}`,
       },
       {
-        optionId: `typed-port-${normalizedQuery}-1`,
+        optionId: `typed-port-${normalizedQuery}-2`,
         name: `${baseName} Terminal`,
         country: 'Saudi Arabia',
         activity: 'Cargo',
         locode: `SA${String(100 + ((seed * 3) % 900)).slice(-3)}`,
       },
       {
-        optionId: `typed-port-${normalizedQuery}-2`,
+        optionId: `typed-port-${normalizedQuery}-3`,
         name: `${baseName} Port`,
         country: 'Oman',
         activity: 'Anchorage',
@@ -1671,7 +1919,7 @@ const SecondaryNav = ({
                         />
                       </svg>
                     </Box>
-                    <Box style={{ minWidth: 0, paddingRight: 22 }}>
+                    <Box style={{ minWidth: 0, paddingRight: 26 }}>
                       <Text
                         style={{
                           color: '#FFFFFF',
@@ -1759,9 +2007,16 @@ const SecondaryNav = ({
                   <Box
                     component="input"
                     value={version2ShipQuery}
-                    onChange={(event) =>
-                      setVersion2ShipQuery(event.currentTarget.value)
-                    }
+                    onChange={(event) => {
+                      const nextQuery = event.currentTarget.value
+                      setVersion2ShipQuery(nextQuery)
+                      if (version2SearchTimerRef.current) {
+                        window.clearTimeout(version2SearchTimerRef.current)
+                        version2SearchTimerRef.current = null
+                      }
+                      setVersion2IsSearching(false)
+                      setVersion2SearchResults([])
+                    }}
                     onKeyDown={(event) => {
                       if (event.key !== 'Enter') return
                       event.preventDefault()
@@ -2169,7 +2424,7 @@ const SecondaryNav = ({
                         />
                       </svg>
                     </Box>
-                    <Box style={{ minWidth: 0, paddingRight: 22 }}>
+                    <Box style={{ minWidth: 0, paddingRight: 26 }}>
                       <Text
                         style={{
                           color: '#FFFFFF',
@@ -2354,26 +2609,98 @@ const SecondaryNav = ({
                   <Box
                     style={{
                       display: 'flex',
-                      gap: 6,
+                      flexDirection: 'column',
+                      gap: 4,
                       marginBottom: 12,
                     }}
                   >
                     {[
                       {
+                        id: 'shape',
                         label: isVersion5 ? 'Draw A Shape' : 'Draw A Polygon',
                         icon: <PolygonIcon />,
+                        description: isVersion5
+                          ? 'Create a custom area'
+                          : 'Create a custom polygon',
                       },
-                      { label: 'Draw A Rectangle', icon: <RectangleIcon /> },
-                      { label: 'Draw A Circle', icon: <CircleIcon /> },
-                    ].map((item) => (
-                      <ShipPathPanelButton
+                      {
+                        id: 'rectangle',
+                        label: 'Draw A Rectangle',
+                        icon: <RectangleIcon />,
+                        description: 'Create a rectangular area',
+                      },
+                      {
+                        id: 'circle',
+                        label: 'Draw A Circle',
+                        icon: <CircleIcon />,
+                        description: 'Create a circular area',
+                      },
+                    ].map((item) => {
+                      const drawCardHoverId = `draw-${item.id}`
+                      const isHovered = version2HoveredFlow === drawCardHoverId
+
+                      return (
+                        <Box
                         key={item.label}
-                        label={item.label}
-                        icon={item.icon}
-                        fullWidth
-                        singleLineLabel
-                      />
-                    ))}
+                        component="button"
+                        type="button"
+                        onMouseEnter={() => setVersion2HoveredFlow(drawCardHoverId)}
+                        onMouseLeave={() => setVersion2HoveredFlow(null)}
+                        style={{
+                          display: 'flex',
+                          width: '100%',
+                          justifyContent: 'flex-start',
+                          alignItems: 'center',
+                          gap: isVersion6 ? 14 : 10,
+                          border: `1px solid ${isHovered ? '#006CD7' : '#393C56'}`,
+                          borderRadius: 6,
+                          background: isHovered
+                            ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                            : '#24263C',
+                          color: '#FFFFFF',
+                          padding: isVersion6 ? 8 : '12px 14px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Box
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 4,
+                            background: '#181926',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {item.icon}
+                        </Box>
+                        <Box style={{ minWidth: 0, textAlign: 'left' }}>
+                          <Text
+                            style={{
+                              color: '#FFFFFF',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              lineHeight: '16px',
+                            }}
+                          >
+                            {item.label}
+                          </Text>
+                          <Text
+                            style={{
+                              color: '#8D93A8',
+                              fontSize: 11,
+                              fontWeight: 500,
+                              lineHeight: '14px',
+                            }}
+                          >
+                            {item.description}
+                          </Text>
+                        </Box>
+                      </Box>
+                      )
+                    })}
                   </Box>
                 )}
                 {isVersion5 && version2Mode === 'polygons' && (
@@ -2489,9 +2816,16 @@ const SecondaryNav = ({
                     <Box
                       component="input"
                       value={version2PortQuery}
-                      onChange={(event) =>
-                        setVersion2PortQuery(event.currentTarget.value)
-                      }
+                      onChange={(event) => {
+                        const nextQuery = event.currentTarget.value
+                        setVersion2PortQuery(nextQuery)
+                        if (version2SearchTimerRef.current) {
+                          window.clearTimeout(version2SearchTimerRef.current)
+                          version2SearchTimerRef.current = null
+                        }
+                        setVersion2IsPortSearching(false)
+                        setVersion2PortSearchResults([])
+                      }}
                       onKeyDown={(event) => {
                         if (event.key !== 'Enter') return
                         event.preventDefault()
@@ -2909,7 +3243,7 @@ const SecondaryNav = ({
                         />
                       </svg>
                     </Box>
-                    <Box style={{ minWidth: 0, paddingRight: 22 }}>
+                    <Box style={{ minWidth: 0, paddingRight: 26 }}>
                       <Text
                         style={{
                           color: '#FFFFFF',
@@ -3419,6 +3753,7 @@ const SecondaryNav = ({
                   style={{
                     display: 'flex',
                     justifyContent: 'flex-start',
+                    marginBottom: 6,
                   }}
                 >
                   <Box
@@ -3459,26 +3794,48 @@ const SecondaryNav = ({
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 6,
+                        justifyContent: 'space-between',
+                        width: '100%',
                       }}
                     >
-                      {isVersion4Or5 && (
-                        <ShipIcon
-                          style={{
-                            width: 16,
-                            height: 16,
-                          }}
-                        />
-                      )}
-                      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}>
-                        Ships: {version2MyWatchlistShipRows.length}
-                      </Text>
+                      <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {isVersion4Or5 && (
+                          <ShipIcon
+                            style={{
+                              width: 16,
+                              height: 16,
+                            }}
+                          />
+                        )}
+                        <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}>
+                          Ships: {version2MyWatchlistShipRows.length}
+                        </Text>
+                      </Box>
+                      <Box
+                        component="button"
+                        type="button"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 24,
+                          height: 24,
+                          border: 'none',
+                          background: 'transparent',
+                          padding: 0,
+                          cursor: 'pointer',
+                          color: '#A4ABBE',
+                        }}
+                      >
+                        <Sliders04 size={16} color="#A4ABBE" />
+                      </Box>
                     </Box>
                     <DataTable
                       rows={version2MyWatchlistShipRows}
                       columns={getColumnsByTab('ships')}
                       emptyMessage={`No ships in ${listCollectionLabelLower} yet.`}
                       onRowClick={handleShipRowClick}
+                      activeRowId={activeShipRowId}
                     />
                   </>
                 )}
@@ -3488,41 +3845,90 @@ const SecondaryNav = ({
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 6,
+                        justifyContent: 'space-between',
+                        width: '100%',
                       }}
                     >
-                      {isVersion4Or5 && (
-                        <Box
-                          component="img"
-                          src={AnchorIcon}
-                          alt=""
-                          style={{
-                            width: 16,
-                            height: 16,
-                            display: 'block',
-                          }}
-                        />
-                      )}
-                      <Text
-                        style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                      <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {isVersion4Or5 && (
+                          <Box
+                            component="img"
+                            src={AnchorIcon}
+                            alt=""
+                            style={{
+                              width: 16,
+                              height: 16,
+                              display: 'block',
+                            }}
+                          />
+                        )}
+                        <Text
+                          style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                        >
+                          Ports: {version2MyWatchlistPortRows.length}
+                        </Text>
+                      </Box>
+                      <Box
+                        component="button"
+                        type="button"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 24,
+                          height: 24,
+                          border: 'none',
+                          background: 'transparent',
+                          padding: 0,
+                          cursor: 'pointer',
+                          color: '#A4ABBE',
+                        }}
                       >
-                        Ports: {version2MyWatchlistPortRows.length}
-                      </Text>
+                        <Sliders04 size={16} color="#A4ABBE" />
+                      </Box>
                     </Box>
                     <DataTable
                       rows={version2MyWatchlistPortRows}
                       columns={getColumnsByTab('ports')}
                       emptyMessage={`No ports in ${listCollectionLabelLower} yet.`}
+                      onRowClick={handlePortRowClick}
                     />
                   </>
                 )}
                 {isVersion4Or5 && version4BookmarkedPolygonRows.length > 0 && (
                   <>
-                    <Text
-                      style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        width: '100%',
+                      }}
                     >
-                      {polygonEntityLabelPlural}: {version4BookmarkedPolygonRows.length}
-                    </Text>
+                      <Text
+                        style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                      >
+                        {polygonEntityLabelPlural}: {version4BookmarkedPolygonRows.length}
+                      </Text>
+                      <Box
+                        component="button"
+                        type="button"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 24,
+                          height: 24,
+                          border: 'none',
+                          background: 'transparent',
+                          padding: 0,
+                          cursor: 'pointer',
+                          color: '#A4ABBE',
+                        }}
+                      >
+                        <Sliders04 size={16} color="#A4ABBE" />
+                      </Box>
+                    </Box>
                     <DataTable
                       rows={version4BookmarkedPolygonRows}
                       columns={
@@ -3540,11 +3946,38 @@ const SecondaryNav = ({
                 )}
                 {isVersion4Or5 && version4BookmarkedAlertRows.length > 0 && (
                   <>
-                    <Text
-                      style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        width: '100%',
+                      }}
                     >
-                      Alerts: {version4BookmarkedAlertRows.length}
-                    </Text>
+                      <Text
+                        style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                      >
+                        Alerts: {version4BookmarkedAlertRows.length}
+                      </Text>
+                      <Box
+                        component="button"
+                        type="button"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 24,
+                          height: 24,
+                          border: 'none',
+                          background: 'transparent',
+                          padding: 0,
+                          cursor: 'pointer',
+                          color: '#A4ABBE',
+                        }}
+                      >
+                        <Sliders04 size={16} color="#A4ABBE" />
+                      </Box>
+                    </Box>
                     <DataTable
                       rows={version4BookmarkedAlertRows}
                       columns={getColumnsByTab('events')}
@@ -3923,7 +4356,13 @@ const SecondaryNav = ({
                     rows={section.rows}
                     columns={getColumnsByTab(section.id)}
                     emptyMessage={`No ${section.title.toLowerCase()} in ${listCollectionLabelLower} yet.`}
-                    onRowClick={section.id === 'ships' ? handleShipRowClick : undefined}
+                    onRowClick={
+                      section.id === 'ships'
+                        ? handleShipRowClick
+                        : section.id === 'ports'
+                          ? handlePortRowClick
+                          : undefined
+                    }
                   />
                 </Box>
               ))}
@@ -4012,7 +4451,9 @@ const SecondaryNav = ({
                 onRowClick={
                   activeTopTab === 'my-watchlist' && activeWatchlistTab === 'ships'
                     ? handleShipRowClick
-                    : undefined
+                    : activeTopTab === 'my-watchlist' && activeWatchlistTab === 'ports'
+                      ? handlePortRowClick
+                      : undefined
                 }
                 emptyMessage={
                   activeTopTab === 'recently-viewed'

@@ -471,6 +471,36 @@ button:active,
   display: none;
 }
 
+.port-hover-card-popup--interactive,
+.port-hover-card-popup--interactive .mapboxgl-popup-content {
+  pointer-events: auto;
+}
+
+.port-hover-card-scroll-region {
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #7f88a3 #0f1322;
+}
+
+.port-hover-card-scroll-region::-webkit-scrollbar {
+  width: 5px;
+}
+
+.port-hover-card-scroll-region::-webkit-scrollbar-track {
+  background: #0f1322;
+  border-radius: 8px;
+}
+
+.port-hover-card-scroll-region::-webkit-scrollbar-thumb {
+  background: #7f88a3;
+  border-radius: 8px;
+}
+
+.port-hover-card-scroll-region::-webkit-scrollbar-thumb:hover {
+  background: #a5adc5;
+}
+
 .port-hover-card-shell::before {
   content: '';
   position: absolute;

@@ -279,13 +279,104 @@ const HOVER_CARD_BY_TYPE = {
   },
 }
 
+const HOVER_CARD_BY_TYPE_V2 = {
+  port: {
+    title: 'Port Summary',
+    ships: 24,
+    cargoTypes: 14,
+    products: [
+      'Crude Oil',
+      'Fuel Oil',
+      'Diesel',
+      'Gasoline',
+      'Jet Fuel',
+      'Naphtha',
+      'LNG',
+      'LPG',
+      'Methanol',
+      'Urea',
+      'Iron Ore',
+      'Coal',
+      'Bauxite',
+      'Phosphate',
+      'Containers',
+      'Reefer Cargo',
+      'Project Cargo',
+      'Steel Products',
+      'Cement',
+      'Palm Oil',
+      'Soybean Oil',
+      'Chemicals',
+      'Bitumen',
+    ],
+    handles: [
+      'Container',
+      'General Cargo',
+      'Ro-Ro',
+      'Bulk Carrier',
+      'Handysize',
+      'Supramax',
+      'Panamax',
+      'Capesize',
+      'Tanker',
+      'MR Tanker',
+      'LR1 Tanker',
+      'LR2 Tanker',
+      'VLCC',
+      'LPG Carrier',
+      'LNG Carrier',
+      'Chemical Tanker',
+      'Offshore Support Vessel',
+      'Bunker Vessel',
+      'Tug',
+      'Barge',
+    ],
+  },
+  terminal: {
+    title: 'Terminal Summary',
+    ships: 9,
+    cargoTypes: 8,
+    products: [
+      'Containers',
+      'Refined Products',
+      'Chemicals',
+      'LPG',
+      'Methanol',
+      'Steel Coils',
+      'Fertilizer',
+      'Breakbulk',
+      'Dry Bulk',
+      'Project Cargo',
+      'Reefer Cargo',
+    ],
+    handles: [
+      'Container',
+      'Feeder',
+      'Panamax',
+      'MR Tanker',
+      'Chemical Tanker',
+      'Handysize',
+      'Supramax',
+      'Tug',
+      'Barge',
+    ],
+  },
+  berth: {
+    title: 'Berth Summary',
+    ships: 3,
+    cargoTypes: 4,
+    products: ['Containers', 'Dry Bulk', 'Refined Products', 'Chemicals', 'Project Cargo'],
+    handles: ['Container', 'Handysize', 'MR Tanker', 'Chemical Tanker', 'Tug'],
+  },
+}
+
 const Map = forwardRef(function Map(
   {
     onDetectionClick,
     onPortClick,
     showPorts = false,
     leftPanelInset = 0,
-    portVisibilityBehavior = 'selected-context',
+    portVisibilityBehavior = 'strict-layer-toggle',
     forceHideSelectedPortContext = false,
     portHoverCardEnabled = true,
   },
@@ -335,6 +426,10 @@ const Map = forwardRef(function Map(
   onDetectionClickRef.current = onDetectionClick
   onPortClickRef.current = onPortClick
   const openToolPanels = openMapToolPanelsByTab['__global__'] || []
+  const isStrictLayerMode =
+    portVisibilityBehavior === 'strict-layer-toggle' ||
+    portVisibilityBehavior === 'strict-layer-toggle-v2' ||
+    portVisibilityBehavior === 'strict-layer-toggle-v3'
   const panelAwareFocusOffsetX = useMemo(() => {
     const viewportWidth = mapDimensions.width || 0
     if (viewportWidth <= 0) return 0
@@ -625,7 +720,7 @@ const Map = forwardRef(function Map(
   useEffect(() => {
     if (!map.current || !mapReady) return
 
-    if (!portHoverCardEnabled) {
+    if (!portHoverCardEnabled || !showPorts) {
       if (portHoverPopupRef.current) {
         portHoverPopupRef.current.remove()
         portHoverPopupRef.current = null
@@ -651,15 +746,37 @@ const Map = forwardRef(function Map(
       portHoverPopupRef.current = null
     }
 
+    const useV3HoverCardInteractive = portVisibilityBehavior === 'strict-layer-toggle-v3'
+    const useV2HoverCardDensity =
+      portVisibilityBehavior === 'strict-layer-toggle-v2' || useV3HoverCardInteractive
+
     const renderHoverCardHtml = (feature) => {
       const type = feature?.properties?.type
-      const info = HOVER_CARD_BY_TYPE[type] || HOVER_CARD_BY_TYPE.port
-      const products = info.products.slice(0, 2).join(', ')
-      const productsMore = Math.max(0, info.products.length - 2)
-      const handles = info.handles.slice(0, 2).join(', ')
-      const handlesMore = Math.max(0, info.handles.length - 2)
+      const hoverCardDataSet = useV2HoverCardDensity ? HOVER_CARD_BY_TYPE_V2 : HOVER_CARD_BY_TYPE
+      const info = hoverCardDataSet[type] || hoverCardDataSet.port
+      const products = useV2HoverCardDensity
+        ? info.products.join(', ')
+        : info.products.slice(0, 2).join(', ')
+      const productsMore = useV2HoverCardDensity
+        ? 0
+        : Math.max(0, info.products.length - 2)
+      const handles = useV2HoverCardDensity
+        ? info.handles.join(', ')
+        : info.handles.slice(0, 2).join(', ')
+      const handlesMore = useV2HoverCardDensity
+        ? 0
+        : Math.max(0, info.handles.length - 2)
       const entityLabel =
         feature?.properties?.name || feature?.properties?.id || type || 'Area'
+
+      const detailsHtml = `
+        <div style="font-size:11px;color:#A8B0C2;line-height:1.4;">
+          Products: <span style="color:#FFFFFF">${products}${productsMore > 0 ? ` +${productsMore}` : ''}</span>
+        </div>
+        <div style="font-size:11px;color:#A8B0C2;line-height:1.4;${useV2HoverCardDensity ? 'margin-top:6px;' : ''}">
+          Handles: <span style="color:#FFFFFF">${handles}${handlesMore > 0 ? ` +${handlesMore}` : ''}</span>
+        </div>
+      `
 
       return `
         <div class="port-hover-card-shell" style="
@@ -677,18 +794,21 @@ const Map = forwardRef(function Map(
         ">
           <div style="font-size:12px;font-weight:600;line-height:1.2;margin-bottom:4px;">${info.title}</div>
           <div style="font-size:11px;color:#A8B0C2;line-height:1.2;margin-bottom:8px;">${entityLabel}</div>
-          <div style="display:flex;gap:12px;margin-bottom:8px;">
-            <div style="font-size:11px;color:#A8B0C2;">Ships</div>
-            <div style="font-size:11px;color:#FFFFFF;font-weight:600;">${info.ships}</div>
-            <div style="font-size:11px;color:#A8B0C2;">Cargo Types</div>
-            <div style="font-size:11px;color:#FFFFFF;font-weight:600;">${info.cargoTypes}</div>
+          <div style="display:flex;gap:16px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="font-size:11px;color:#A8B0C2;">Ships</div>
+              <div style="font-size:11px;color:#FFFFFF;font-weight:600;">${info.ships}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="font-size:11px;color:#A8B0C2;">Cargo Types</div>
+              <div style="font-size:11px;color:#FFFFFF;font-weight:600;">${info.cargoTypes}</div>
+            </div>
           </div>
-          <div style="font-size:11px;color:#A8B0C2;line-height:1.4;">
-            Products: <span style="color:#FFFFFF">${products}${productsMore > 0 ? ` +${productsMore}` : ''}</span>
-          </div>
-          <div style="font-size:11px;color:#A8B0C2;line-height:1.4;">
-            Handles: <span style="color:#FFFFFF">${handles}${handlesMore > 0 ? ` +${handlesMore}` : ''}</span>
-          </div>
+          ${
+            useV3HoverCardInteractive
+              ? `<div class="port-hover-card-scroll-region" style="max-height:110px;overflow-y:scroll;overflow-x:hidden;">${detailsHtml}</div>`
+              : detailsHtml
+          }
         </div>
       `
     }
@@ -712,7 +832,9 @@ const Map = forwardRef(function Map(
           closeOnClick: false,
           anchor: 'bottom',
           offset: [0, -18],
-          className: 'port-hover-card-popup',
+          className: useV3HoverCardInteractive
+            ? 'port-hover-card-popup port-hover-card-popup--interactive'
+            : 'port-hover-card-popup',
         })
       }
 
@@ -725,19 +847,30 @@ const Map = forwardRef(function Map(
     interactiveHoverLayers.forEach((layerId) => {
       if (!map.current.getLayer(layerId)) return
       map.current.on('mousemove', layerId, handleHoverMove)
-      map.current.on('mouseleave', layerId, closeHoverCard)
+      if (!useV3HoverCardInteractive) {
+        map.current.on('mouseleave', layerId, closeHoverCard)
+      }
     })
+
+    if (useV3HoverCardInteractive) {
+      map.current.on('click', closeHoverCard)
+    }
 
     return () => {
       if (!map.current) return
       interactiveHoverLayers.forEach((layerId) => {
         if (!map.current.getLayer(layerId)) return
         map.current.off('mousemove', layerId, handleHoverMove)
-        map.current.off('mouseleave', layerId, closeHoverCard)
+        if (!useV3HoverCardInteractive) {
+          map.current.off('mouseleave', layerId, closeHoverCard)
+        }
       })
+      if (useV3HoverCardInteractive) {
+        map.current.off('click', closeHoverCard)
+      }
       closeHoverCard()
     }
-  }, [mapReady, portHoverCardEnabled])
+  }, [mapReady, portHoverCardEnabled, showPorts, portVisibilityBehavior])
 
   useEffect(() => {
     if (!map.current || !mapReady) return
@@ -854,8 +987,7 @@ const Map = forwardRef(function Map(
     const isPortTabActive = activeTab?.type === 'port'
     const openPortTabs = shipTabs.filter((t) => t?.type === 'port')
     const inactiveOpenPortTabs = openPortTabs.filter((t) => t.id !== activeShipTab)
-    const shouldShowSelectedPortContext =
-      showPorts || (portVisibilityBehavior === 'selected-context' && !forceHideSelectedPortContext)
+    const shouldShowSelectedPortContext = showPorts
     const shouldShowActivePortMarker = isPortTabActive && showPorts
 
     const setActivePortMarkerVisibility = (visible) => {
@@ -1031,12 +1163,12 @@ const Map = forwardRef(function Map(
               map.current.setPaintProperty('berth-outline', 'line-color', '#FFFFFF')
             }
 
-            if (portVisibilityBehavior === 'strict-layer-toggle') {
+            if (isStrictLayerMode) {
               // In strict mode: show shapes immediately, no hide/fade sequence.
               applyPortShapeOpacities()
               portAnimatingRef.current = false
             } else {
-              // In selected-context mode: hide shapes during zoom, fade in on moveend.
+              // Non-strict fallback: hide shapes during zoom, fade in on moveend.
               portAnimatingRef.current = true
               map.current.setPaintProperty('port-fill', 'fill-opacity', 0)
               map.current.setPaintProperty('port-outline', 'line-opacity', 0)
@@ -1120,7 +1252,7 @@ const Map = forwardRef(function Map(
 
     // In strict mode, only apply shape opacities if they were explicitly revealed
     // via a port icon click. Prevents re-enabling the checkbox from auto-showing shapes.
-    if (portVisibilityBehavior === 'strict-layer-toggle' && !portShapeExplicitlyShownRef.current) return
+    if (isStrictLayerMode && !portShapeExplicitlyShownRef.current) return
 
     // Port Details Active
     if (activePortLevel === 'Port Details') {

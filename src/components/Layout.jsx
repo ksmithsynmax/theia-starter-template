@@ -16,7 +16,7 @@ function Layout() {
   const TIMELINE_PANEL_HEIGHT = 172
   const watchlistVersion = 'version7'
   const [portVisibilityBehavior, setPortVisibilityBehavior] = useState(
-    'selected-context'
+    'strict-layer-toggle'
   )
   const [forceHideSelectedPortContext, setForceHideSelectedPortContext] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -168,6 +168,25 @@ function Layout() {
       navigate('/myships')
     },
     [navigate, runtimeDetections, selectDetection]
+  )
+
+  const handlePortSelectFromBookmarks = useCallback(
+    (port) => {
+      const portId = String(port?.id || '').trim()
+      if (!portId) return
+      setPortsLayerVisible(true)
+      setForceHideSelectedPortContext(false)
+      openPortTab({
+        ...port,
+        id: portId,
+        type: 'port',
+        name: port?.name || 'Unknown port',
+      })
+      setSecondaryNavOpen(true)
+      setPanelOpen(true)
+      navigate('/myships')
+    },
+    [navigate, openPortTab]
   )
 
   const handleRemoveTimelineEvent = useCallback((eventId) => {
@@ -366,6 +385,7 @@ function Layout() {
                 currentPath={location.pathname}
                 watchlistVersion={watchlistVersion}
                 onShipSelect={handleShipSelectFromBookmarks}
+                onPortSelect={handlePortSelectFromBookmarks}
               />
 
               <Box className={`slide-panel ${slidePanelClass}`}>
