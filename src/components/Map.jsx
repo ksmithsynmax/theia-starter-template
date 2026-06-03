@@ -109,6 +109,22 @@ const PROTOTYPE_PORTS = [
 ]
 const PORT_FOCUS_MIN_GUTTER_PX = 180
 
+const normalizePortToken = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+
+const resolvePrototypePortFromTab = (tab) => {
+  if (!tab || tab.type !== 'port') return null
+  const rawId = String(tab.id || '').trim()
+  const byId = PROTOTYPE_PORTS.find((port) => port.id === rawId)
+  if (byId) return byId
+  const nameToken = normalizePortToken(tab.name)
+  if (!nameToken) return null
+  return PROTOTYPE_PORTS.find((port) => normalizePortToken(port.name) === nameToken) || null
+}
+
 const getFeatureCenterNoMapbox = (feature) => {
   // Prefer geometric centroid for polygons so translation anchor matches
   // the same center logic used for marker alignment.
@@ -430,22 +446,24 @@ const Map = forwardRef(function Map(
     portVisibilityBehavior === 'strict-layer-toggle' ||
     portVisibilityBehavior === 'strict-layer-toggle-v2' ||
     portVisibilityBehavior === 'strict-layer-toggle-v3'
-  const panelAwareFocusOffsetX = useMemo(() => {
+  const panelAwareFocusPadding = useMemo(() => {
     const viewportWidth = mapDimensions.width || 0
-    if (viewportWidth <= 0) return 0
+    if (viewportWidth <= 0) {
+      return { top: 80, right: 120, bottom: 80, left: 48 }
+    }
 
     const inset = Math.max(0, Number(leftPanelInset) || 0)
-    if (inset === 0) return 0
+    const rightPadding = Math.max(110, Math.min(220, viewportWidth * 0.14))
+    const desiredLeftPadding = inset > 0 ? inset + 52 : 52
+    const maxSafeLeftPadding = Math.max(52, viewportWidth - rightPadding - 220)
+    const leftPadding = Math.min(desiredLeftPadding, maxSafeLeftPadding)
 
-    const availableWidth = Math.max(0, viewportWidth - inset)
-    const dynamicGutter = Math.max(PORT_FOCUS_MIN_GUTTER_PX, availableWidth * 0.45)
-    const desiredFocusX = Math.min(
-      viewportWidth * 0.82,
-      inset + dynamicGutter
-    )
-    const centerX = viewportWidth / 2
-    const rawOffset = desiredFocusX - centerX
-    return Math.max(0, Math.min(520, rawOffset))
+    return {
+      top: 80,
+      right: rightPadding,
+      bottom: 80,
+      left: leftPadding,
+    }
   }, [leftPanelInset, mapDimensions.width])
 
   useEffect(() => {
@@ -1034,7 +1052,7 @@ const Map = forwardRef(function Map(
     }
 
     if (isPortTabActive) {
-      const port = PROTOTYPE_PORTS.find(p => p.id === activeTab.id)
+      const port = resolvePrototypePortFromTab(activeTab)
       if (port) {
         const translatedFeatures = translatePortFeatures(port)
 
@@ -1047,7 +1065,7 @@ const Map = forwardRef(function Map(
         if (inactiveSource) {
           const inactiveMarkerSource = map.current.getSource('inactive-port-marker')
           const inactiveFeatures = inactiveOpenPortTabs.flatMap((tab) => {
-            const inactivePort = PROTOTYPE_PORTS.find((p) => p.id === tab.id)
+            const inactivePort = resolvePrototypePortFromTab(tab)
             if (!inactivePort) return []
             const translatedInactive = translatePortFeatures(inactivePort)
             return translatedInactive.features
@@ -1061,7 +1079,7 @@ const Map = forwardRef(function Map(
           })
           const inactiveMarkerFeatures = inactiveOpenPortTabs
             .map((tab) => {
-              const inactivePort = PROTOTYPE_PORTS.find((p) => p.id === tab.id)
+              const inactivePort = resolvePrototypePortFromTab(tab)
               if (!inactivePort) return null
               const translatedInactive = translatePortFeatures(inactivePort)
               const inactivePortFeature = translatedInactive.features.find(
@@ -1385,9 +1403,13 @@ const Map = forwardRef(function Map(
     }
 
     const activeTab = shipTabs.find((t) => t.id === activeShipTab)
-    const activePortId = activeTab?.type === 'port' ? activeTab.id : null
+    const activePrototypePort = resolvePrototypePortFromTab(activeTab)
+    const activePortId = activePrototypePort?.id || null
     const openPortTabIds = new Set(
-      shipTabs.filter((t) => t?.type === 'port').map((t) => t.id)
+      shipTabs
+        .filter((t) => t?.type === 'port')
+        .map((tab) => resolvePrototypePortFromTab(tab)?.id)
+        .filter(Boolean)
     )
     const inactiveOpenPortTabs =
       activeTab?.type === 'port'
@@ -1396,7 +1418,7 @@ const Map = forwardRef(function Map(
 
     const inactivePortCenterById = new globalThis.Map()
     inactiveOpenPortTabs.forEach((tab) => {
-      const inactivePort = PROTOTYPE_PORTS.find((p) => p.id === tab.id)
+      const inactivePort = resolvePrototypePortFromTab(tab)
       if (!inactivePort) return
       const baseCenterLng = BASE_PORT_BOUNDARY_CENTER?.[0] ?? 103.78
       const baseCenterLat = BASE_PORT_BOUNDARY_CENTER?.[1] ?? 1.25
@@ -1813,14 +1835,14 @@ const Map = forwardRef(function Map(
       center: [focusDet.lng, focusDet.lat],
       zoom: 6,
       duration: 1500,
-      offset: [panelAwareFocusOffsetX, 0],
+      padding: panelAwareFocusPadding,
     })
   }, [
     panelFocusDetectionId,
     activeDetectionId,
     previewDetectionId,
     runtimeDetections,
-    panelAwareFocusOffsetX,
+    panelAwareFocusPadding,
   ])
 
   // Filter markers by date, but keep selected/preview detection visible

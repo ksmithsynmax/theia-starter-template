@@ -21,6 +21,17 @@
   background: #4a4d6a;
 }
 
+.secondary-nav-text-input::placeholder {
+  color: #8d93a8;
+  opacity: 1;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #8d93a8 !important;
+  opacity: 1;
+}
+
 .topnav-icon-btn {
   display: flex;
   align-items: center;
