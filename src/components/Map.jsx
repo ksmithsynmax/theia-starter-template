@@ -1975,7 +1975,7 @@ const Map = forwardRef(function Map(
         filter: ['==', '$type', 'Point'],
         paint: {
           'circle-radius': 4,
-          'circle-color': '#FFFFFF',
+          'circle-color': 'transparent',
           'circle-stroke-color': '#006CD7',
           'circle-stroke-width': 2,
         },
