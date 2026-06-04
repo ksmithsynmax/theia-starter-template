@@ -516,26 +516,26 @@ button:active,
   content: '';
   position: absolute;
   left: 50%;
-  bottom: -10px;
+  top: -10px;
   transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 9px solid transparent;
-  border-right: 9px solid transparent;
-  border-top: 10px solid #393c56;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #393c56;
 }
 
 .port-hover-card-shell::after {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: -8px;
+  top: -8px;
   transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-top: 8px solid #181926;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 9px solid #181926;
 }
 
 /* Remove Mantine switch inner thumb marker for port setting */

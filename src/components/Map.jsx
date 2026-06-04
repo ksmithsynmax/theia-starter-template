@@ -316,94 +316,45 @@ const HOVER_CARD_BY_TYPE = {
   },
 }
 
+// Ship Handles / Cargo Handles mirror the data shown in the port detail panel
+// tabs (Myships.jsx) so the hover card stays consistent with the panel. The
+// panel content is static across port/terminal/berth, so all three share it.
+const PANEL_SHIP_HANDLES = [
+  'Container',
+  'Bulk Carrier',
+  'Gas Carrier',
+  'Passenger',
+  'Tanker',
+]
+const PANEL_CARGO_HANDLES = [
+  'Chemicals',
+  'Black Products',
+  'Bulk Other',
+  'Passenger',
+  'Tanker',
+]
+
 const HOVER_CARD_BY_TYPE_V2 = {
   port: {
     title: 'Port Summary',
     ships: 24,
-    cargoTypes: 14,
-    products: [
-      'Crude Oil',
-      'Fuel Oil',
-      'Diesel',
-      'Gasoline',
-      'Jet Fuel',
-      'Naphtha',
-      'LNG',
-      'LPG',
-      'Methanol',
-      'Urea',
-      'Iron Ore',
-      'Coal',
-      'Bauxite',
-      'Phosphate',
-      'Containers',
-      'Reefer Cargo',
-      'Project Cargo',
-      'Steel Products',
-      'Cement',
-      'Palm Oil',
-      'Soybean Oil',
-      'Chemicals',
-      'Bitumen',
-    ],
-    handles: [
-      'Container',
-      'General Cargo',
-      'Ro-Ro',
-      'Bulk Carrier',
-      'Handysize',
-      'Supramax',
-      'Panamax',
-      'Capesize',
-      'Tanker',
-      'MR Tanker',
-      'LR1 Tanker',
-      'LR2 Tanker',
-      'VLCC',
-      'LPG Carrier',
-      'LNG Carrier',
-      'Chemical Tanker',
-      'Offshore Support Vessel',
-      'Bunker Vessel',
-      'Tug',
-      'Barge',
-    ],
+    cargoTypes: PANEL_CARGO_HANDLES.length,
+    products: PANEL_CARGO_HANDLES,
+    handles: PANEL_SHIP_HANDLES,
   },
   terminal: {
     title: 'Terminal Summary',
     ships: 9,
-    cargoTypes: 8,
-    products: [
-      'Containers',
-      'Refined Products',
-      'Chemicals',
-      'LPG',
-      'Methanol',
-      'Steel Coils',
-      'Fertilizer',
-      'Breakbulk',
-      'Dry Bulk',
-      'Project Cargo',
-      'Reefer Cargo',
-    ],
-    handles: [
-      'Container',
-      'Feeder',
-      'Panamax',
-      'MR Tanker',
-      'Chemical Tanker',
-      'Handysize',
-      'Supramax',
-      'Tug',
-      'Barge',
-    ],
+    cargoTypes: PANEL_CARGO_HANDLES.length,
+    products: PANEL_CARGO_HANDLES,
+    handles: PANEL_SHIP_HANDLES,
   },
   berth: {
     title: 'Berth Summary',
     ships: 3,
-    cargoTypes: 4,
-    products: ['Containers', 'Dry Bulk', 'Refined Products', 'Chemicals', 'Project Cargo'],
-    handles: ['Container', 'Handysize', 'MR Tanker', 'Chemical Tanker', 'Tug'],
+    cargoTypes: PANEL_CARGO_HANDLES.length,
+    products: PANEL_CARGO_HANDLES,
+    handles: PANEL_SHIP_HANDLES,
   },
 }
 
@@ -845,12 +796,19 @@ const Map = forwardRef(function Map(
       const entityLabel =
         feature?.properties?.name || feature?.properties?.id || type || 'Area'
 
+      // Cap products/handles at three lines each so the card can show more
+      // detail without growing unbounded. The v3 interactive card uses its own
+      // scroll region, so skip the clamp there.
+      const clampStyle = useV3HoverCardInteractive
+        ? ''
+        : 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;'
+
       const detailsHtml = `
-        <div style="font-size:11px;color:#A8B0C2;line-height:1.4;">
-          Products: <span style="color:#FFFFFF">${products}${productsMore > 0 ? ` +${productsMore}` : ''}</span>
+        <div style="font-size:11px;color:#A8B0C2;line-height:1.4;${clampStyle}">
+          <span style="font-weight:600;">Ship Handles:</span> <span style="color:#FFFFFF">${handles}${handlesMore > 0 ? ` +${handlesMore}` : ''}</span>
         </div>
-        <div style="font-size:11px;color:#A8B0C2;line-height:1.4;${useV2HoverCardDensity ? 'margin-top:6px;' : ''}">
-          Handles: <span style="color:#FFFFFF">${handles}${handlesMore > 0 ? ` +${handlesMore}` : ''}</span>
+        <div style="font-size:11px;color:#A8B0C2;line-height:1.4;${useV2HoverCardDensity ? 'margin-top:6px;' : ''}${clampStyle}">
+          <span style="font-weight:600;">Cargo Handles:</span> <span style="color:#FFFFFF">${products}${productsMore > 0 ? ` +${productsMore}` : ''}</span>
         </div>
       `
 
@@ -906,8 +864,8 @@ const Map = forwardRef(function Map(
         portHoverPopupRef.current = new mapboxgl.Popup({
           closeButton: false,
           closeOnClick: false,
-          anchor: 'bottom',
-          offset: [0, -18],
+          anchor: 'top',
+          offset: [0, 18],
           className: useV3HoverCardInteractive
             ? 'port-hover-card-popup port-hover-card-popup--interactive'
             : 'port-hover-card-popup',
