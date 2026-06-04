@@ -25,6 +25,9 @@ function Layout() {
   const [mapLayersOpen, setMapLayersOpen] = useState(false)
   const [portsLayerVisible, setPortsLayerVisible] = useState(false)
   const [portHoverCardEnabled, setPortHoverCardEnabled] = useState(true)
+  // Master switch for the port-shape visibility feature. When off, the
+  // "Port shape visible/hidden" bar is removed from the port detail panel.
+  const [portShapeControlEnabled, setPortShapeControlEnabled] = useState(true)
   const [expandPanelHovered, setExpandPanelHovered] = useState(false)
   const [timelinePanelOpen, setTimelinePanelOpen] = useState(true)
   const [timelineEvents, setTimelineEvents] = useState([])
@@ -274,6 +277,8 @@ function Layout() {
             }}
             portHoverCardEnabled={portHoverCardEnabled}
             onPortHoverCardEnabledChange={setPortHoverCardEnabled}
+            portShapeControlEnabled={portShapeControlEnabled}
+            onPortShapeControlEnabledChange={setPortShapeControlEnabled}
           />
         )}
         <Box
@@ -429,6 +434,7 @@ function Layout() {
                         portVisibilityBehavior,
                         forceHideSelectedPortContext,
                         onForceHideSelectedPortContextChange: setForceHideSelectedPortContext,
+                        portShapeControlEnabled,
                       }}
                     />
                   </Box>

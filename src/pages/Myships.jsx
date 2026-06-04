@@ -366,7 +366,7 @@ function Myships() {
     }, 0) + 1000
   )
   const allDetections = useMemo(() => runtimeDetections, [runtimeDetections])
-  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange } = useOutletContext() || {}
+  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange, portShapeControlEnabled = true } = useOutletContext() || {}
   const isBookmarkVersion =
     watchlistVersion === 'version4' ||
     watchlistVersion === 'version5' ||
@@ -4238,9 +4238,10 @@ function Myships() {
             </Box>
           </Box>
 
-          {(portVisibilityBehavior === 'strict-layer-toggle' ||
-            portVisibilityBehavior === 'strict-layer-toggle-v2' ||
-            portVisibilityBehavior === 'strict-layer-toggle-v3') && (
+          {portShapeControlEnabled &&
+            (portVisibilityBehavior === 'strict-layer-toggle' ||
+              portVisibilityBehavior === 'strict-layer-toggle-v2' ||
+              portVisibilityBehavior === 'strict-layer-toggle-v3') && (
             <Box
               style={{
                 display: 'flex',

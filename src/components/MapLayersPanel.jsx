@@ -7,6 +7,8 @@ function MapLayersPanel({
   onPortsCheckedChange,
   portHoverCardEnabled = true,
   onPortHoverCardEnabledChange,
+  portShapeControlEnabled = true,
+  onPortShapeControlEnabledChange,
 }) {
   const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
   const [dragState, setDragState] = useState(null)
@@ -301,6 +303,35 @@ function MapLayersPanel({
                 track: {
                   border: 'none',
                   backgroundColor: portHoverCardEnabled ? '#006CD7' : '#393C56',
+                },
+                thumb: { border: 'none', backgroundColor: '#FFFFFF' },
+                label: {
+                  color: '#FFFFFF',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  lineHeight: 1.2,
+                  paddingLeft: 0,
+                },
+              }}
+            />
+
+            <Switch
+              className="port-hover-card-switch"
+              checked={portShapeControlEnabled}
+              onChange={(event) =>
+                onPortShapeControlEnabledChange?.(event.currentTarget.checked)
+              }
+              label="Show Port Shape on Map"
+              color="#006CD7"
+              size="sm"
+              styles={{
+                root: { display: 'flex', padding: '0' },
+                body: { display: 'flex', alignItems: 'center', gap: 12 },
+                track: {
+                  border: 'none',
+                  backgroundColor: portShapeControlEnabled
+                    ? '#006CD7'
+                    : '#393C56',
                 },
                 thumb: { border: 'none', backgroundColor: '#FFFFFF' },
                 label: {
