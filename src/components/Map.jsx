@@ -444,6 +444,7 @@ const Map = forwardRef(function Map(
     completeShapeDraw,
     cancelShapeDraw,
     hideShape,
+    closeShipTab,
   } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -451,6 +452,8 @@ const Map = forwardRef(function Map(
   const portMarkersRef = useRef({})
   const onDetectionClickRef = useRef(onDetectionClick)
   const onPortClickRef = useRef(onPortClick)
+  const closeShipTabRef = useRef(closeShipTab)
+  const activeShipTabRef = useRef(activeShipTab)
   const alertPreviewMarkersRef = useRef({})
   const detectionByIdRef = useRef(new globalThis.Map())
   const lastPreviewAreaSignatureRef = useRef('')
@@ -471,6 +474,8 @@ const Map = forwardRef(function Map(
   const popupPositionsRef = useRef({})
   onDetectionClickRef.current = onDetectionClick
   onPortClickRef.current = onPortClick
+  closeShipTabRef.current = closeShipTab
+  activeShipTabRef.current = activeShipTab
   const openToolPanels = openMapToolPanelsByTab['__global__'] || []
   const isStrictLayerMode =
     portVisibilityBehavior === 'strict-layer-toggle' ||
@@ -564,6 +569,7 @@ const Map = forwardRef(function Map(
       map.current.addSource('port-features', {
         type: 'geojson',
         data: mockPortFeatures,
+        promoteId: 'id',
       })
 
       // Port Boundary Fill
@@ -659,6 +665,24 @@ const Map = forwardRef(function Map(
           'text-halo-color': '#000000',
           'text-halo-width': 2,
           'text-opacity': 0, // Default hidden
+        },
+      })
+
+      // Hover highlight: brightens the outline of whichever port/terminal/berth
+      // polygon is currently hovered (driven by feature-state).
+      map.current.addLayer({
+        id: 'port-features-hover-outline',
+        type: 'line',
+        source: 'port-features',
+        paint: {
+          'line-color': '#FFFFFF',
+          'line-width': 2.5,
+          'line-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            1,
+            0,
+          ],
         },
       })
 
@@ -924,6 +948,62 @@ const Map = forwardRef(function Map(
     }
   }, [mapReady, portHoverCardEnabled, showPorts, portVisibilityBehavior])
 
+  // Highlight the outline of the port/terminal/berth polygon under the cursor.
+  // Independent of the hover card so the cue shows even if the card is off.
+  useEffect(() => {
+    if (!map.current || !mapReady || !showPorts) return
+    const m = map.current
+    const hoverLayers = ['port-fill', 'terminal-fill', 'berth-fill']
+    let hoveredId = null
+
+    const setHover = (nextId) => {
+      if (hoveredId === nextId) return
+      if (hoveredId !== null) {
+        m.setFeatureState(
+          { source: 'port-features', id: hoveredId },
+          { hover: false }
+        )
+      }
+      hoveredId = nextId
+      if (hoveredId !== null) {
+        m.setFeatureState(
+          { source: 'port-features', id: hoveredId },
+          { hover: true }
+        )
+      }
+    }
+
+    const handleMove = (event) => {
+      const feature = event?.features?.[0]
+      const featureId = feature?.id ?? feature?.properties?.id
+      if (featureId == null) return
+      setHover(featureId)
+    }
+
+    const handleLeave = () => setHover(null)
+
+    hoverLayers.forEach((layerId) => {
+      if (!m.getLayer(layerId)) return
+      m.on('mousemove', layerId, handleMove)
+      m.on('mouseleave', layerId, handleLeave)
+    })
+
+    return () => {
+      if (!m) return
+      hoverLayers.forEach((layerId) => {
+        if (!m.getLayer(layerId)) return
+        m.off('mousemove', layerId, handleMove)
+        m.off('mouseleave', layerId, handleLeave)
+      })
+      if (hoveredId !== null) {
+        m.setFeatureState(
+          { source: 'port-features', id: hoveredId },
+          { hover: false }
+        )
+      }
+    }
+  }, [mapReady, showPorts])
+
   useEffect(() => {
     if (!map.current || !mapReady) return
 
@@ -934,6 +1014,15 @@ const Map = forwardRef(function Map(
       const port = PROTOTYPE_PORTS.find((item) => item.id === portId)
       if (!port) return
       onPortClickRef.current?.(port)
+    }
+
+    // Re-clicking the active (open) port's anchor toggles it closed,
+    // removing its polygon and everything inside it.
+    const handleActivePortMarkerClick = (event) => {
+      if (event?.originalEvent) event.originalEvent.stopPropagation()
+      const activeId = activeShipTabRef.current
+      if (!activeId) return
+      closeShipTabRef.current?.(activeId)
     }
 
     const setInactivePortCursorPointer = () => {
@@ -949,12 +1038,18 @@ const Map = forwardRef(function Map(
     map.current.on('click', 'inactive-port-marker-anchor', handleInactivePortMarkerClick)
     map.current.on('mouseenter', 'inactive-port-marker-anchor', setInactivePortCursorPointer)
     map.current.on('mouseleave', 'inactive-port-marker-anchor', clearInactivePortCursor)
+    map.current.on('click', 'active-port-marker-anchor', handleActivePortMarkerClick)
+    map.current.on('mouseenter', 'active-port-marker-anchor', setInactivePortCursorPointer)
+    map.current.on('mouseleave', 'active-port-marker-anchor', clearInactivePortCursor)
 
     return () => {
       if (!map.current) return
       map.current.off('click', 'inactive-port-marker-anchor', handleInactivePortMarkerClick)
       map.current.off('mouseenter', 'inactive-port-marker-anchor', setInactivePortCursorPointer)
       map.current.off('mouseleave', 'inactive-port-marker-anchor', clearInactivePortCursor)
+      map.current.off('click', 'active-port-marker-anchor', handleActivePortMarkerClick)
+      map.current.off('mouseenter', 'active-port-marker-anchor', setInactivePortCursorPointer)
+      map.current.off('mouseleave', 'active-port-marker-anchor', clearInactivePortCursor)
     }
   }, [mapReady])
 
@@ -1207,11 +1302,11 @@ const Map = forwardRef(function Map(
               map.current.setPaintProperty('port-outline', 'line-opacity', 1)
               map.current.setPaintProperty('port-outline', 'line-color', '#0094FF')
               map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
-              map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
+              map.current.setPaintProperty('terminal-outline', 'line-opacity', 1)
               map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
               map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
               map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
-              map.current.setPaintProperty('berth-outline', 'line-opacity', 0.5)
+              map.current.setPaintProperty('berth-outline', 'line-opacity', 1)
               map.current.setPaintProperty('berth-outline', 'line-color', '#FFFFFF')
             }
 
@@ -1263,6 +1358,17 @@ const Map = forwardRef(function Map(
       lastFocusedPortViewportKeyRef.current = ''
       portShapeExplicitlyShownRef.current = false
       activePortCenterRef.current = null
+      // Clear the active port geometry so hover queries can no longer hit it.
+      // Without this the (invisible) polygon still triggers hover outlines and
+      // the hover card after the port is closed.
+      const portFeaturesSource = map.current.getSource('port-features')
+      if (portFeaturesSource) {
+        portFeaturesSource.setData(EMPTY_FEATURE_COLLECTION)
+      }
+      if (portHoverPopupRef.current) {
+        portHoverPopupRef.current.remove()
+        portHoverPopupRef.current = null
+      }
       const activePortMarkerSource = map.current.getSource('active-port-marker')
       if (activePortMarkerSource) {
         activePortMarkerSource.setData(EMPTY_FEATURE_COLLECTION)
@@ -1314,12 +1420,12 @@ const Map = forwardRef(function Map(
       map.current.setPaintProperty('port-outline', 'line-color', '#0094FF')
       
       map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
-      map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('terminal-outline', 'line-opacity', 1)
       map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
       map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
       
       map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
-      map.current.setPaintProperty('berth-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('berth-outline', 'line-opacity', 1)
       map.current.setPaintProperty('berth-outline', 'line-color', '#FFFFFF')
     } 
     // Terminal Details Active
@@ -1367,7 +1473,7 @@ const Map = forwardRef(function Map(
       }
 
       map.current.setPaintProperty('berth-fill', 'fill-opacity', 0)
-      map.current.setPaintProperty('berth-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('berth-outline', 'line-opacity', 1)
       map.current.setPaintProperty('berth-outline', 'line-color', '#FFFFFF')
     }
     // Berth Details Active
@@ -1378,7 +1484,7 @@ const Map = forwardRef(function Map(
       map.current.setPaintProperty('port-outline', 'line-color', '#FFFFFF')
 
       map.current.setPaintProperty('terminal-fill', 'fill-opacity', 0)
-      map.current.setPaintProperty('terminal-outline', 'line-opacity', 0.5)
+      map.current.setPaintProperty('terminal-outline', 'line-opacity', 1)
       map.current.setPaintProperty('terminal-outline', 'line-color', '#FFFFFF')
       map.current.setPaintProperty('terminal-outline', 'line-dasharray', [2, 2])
 

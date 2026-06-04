@@ -16,7 +16,7 @@ function Layout() {
   const TIMELINE_PANEL_HEIGHT = 172
   const watchlistVersion = 'version7'
   const [portVisibilityBehavior, setPortVisibilityBehavior] = useState(
-    'strict-layer-toggle'
+    'strict-layer-toggle-v2'
   )
   const [forceHideSelectedPortContext, setForceHideSelectedPortContext] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)

@@ -212,9 +212,7 @@ const TopNav = ({
               cursor: 'pointer',
             }}
           >
-            <option value="strict-layer-toggle">Strict layer toggle</option>
             <option value="strict-layer-toggle-v2">Strict layer toggle v2</option>
-            <option value="strict-layer-toggle-v3">Strict layer toggle v3</option>
           </Box>
         </Box>
         <Box component="button" type="button" className="topnav-icon-btn">
