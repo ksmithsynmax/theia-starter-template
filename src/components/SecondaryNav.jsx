@@ -8,6 +8,7 @@ import {
   List,
   Signal01,
   Star01,
+  Bookmark,
   Upload01,
   Sliders04,
   SearchMd,
@@ -458,6 +459,7 @@ const SecondaryNav = ({
   onClose,
   currentPath,
   watchlistVersion = 'grouped',
+  forYouPrototype = 'proto1',
   onShipSelect,
   onPortSelect,
 }) => {
@@ -557,7 +559,26 @@ const SecondaryNav = ({
   const isVersion4Or5 = isVersion4 || isVersion5
   const isVersion3Or4Or5 = isVersion3 || isVersion4Or5
   const isVersion2Or3Or4Or5 = isVersion2 || isVersion3Or4Or5
-  const topTabWatchlistLabel = isVersion4Or5 ? 'Bookmarks' : 'My Watchlist'
+  // Prototype 1 reframes "Bookmarks" as "Favorites" (star); prototype 2 keeps
+  // the bookmark icon + wording.
+  const isFavoritesProto = isVersion4Or5 && forYouPrototype === 'proto1'
+  const QuickAddBannerIcon = isFavoritesProto ? Star01 : Bookmark
+  const quickAddTipText = isFavoritesProto
+    ? 'Tap star on ship or port details to favorite.'
+    : 'Tap bookmark on ship or port details to bookmark.'
+  const renderQuickAddBannerIcon = () => (
+    <QuickAddBannerIcon
+      className={`quick-add-banner-star${
+        isOpen ? ' quick-add-banner-star--animate' : ''
+      }`}
+      style={{ width: 16, height: 16 }}
+    />
+  )
+  const topTabWatchlistLabel = isFavoritesProto
+    ? 'Favorites'
+    : isVersion4Or5
+      ? 'Bookmarks'
+      : 'My Watchlist'
   const listCollectionLabel = isVersion4Or5 ? 'Bookmarks' : 'Watchlist'
   const listCollectionLabelLower = isVersion4Or5 ? 'bookmarks' : 'watchlist'
   const polygonEntityLabelSingular = isVersion5 ? 'Shape' : 'Polygon'
@@ -2471,15 +2492,7 @@ const SecondaryNav = ({
                         overflow: 'visible',
                       }}
                     >
-                      <Star01
-                        className={`quick-add-banner-star${
-                          isOpen ? ' quick-add-banner-star--animate' : ''
-                        }`}
-                        style={{
-                          width: 16,
-                          height: 16,
-                        }}
-                      />
+                      {renderQuickAddBannerIcon()}
                       <svg
                         className={`quick-add-banner-cursor${
                           isOpen ? ' quick-add-banner-cursor--animate' : ''
@@ -2526,7 +2539,7 @@ const SecondaryNav = ({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        Tap star on ship or ports details to bookmark.
+                        {quickAddTipText}
                       </Text>
                     </Box>
                     <Box
@@ -3028,15 +3041,7 @@ const SecondaryNav = ({
                           overflow: 'visible',
                         }}
                       >
-                        <Star01
-                          className={`quick-add-banner-star${
-                            isOpen ? ' quick-add-banner-star--animate' : ''
-                          }`}
-                          style={{
-                            width: 16,
-                            height: 16,
-                          }}
-                        />
+                        {renderQuickAddBannerIcon()}
                         <svg
                           className={`quick-add-banner-cursor${
                             isOpen ? ' quick-add-banner-cursor--animate' : ''
@@ -3083,7 +3088,7 @@ const SecondaryNav = ({
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          Tap star on ship or ports details to bookmark.
+                          {quickAddTipText}
                         </Text>
                       </Box>
                       <Box
@@ -4077,15 +4082,7 @@ const SecondaryNav = ({
                         overflow: 'visible',
                       }}
                     >
-                      <Star01
-                        className={`quick-add-banner-star${
-                          isOpen ? ' quick-add-banner-star--animate' : ''
-                        }`}
-                        style={{
-                          width: 16,
-                          height: 16,
-                        }}
-                      />
+                      {renderQuickAddBannerIcon()}
                       <svg
                         className={`quick-add-banner-cursor${
                           isOpen ? ' quick-add-banner-cursor--animate' : ''
@@ -4132,7 +4129,7 @@ const SecondaryNav = ({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        Tap star on ship or ports details to bookmark.
+                        {quickAddTipText}
                       </Text>
                     </Box>
                     <Box
@@ -4657,7 +4654,11 @@ const SecondaryNav = ({
                       // lineHeight: '22px',
                     }}
                   >
-                    {isVersion4Or5 ? 'My Bookmarks' : 'My Watchlist'}
+                    {isFavoritesProto
+                      ? 'Favorites'
+                      : isVersion4Or5
+                        ? 'My Bookmarks'
+                        : 'My Watchlist'}
                   </Text>
                   <Box
                     component="button"

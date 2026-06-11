@@ -367,6 +367,9 @@ const Map = forwardRef(function Map(
     portVisibilityBehavior = 'strict-layer-toggle',
     forceHideSelectedPortContext = false,
     portHoverCardEnabled = true,
+    forYouActive = false,
+    forYouMarkerMode = 'pin',
+    onForYouItemClick,
   },
   ref
 ) {
@@ -396,6 +399,7 @@ const Map = forwardRef(function Map(
     cancelShapeDraw,
     hideShape,
     closeShipTab,
+    forYouItems,
   } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -415,6 +419,10 @@ const Map = forwardRef(function Map(
   const portHoverPopupRef = useRef(null)
   const shapeMarkersRef = useRef({})
   const lastVisibleShapeIdsRef = useRef([])
+  const forYouMarkersRef = useRef({})
+  const onForYouItemClickRef = useRef(onForYouItemClick)
+  const forYouFittedRef = useRef(false)
+  onForYouItemClickRef.current = onForYouItemClick
   const [mapReady, setMapReady] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
@@ -2169,6 +2177,131 @@ const Map = forwardRef(function Map(
     }
     lastVisibleShapeIdsRef.current = visibleShapes.map((shape) => shape.id)
   }, [mapReady, bookmarkedShapes, pendingShape, visibleShapeIds, hideShape])
+
+  // "For You" curated items rendered on the map. We support three marker
+  // approaches so we can compare them, toggled via the top-nav dropdown:
+  //   - 'pin':      classic teardrop pin per item
+  //   - 'pulse':    dot with an animated pulsing ring
+  //   - 'priority': numbered badge ranked by the item's priority
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    const m = map.current
+
+    // Tear down existing markers on every change; the list is small.
+    Object.values(forYouMarkersRef.current).forEach((marker) => marker.remove())
+    forYouMarkersRef.current = {}
+
+    if (!forYouActive || !Array.isArray(forYouItems) || forYouItems.length === 0) {
+      forYouFittedRef.current = false
+      return
+    }
+
+    const buildPinEl = (item) => {
+      const el = document.createElement('div')
+      el.style.cursor = 'pointer'
+      el.style.transform = 'translateY(2px)'
+      el.innerHTML =
+        `<svg width="26" height="34" viewBox="0 0 26 34" fill="none" xmlns="http://www.w3.org/2000/svg">` +
+        `<path d="M13 1C6.37 1 1 6.37 1 13c0 8.5 12 20 12 20s12-11.5 12-20C25 6.37 19.63 1 13 1Z" fill="${item.color}" stroke="#111326" stroke-width="1.5"/>` +
+        `<circle cx="13" cy="13" r="4.5" fill="#111326"/></svg>`
+      return { el, anchor: 'bottom' }
+    }
+
+    const buildPulseEl = (item) => {
+      const el = document.createElement('div')
+      el.style.cursor = 'pointer'
+      el.style.position = 'relative'
+      el.style.width = '16px'
+      el.style.height = '16px'
+
+      const ring = document.createElement('div')
+      ring.className = 'for-you-pulse-ring'
+      ring.style.position = 'absolute'
+      ring.style.left = '50%'
+      ring.style.top = '50%'
+      ring.style.width = '16px'
+      ring.style.height = '16px'
+      ring.style.marginLeft = '-8px'
+      ring.style.marginTop = '-8px'
+      ring.style.borderRadius = '50%'
+      ring.style.background = item.color
+
+      const dot = document.createElement('div')
+      dot.style.position = 'absolute'
+      dot.style.left = '50%'
+      dot.style.top = '50%'
+      dot.style.width = '12px'
+      dot.style.height = '12px'
+      dot.style.marginLeft = '-6px'
+      dot.style.marginTop = '-6px'
+      dot.style.borderRadius = '50%'
+      dot.style.background = item.color
+      dot.style.border = '2px solid #111326'
+
+      el.appendChild(ring)
+      el.appendChild(dot)
+      return { el, anchor: 'center' }
+    }
+
+    const buildPriorityEl = (item) => {
+      const el = document.createElement('div')
+      el.style.cursor = 'pointer'
+      el.style.display = 'flex'
+      el.style.alignItems = 'center'
+      el.style.justifyContent = 'center'
+      el.style.width = '22px'
+      el.style.height = '22px'
+      el.style.borderRadius = '50%'
+      el.style.background = item.color
+      el.style.border = '2px solid #111326'
+      el.style.color = '#111326'
+      el.style.fontFamily = 'Inter, sans-serif'
+      el.style.fontSize = '12px'
+      el.style.fontWeight = '700'
+      el.textContent = String(item.priority ?? '')
+      return { el, anchor: 'center' }
+    }
+
+    const builders = {
+      pin: buildPinEl,
+      pulse: buildPulseEl,
+      priority: buildPriorityEl,
+    }
+    const build = builders[forYouMarkerMode] || buildPinEl
+
+    forYouItems.forEach((item) => {
+      if (!Number.isFinite(item.lng) || !Number.isFinite(item.lat)) return
+      const { el, anchor } = build(item)
+      el.title = `${item.name} — ${item.reason}`
+      el.addEventListener('click', (event) => {
+        event.stopPropagation()
+        onForYouItemClickRef.current?.(item)
+      })
+      const marker = new mapboxgl.Marker({ element: el, anchor })
+        .setLngLat([item.lng, item.lat])
+        .addTo(m)
+      forYouMarkersRef.current[item.id] = marker
+    })
+
+    // Fit the map to the curated set once when the feed first becomes active.
+    if (!forYouFittedRef.current) {
+      const coords = forYouItems
+        .filter((item) => Number.isFinite(item.lng) && Number.isFinite(item.lat))
+        .map((item) => [item.lng, item.lat])
+      if (coords.length > 1) {
+        const bounds = coords.reduce(
+          (acc, coord) => acc.extend(coord),
+          new mapboxgl.LngLatBounds(coords[0], coords[0])
+        )
+        m.fitBounds(bounds, {
+          padding: { top: 100, right: 120, bottom: 100, left: leftPanelInset + 80 },
+          maxZoom: 7,
+          duration: 900,
+        })
+      }
+      forYouFittedRef.current = true
+    }
+  }, [mapReady, forYouActive, forYouMarkerMode, forYouItems, leftPanelInset])
 
   // Interactive polygon drawing while a shape draw tool is active.
   useEffect(() => {

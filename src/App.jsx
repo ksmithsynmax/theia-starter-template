@@ -4,6 +4,7 @@ import { ShipProvider } from './context/ShipContext'
 import Layout from './components/Layout'
 import Myships from './pages/Myships'
 import Watchlist from './pages/Watchlist'
+import ForYou from './pages/ForYou'
 import Alerts from './pages/Alerts'
 import Events from './pages/Events'
 import TipCue from './pages/TipCue'
@@ -37,7 +38,8 @@ function App() {
           {isUnlocked ? (
             <>
               <Route path="/" element={<Layout />}>
-                <Route index element={<Navigate to="/watchlist" replace />} />
+                <Route index element={<Navigate to="/for-you" replace />} />
+                <Route path="for-you" element={<ForYou />} />
                 <Route path="watchlist" element={<Watchlist />} />
                 <Route path="myships" element={<Myships />} />
                 <Route path="timeline" element={<Timeline />} />
@@ -52,7 +54,7 @@ function App() {
               </Route>
               <Route
                 path="/login"
-                element={<Navigate to="/watchlist" replace />}
+                element={<Navigate to="/for-you" replace />}
               />
               <Route
                 path="/temporal-analysis/:detectionId"

@@ -6,6 +6,7 @@ import {
   useMemo,
 } from 'react'
 import { ships, detections as seedDetections } from '../data/mockData'
+import { forYouItems as seedForYouItems } from '../data/forYouData'
 import {
   SHIP_FILTER_DEFAULTS,
   SHIP_FILTER_TO_DETECTION_TYPES,
@@ -49,6 +50,22 @@ export function ShipProvider({ children }) {
   // IDs of saved shapes currently shown on the map. Saved shapes are hidden by
   // default and re-shown by clicking their row in the bookmarks table.
   const [visibleShapeIds, setVisibleShapeIds] = useState([])
+
+  // "For You" curated feed. Tailored by implicit signals (seeded for the
+  // prototype). The only user control is reactive: dismiss/mute an item.
+  const [dismissedForYouIds, setDismissedForYouIds] = useState([])
+
+  const dismissForYouItem = useCallback((itemId) => {
+    if (!itemId) return
+    setDismissedForYouIds((prev) =>
+      prev.includes(itemId) ? prev : [...prev, itemId]
+    )
+  }, [])
+
+  const forYouItems = useMemo(
+    () => seedForYouItems.filter((item) => !dismissedForYouIds.includes(item.id)),
+    [dismissedForYouIds]
+  )
 
   const showShape = useCallback((shapeId) => {
     if (!shapeId) return
@@ -111,6 +128,14 @@ export function ShipProvider({ children }) {
     if (!shapeId) return
     setBookmarkedShapes((prev) => prev.filter((shape) => shape.id !== shapeId))
     setVisibleShapeIds((prev) => prev.filter((id) => id !== shapeId))
+  }, [])
+
+  // Add an already-formed shape (e.g. promoting a "For You" area) to bookmarks.
+  const addBookmarkedShape = useCallback((shape) => {
+    if (!shape?.id) return
+    setBookmarkedShapes((prev) =>
+      prev.some((existing) => existing.id === shape.id) ? prev : [...prev, shape]
+    )
   }, [])
 
   const openShipTab = useCallback((detection) => {
@@ -373,9 +398,12 @@ export function ShipProvider({ children }) {
         completeShapeDraw,
         saveShape,
         removeShape,
+        addBookmarkedShape,
         showShape,
         hideShape,
         toggleShapeVisibility,
+        forYouItems,
+        dismissForYouItem,
       }}
     >
       {children}

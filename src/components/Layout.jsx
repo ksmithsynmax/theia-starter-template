@@ -11,16 +11,22 @@ import ShipFiltersPanel from './ShipFiltersPanel'
 import MapLayersPanel from './MapLayersPanel'
 import { useShipContext } from '../context/ShipContext'
 import SecondaryNav from './SecondaryNav'
+import ForYouSecondaryNav from './ForYouSecondaryNav'
 
 function Layout() {
   const TIMELINE_PANEL_HEIGHT = 172
   const watchlistVersion = 'version7'
-  const [portVisibilityBehavior, setPortVisibilityBehavior] = useState(
-    'strict-layer-toggle-v2'
-  )
+  const [portVisibilityBehavior] = useState('strict-layer-toggle-v2')
+  // "For You" map marker rendering approach. Surfaced through the repurposed
+  // top-nav dropdown so we can compare approaches: 'pin' | 'pulse' | 'priority'.
+  const [forYouMarkerMode, setForYouMarkerMode] = useState('pin')
+  // A/B for the save-to-bookmarks icon + naming in the For You list, since
+  // Bookmarks uses a star but For You shipped with a bookmark icon.
+  // 'proto1' = star icon + "Bookmark"; 'proto2' = bookmark icon + "Save".
+  const [forYouPrototype, setForYouPrototype] = useState('proto1')
   const [forceHideSelectedPortContext, setForceHideSelectedPortContext] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
-  const [secondaryNavOpen, setSecondaryNavOpen] = useState(false)
+  const [secondaryNavOpen, setSecondaryNavOpen] = useState(true)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
   const [mapLayersOpen, setMapLayersOpen] = useState(false)
   const [portsLayerVisible, setPortsLayerVisible] = useState(false)
@@ -192,6 +198,35 @@ function Layout() {
     [navigate, openPortTab]
   )
 
+  const handleForYouShipSelect = useCallback(
+    (item) => {
+      if (!item?.shipId) return
+      handleShipSelectFromBookmarks(item.shipId)
+    },
+    [handleShipSelectFromBookmarks]
+  )
+
+  const handleForYouPortSelect = useCallback(
+    (item) => {
+      if (!item?.portId) return
+      handlePortSelectFromBookmarks({
+        id: item.portId,
+        name: item.name,
+        flag: item.flag,
+      })
+    },
+    [handlePortSelectFromBookmarks]
+  )
+
+  const handleForYouItemClick = useCallback(
+    (item) => {
+      if (!item) return
+      if (item.kind === 'ship') handleForYouShipSelect(item)
+      else if (item.kind === 'port') handleForYouPortSelect(item)
+    },
+    [handleForYouShipSelect, handleForYouPortSelect]
+  )
+
   const handleRemoveTimelineEvent = useCallback((eventId) => {
     setTimelineEvents((prev) => prev.filter((event) => String(event.id) !== String(eventId)))
     setSelectedTimelineEventId((prev) => (String(prev) === String(eventId) ? null : prev))
@@ -247,8 +282,10 @@ function Layout() {
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TopNav
-        portVisibilityBehavior={portVisibilityBehavior}
-        onPortVisibilityBehaviorChange={setPortVisibilityBehavior}
+        markerMode={forYouMarkerMode}
+        onMarkerModeChange={setForYouMarkerMode}
+        forYouPrototype={forYouPrototype}
+        onForYouPrototypeChange={setForYouPrototype}
       />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
@@ -263,6 +300,9 @@ function Layout() {
           portVisibilityBehavior={portVisibilityBehavior}
           forceHideSelectedPortContext={forceHideSelectedPortContext}
           portHoverCardEnabled={portHoverCardEnabled}
+          forYouActive={location.pathname === '/for-you'}
+          forYouMarkerMode={forYouMarkerMode}
+          onForYouItemClick={handleForYouItemClick}
         />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
@@ -380,6 +420,7 @@ function Layout() {
           <LeftNav
             onNavClick={handleNavClick}
             watchlistVersion={watchlistVersion}
+            forYouPrototype={forYouPrototype}
           />
           {!isTimelineView && (
             <>
@@ -389,8 +430,18 @@ function Layout() {
                 onClose={() => setSecondaryNavOpen(false)}
                 currentPath={location.pathname}
                 watchlistVersion={watchlistVersion}
+                forYouPrototype={forYouPrototype}
                 onShipSelect={handleShipSelectFromBookmarks}
                 onPortSelect={handlePortSelectFromBookmarks}
+              />
+              <ForYouSecondaryNav
+                isOpen={secondaryNavOpen}
+                onOpen={() => setSecondaryNavOpen(true)}
+                onClose={() => setSecondaryNavOpen(false)}
+                currentPath={location.pathname}
+                prototype={forYouPrototype}
+                onShipSelect={handleForYouShipSelect}
+                onPortSelect={handleForYouPortSelect}
               />
 
               <Box className={`slide-panel ${slidePanelClass}`}>

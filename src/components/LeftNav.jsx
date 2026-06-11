@@ -5,6 +5,7 @@ import {
   Bookmark,
   VideoRecorder,
   Clock,
+  Star01,
 } from '@untitledui/icons'
 import SatelliteIcon from '../custom-icons/SatelliteIcon'
 import OsintIcon from '../custom-icons/OsintIcon'
@@ -14,22 +15,34 @@ import LeftNavButton from './LeftNavButton'
 
 const timelineNavItem = { icon: <Clock color="white" size={20} />, to: '/timeline', label: 'Timeline' }
 
-const LeftNav = ({ onNavClick, watchlistVersion = 'grouped' }) => {
+const LeftNav = ({ onNavClick, watchlistVersion = 'grouped', forYouPrototype = 'proto1' }) => {
   const isVersion2 = watchlistVersion === 'version2'
   const isVersion4Or5 =
     watchlistVersion === 'version4' ||
     watchlistVersion === 'version5' ||
     watchlistVersion === 'version6' ||
     watchlistVersion === 'version7'
+  // Prototype 1 reframes "Bookmarks" as "Favorites" with a star icon.
+  const isFavoritesProto = forYouPrototype === 'proto1'
+  const bookmarksIcon =
+    isVersion4Or5 && isFavoritesProto ? (
+      <Star01 color="white" size={20} />
+    ) : isVersion4Or5 ? (
+      <Bookmark color="white" size={20} />
+    ) : (
+      <Signal01 color="white" size={20} />
+    )
+  const bookmarksLabel = isVersion4Or5
+    ? isFavoritesProto
+      ? 'Favorites'
+      : 'Bookmarks'
+    : 'Watchlist'
   const primaryNavItems = [
+    { icon: <Signal01 color="white" size={20} />, to: '/for-you', label: 'For You' },
     {
-      icon: isVersion4Or5 ? (
-        <Bookmark color="white" size={20} />
-      ) : (
-        <Signal01 color="white" size={20} />
-      ),
+      icon: bookmarksIcon,
       to: '/watchlist',
-      label: isVersion4Or5 ? 'Bookmarks' : 'Watchlist',
+      label: bookmarksLabel,
     },
     { icon: <SatelliteIcon />, to: '/tip-cue', label: 'Tip & Cue' },
     { icon: <VideoRecorder color="white" size={20} />, to: '/webcams', label: 'Webcams' },
