@@ -192,7 +192,7 @@ const EventTimelineCard = ({
                   transform: 'none',
                 }}
               >
-                View Event Location
+                Select
               </Button>
             )}
             {selected && onGoToDate && (
@@ -234,8 +234,8 @@ const EventTimelineCard = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 6,
-                padding: '0 10px',
+                padding: 0,
+                width: 32,
                 minWidth: 32,
                 height: 32,
                 border: '1px solid #fff',
@@ -246,9 +246,6 @@ const EventTimelineCard = ({
                   : 'transparent',
               }}
             >
-              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
-                {expanded ? 'Hide Details' : 'Show Details'}
-              </Text>
               {expanded ? (
                 <ChevronUp style={{ color: '#fff', width: 16, height: 16 }} />
               ) : (
@@ -441,7 +438,7 @@ const EventTimelineCard = ({
                 transform: 'none',
               }}
             >
-              View Event Location
+              Select
             </Button>
           )}
           {selected && onGoToDate && (
@@ -483,8 +480,8 @@ const EventTimelineCard = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 6,
-              padding: '0 10px',
+              padding: 0,
+              width: 32,
               minWidth: 32,
               height: 32,
               border: '1px solid #fff',
@@ -495,9 +492,6 @@ const EventTimelineCard = ({
                 : 'transparent',
             }}
           >
-            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
-              {expanded ? 'Hide Details' : 'Show Details'}
-            </Text>
             {expanded ? (
               <ChevronUp style={{ color: '#fff', width: 16, height: 16 }} />
             ) : (

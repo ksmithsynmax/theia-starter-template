@@ -300,8 +300,8 @@ textarea::placeholder {
 }
 
 .mapboxgl-marker.active::before {
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid white;
+  background: rgba(0, 148, 255, 0.2);
+  border: 2px solid #0094ff;
   opacity: 1;
 }
 
