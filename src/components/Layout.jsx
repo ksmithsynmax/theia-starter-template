@@ -18,12 +18,26 @@ function Layout() {
   const watchlistVersion = 'version7'
   const [portVisibilityBehavior] = useState('strict-layer-toggle-v2')
   // "For You" map marker rendering approach. Surfaced through the repurposed
-  // top-nav dropdown so we can compare approaches: 'pin' | 'pulse' | 'priority'.
-  const [forYouMarkerMode, setForYouMarkerMode] = useState('pin')
+  // top-nav dropdown so we can compare approaches:
+  // 'pin' | 'pulse' | 'priority' | 'ring'.
+  const [forYouMarkerMode, setForYouMarkerMode] = useState('ring')
+  // User-customizable styling for the 'ring' marker, edited from the For You
+  // panel: stroke color, solid/dashed line, and optional fill with opacity.
+  const [forYouRingConfig, setForYouRingConfig] = useState({
+    color: '#FFFFFF',
+    lineStyle: 'solid',
+    fill: true,
+    fillOpacity: 0.2,
+    borderWidth: 2.5,
+    size: 36,
+  })
   // A/B for the save-to-bookmarks icon + naming in the For You list, since
   // Bookmarks uses a star but For You shipped with a bookmark icon.
   // 'proto1' = star icon + "Bookmark"; 'proto2' = bookmark icon + "Save".
   const [forYouPrototype, setForYouPrototype] = useState('proto1')
+  // Keeps the For You list panel visible after drilling into a ship/port detail
+  // (which lives on the /myships route). Starts true since we land on For You.
+  const [forYouContext, setForYouContext] = useState(true)
   const [forceHideSelectedPortContext, setForceHideSelectedPortContext] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(true)
@@ -106,6 +120,9 @@ function Layout() {
 
   const handleNavClick = useCallback(
     (to) => {
+      // Leaving For You via the left nav exits the For You context; returning to
+      // it re-enters.
+      setForYouContext(to === '/for-you')
       if (location.pathname === to) {
         if (to === '/timeline') {
           setTimelinePanelOpen(true)
@@ -201,6 +218,8 @@ function Layout() {
   const handleForYouShipSelect = useCallback(
     (item) => {
       if (!item?.shipId) return
+      // Stay in the For You context so the list panel doesn't switch to Watchlist.
+      setForYouContext(true)
       handleShipSelectFromBookmarks(item.shipId)
     },
     [handleShipSelectFromBookmarks]
@@ -209,6 +228,7 @@ function Layout() {
   const handleForYouPortSelect = useCallback(
     (item) => {
       if (!item?.portId) return
+      setForYouContext(true)
       handlePortSelectFromBookmarks({
         id: item.portId,
         name: item.name,
@@ -233,6 +253,11 @@ function Layout() {
   }, [])
 
   const isTimelineView = location.pathname === '/timeline'
+  // Show the For You list (instead of Watchlist) while browsing For You or while
+  // viewing a ship/port detail that was opened from For You.
+  const showForYouNav =
+    location.pathname === '/for-you' ||
+    (forYouContext && location.pathname.startsWith('/myships'))
   const showPanelExpand = !panelOpen && shipTabs.length > 0
   const slidePanelClass = panelOpen
     ? 'slide-panel--open'
@@ -302,6 +327,7 @@ function Layout() {
           portHoverCardEnabled={portHoverCardEnabled}
           forYouActive={location.pathname === '/for-you'}
           forYouMarkerMode={forYouMarkerMode}
+          forYouRingConfig={forYouRingConfig}
           onForYouItemClick={handleForYouItemClick}
         />
         {shipFiltersOpen && (
@@ -431,6 +457,7 @@ function Layout() {
                 currentPath={location.pathname}
                 watchlistVersion={watchlistVersion}
                 forYouPrototype={forYouPrototype}
+                forceHidden={showForYouNav}
                 onShipSelect={handleShipSelectFromBookmarks}
                 onPortSelect={handlePortSelectFromBookmarks}
               />
@@ -439,7 +466,11 @@ function Layout() {
                 onOpen={() => setSecondaryNavOpen(true)}
                 onClose={() => setSecondaryNavOpen(false)}
                 currentPath={location.pathname}
+                active={showForYouNav}
                 prototype={forYouPrototype}
+                markerMode={forYouMarkerMode}
+                ringConfig={forYouRingConfig}
+                onRingConfigChange={setForYouRingConfig}
                 onShipSelect={handleForYouShipSelect}
                 onPortSelect={handleForYouPortSelect}
               />
@@ -486,6 +517,7 @@ function Layout() {
                         forceHideSelectedPortContext,
                         onForceHideSelectedPortContextChange: setForceHideSelectedPortContext,
                         portShapeControlEnabled,
+                        forYouPrototype,
                       }}
                     />
                   </Box>

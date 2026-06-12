@@ -6,6 +6,7 @@ import {
   BezierCurve03,
   Bell02,
   List,
+  Grid01,
   Signal01,
   Star01,
   Bookmark,
@@ -453,6 +454,171 @@ const DataTable = ({
   )
 }
 
+const BookmarkCardList = ({
+  rows,
+  kind,
+  emptyMessage,
+  onRowClick,
+  activeRowId,
+  onRemoveRow,
+}) => {
+  const [hoveredRowId, setHoveredRowId] = useState(null)
+  const isInteractive = typeof onRowClick === 'function'
+  const hasRemove = typeof onRemoveRow === 'function'
+  const resolvedActiveRowId =
+    activeRowId === null || activeRowId === undefined
+      ? null
+      : String(activeRowId)
+
+  if (!rows || rows.length === 0) {
+    return (
+      <Box
+        style={{
+          border: '1px solid #393C56',
+          borderRadius: 4,
+          background: '#181926',
+          padding: '16px',
+          color: '#888F9E',
+          fontSize: 12,
+        }}
+      >
+        {emptyMessage}
+      </Box>
+    )
+  }
+
+  const renderIcon = () => {
+    if (kind === 'port') {
+      return (
+        <Box
+          component="img"
+          src={AnchorIcon}
+          alt=""
+          style={{ width: 18, height: 18, display: 'block' }}
+        />
+      )
+    }
+    if (kind === 'shape') {
+      return <PolygonIcon style={{ width: 18, height: 18 }} />
+    }
+    return <ShipIcon style={{ width: 18, height: 18 }} />
+  }
+
+  const getSecondary = (row) => {
+    const clean = (value) => {
+      const str = String(value ?? '').trim()
+      if (!str || str.toLowerCase() === 'no info') return ''
+      return str
+    }
+    let parts = []
+    if (kind === 'ship') parts = [clean(row.type), clean(row.port)]
+    else if (kind === 'port') parts = [clean(row.country), clean(row.risk)]
+    else parts = [clean(row.polygonType), clean(row.region)]
+    return parts.filter(Boolean).join('  \u00B7  ')
+  }
+
+  return (
+    <Box style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {rows.map((row) => {
+        const isActive = resolvedActiveRowId === String(row.id)
+        const isHovered = hoveredRowId === row.id
+        const secondary = getSecondary(row)
+        return (
+          <Box
+            key={row.id}
+            onClick={isInteractive ? () => onRowClick(row) : undefined}
+            onMouseEnter={() => setHoveredRowId(row.id)}
+            onMouseLeave={() => setHoveredRowId(null)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: 8,
+              borderRadius: 4,
+              border: `1px solid ${isActive ? '#006CD7' : '#393C56'}`,
+              background: isActive
+                ? 'linear-gradient(0deg, rgba(0,108,215,0.16), rgba(0,108,215,0.16)), #24263C'
+                : '#24263C',
+              cursor: isInteractive ? 'pointer' : 'default',
+            }}
+          >
+            <Box
+              style={{
+                width: 40,
+                height: 40,
+                flexShrink: 0,
+                borderRadius: 4,
+                background: '#181926',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {renderIcon()}
+            </Box>
+            <Box style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                style={{
+                  color: '#FFFFFF',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {row.name}
+                {row.flag && String(row.flag).trim() && row.flag !== '-'
+                  ? ` ${row.flag}`
+                  : ''}
+              </Text>
+              {secondary && (
+                <Text
+                  style={{
+                    color: '#888F9E',
+                    fontSize: 12,
+                    marginTop: 2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {secondary}
+                </Text>
+              )}
+            </Box>
+            {hasRemove && (
+              <Box
+                component="button"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onRemoveRow(row)
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 24,
+                  height: 24,
+                  flexShrink: 0,
+                  border: 'none',
+                  background: 'transparent',
+                  padding: 0,
+                  cursor: 'pointer',
+                  opacity: isHovered ? 1 : 0.65,
+                }}
+              >
+                <Trash01 size={14} color="#A4ABBE" />
+              </Box>
+            )}
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
 const SecondaryNav = ({
   isOpen,
   onOpen,
@@ -460,6 +626,7 @@ const SecondaryNav = ({
   currentPath,
   watchlistVersion = 'grouped',
   forYouPrototype = 'proto1',
+  forceHidden = false,
   onShipSelect,
   onPortSelect,
 }) => {
@@ -503,6 +670,7 @@ const SecondaryNav = ({
   const [shapeNameInput, setShapeNameInput] = useState('')
   const [activeShapeRowId, setActiveShapeRowId] = useState(null)
   const [openTableFilterId, setOpenTableFilterId] = useState(null)
+  const [bookmarkViewMode, setBookmarkViewMode] = useState('table')
   const [shipTableFilters, setShipTableFilters] = useState({
     type: 'all',
     flag: 'all',
@@ -510,6 +678,10 @@ const SecondaryNav = ({
   const [portTableFilters, setPortTableFilters] = useState({
     country: 'all',
     risk: 'all',
+  })
+  const [shapeTableFilters, setShapeTableFilters] = useState({
+    visibility: 'all',
+    type: 'all',
   })
   const [showQuickAddBanner, setShowQuickAddBanner] = useState(true)
   const [collapseHovered, setCollapseHovered] = useState(false)
@@ -545,10 +717,13 @@ const SecondaryNav = ({
     removeShape,
     showShape,
     visibleShapeIds,
+    seedFavoritesForTesting,
   } = useShipContext()
+  const [devSeedHovered, setDevSeedHovered] = useState(false)
 
   const isWatchlistView =
-    currentPath === '/watchlist' || currentPath.startsWith('/myships')
+    !forceHidden &&
+    (currentPath === '/watchlist' || currentPath.startsWith('/myships'))
   const isGroupedVersion = watchlistVersion === 'grouped'
   const isVersion2 = watchlistVersion === 'version2'
   const isVersion3 = watchlistVersion === 'version3'
@@ -1044,6 +1219,9 @@ const SecondaryNav = ({
   )
   const version4BookmarkedAlertRows = useMemo(() => [], [])
   const activeShipRowId = useMemo(() => {
+    // Ships/ports and shapes are mutually exclusive: if a shape is shown on the
+    // map, no ship row should read as active.
+    if ((visibleShapeIds || []).length > 0) return null
     const activeTab = shipTabs.find(
       (tab) => String(tab?.id) === String(activeShipTab)
     )
@@ -1092,8 +1270,11 @@ const SecondaryNav = ({
     version2MyWatchlistShipRows,
     shipTabs,
     activeShipTab,
+    visibleShapeIds,
   ])
   const activePortRowId = useMemo(() => {
+    // Mutually exclusive with shapes shown on the map.
+    if ((visibleShapeIds || []).length > 0) return null
     const activeTab = shipTabs.find(
       (tab) => String(tab?.id) === String(activeShipTab)
     )
@@ -1121,7 +1302,7 @@ const SecondaryNav = ({
           .toLowerCase() === activePortName
     )
     return nameMatchedRow?.id ? String(nameMatchedRow.id) : null
-  }, [shipTabs, activeShipTab, version2MyWatchlistPortRows])
+  }, [shipTabs, activeShipTab, version2MyWatchlistPortRows, visibleShapeIds])
   const normalizedBookmarkSearchQuery = useMemo(
     () => version2BookmarkSearchQuery.trim().toLowerCase(),
     [version2BookmarkSearchQuery]
@@ -1223,6 +1404,32 @@ const SecondaryNav = ({
         return countryMatches && riskMatches
       }),
     [searchedVersion2PortRows, portTableFilters]
+  )
+  const shapeTypeFilterOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          version4BookmarkedPolygonRows
+            .map((row) => String(row?.polygonType || '').trim())
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [version4BookmarkedPolygonRows]
+  )
+  const filteredVersion4BookmarkedPolygonRows = useMemo(
+    () =>
+      version4BookmarkedPolygonRows.filter((row) => {
+        const isShown = (visibleShapeIds || []).includes(row.id)
+        const visibilityMatches =
+          shapeTableFilters.visibility === 'all' ||
+          (shapeTableFilters.visibility === 'shown' && isShown) ||
+          (shapeTableFilters.visibility === 'hidden' && !isShown)
+        const typeMatches =
+          shapeTableFilters.type === 'all' ||
+          String(row?.polygonType || '').trim() === shapeTableFilters.type
+        return visibilityMatches && typeMatches
+      }),
+    [version4BookmarkedPolygonRows, shapeTableFilters, visibleShapeIds]
   )
   const shipIdByNormalizedName = useMemo(() => {
     const normalizeShipName = (value) =>
@@ -2255,6 +2462,37 @@ const SecondaryNav = ({
           <CollapseButton
             backgroundColor={collapseHovered ? '#4C5070' : '#393C56'}
           />
+        </Box>
+      )}
+
+      {isOpen && isWatchlistView && (
+        <Box
+          component="button"
+          type="button"
+          onClick={() => seedFavoritesForTesting?.()}
+          onMouseEnter={() => setDevSeedHovered(true)}
+          onMouseLeave={() => setDevSeedHovered(false)}
+          title="Dev: fill with sample ships, ports, and shapes"
+          style={{
+            position: 'absolute',
+            left: 0,
+            bottom: 0,
+            width: navWidth,
+            padding: '8px 0',
+            border: 'none',
+            borderTop: '1px solid #23263B',
+            background: 'transparent',
+            color: '#888F9E',
+            fontSize: 10,
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+            opacity: devSeedHovered ? 0.85 : 0.25,
+            transition: 'opacity 0.2s ease',
+            zIndex: 10,
+          }}
+        >
+          Load sample data
         </Box>
       )}
 
@@ -4727,6 +4965,59 @@ const SecondaryNav = ({
                     }}
                   />
                 </Box>
+                <Box
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    width: '100%',
+                  }}
+                >
+                  <Box
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      border: '1px solid #393C56',
+                      borderRadius: 4,
+                      background: '#0A0E19',
+                      padding: 2,
+                    }}
+                  >
+                    {[
+                      { id: 'table', label: 'Table view', Icon: List },
+                      { id: 'cards', label: 'Card view', Icon: Grid01 },
+                    ].map(({ id, label, Icon }) => {
+                      const isActive = bookmarkViewMode === id
+                      return (
+                        <Box
+                          key={id}
+                          component="button"
+                          type="button"
+                          title={label}
+                          aria-label={label}
+                          onClick={() => setBookmarkViewMode(id)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 28,
+                            height: 24,
+                            border: 'none',
+                            borderRadius: 3,
+                            background: isActive ? '#24263C' : 'transparent',
+                            cursor: 'pointer',
+                            padding: 0,
+                          }}
+                        >
+                          <Icon
+                            size={15}
+                            color={isActive ? '#FFFFFF' : '#A4ABBE'}
+                          />
+                        </Box>
+                      )
+                    })}
+                  </Box>
+                </Box>
                 {(!isVersion4Or5 ||
                   version2MyWatchlistShipRows.length > 0 ||
                   hasBookmarkSearchQuery) && (
@@ -4944,14 +5235,25 @@ const SecondaryNav = ({
                         </Box>
                       )}
                     </Box>
-                    <DataTable
-                      rows={filteredVersion2ShipRows}
-                      columns={getColumnsByTab('ships')}
-                      emptyMessage={`No ships in ${listCollectionLabelLower} yet.`}
-                      onRowClick={handleShipRowClick}
-                      activeRowId={activeShipRowId}
-                      onRemoveRow={handleRemoveShipBookmark}
-                    />
+                    {bookmarkViewMode === 'cards' ? (
+                      <BookmarkCardList
+                        rows={filteredVersion2ShipRows}
+                        kind="ship"
+                        emptyMessage={`No ships in ${listCollectionLabelLower} yet.`}
+                        onRowClick={handleShipRowClick}
+                        activeRowId={activeShipRowId}
+                        onRemoveRow={handleRemoveShipBookmark}
+                      />
+                    ) : (
+                      <DataTable
+                        rows={filteredVersion2ShipRows}
+                        columns={getColumnsByTab('ships')}
+                        emptyMessage={`No ships in ${listCollectionLabelLower} yet.`}
+                        onRowClick={handleShipRowClick}
+                        activeRowId={activeShipRowId}
+                        onRemoveRow={handleRemoveShipBookmark}
+                      />
+                    )}
                   </>
                 )}
                 {(!isVersion4Or5 ||
@@ -5179,20 +5481,32 @@ const SecondaryNav = ({
                         </Box>
                       )}
                     </Box>
-                    <DataTable
-                      rows={filteredVersion2PortRows}
-                      columns={getColumnsByTab('ports')}
-                      emptyMessage={`No ports in ${listCollectionLabelLower} yet.`}
-                      onRowClick={handlePortRowClick}
-                      activeRowId={activePortRowId}
-                      onRemoveRow={handleRemovePortBookmark}
-                    />
+                    {bookmarkViewMode === 'cards' ? (
+                      <BookmarkCardList
+                        rows={filteredVersion2PortRows}
+                        kind="port"
+                        emptyMessage={`No ports in ${listCollectionLabelLower} yet.`}
+                        onRowClick={handlePortRowClick}
+                        activeRowId={activePortRowId}
+                        onRemoveRow={handleRemovePortBookmark}
+                      />
+                    ) : (
+                      <DataTable
+                        rows={filteredVersion2PortRows}
+                        columns={getColumnsByTab('ports')}
+                        emptyMessage={`No ports in ${listCollectionLabelLower} yet.`}
+                        onRowClick={handlePortRowClick}
+                        activeRowId={activePortRowId}
+                        onRemoveRow={handleRemovePortBookmark}
+                      />
+                    )}
                   </>
                 )}
                 {isVersion4Or5 && version4BookmarkedPolygonRows.length > 0 && (
                   <>
                     <Box
                       style={{
+                        position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -5207,11 +5521,16 @@ const SecondaryNav = ({
                         }}
                       >
                         {polygonEntityLabelPlural}:{' '}
-                        {version4BookmarkedPolygonRows.length}
+                        {filteredVersion4BookmarkedPolygonRows.length}
                       </Text>
                       <Box
                         component="button"
                         type="button"
+                        onClick={() =>
+                          setOpenTableFilterId((prev) =>
+                            prev === 'shapes' ? null : 'shapes'
+                          )
+                        }
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -5222,31 +5541,196 @@ const SecondaryNav = ({
                           background: 'transparent',
                           padding: 0,
                           cursor: 'pointer',
-                          color: '#A4ABBE',
+                          color:
+                            openTableFilterId === 'shapes'
+                              ? '#FFFFFF'
+                              : '#A4ABBE',
                         }}
                       >
-                        <Sliders04 size={16} color="#A4ABBE" />
+                        <Sliders04
+                          size={16}
+                          color={
+                            openTableFilterId === 'shapes'
+                              ? '#FFFFFF'
+                              : '#A4ABBE'
+                          }
+                        />
                       </Box>
+                      {openTableFilterId === 'shapes' && (
+                        <Box
+                          style={{
+                            position: 'absolute',
+                            top: 'calc(100% + 6px)',
+                            right: 0,
+                            zIndex: 20,
+                            width: 230,
+                            border: '1px solid #393C56',
+                            borderRadius: 6,
+                            background: '#24263C',
+                            padding: 12,
+                            display: 'flex',
+                            flexDirection: 'column',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#FFFFFF',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              marginBottom: 8,
+                            }}
+                          >
+                            {polygonEntityLabelSingular} filters
+                          </Text>
+
+                          <Box style={{ marginBottom: 8 }}>
+                            <Text
+                              style={{
+                                color: '#8D93A8',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                marginBottom: 4,
+                              }}
+                            >
+                              Map visibility
+                            </Text>
+                            <Box
+                              component="select"
+                              value={shapeTableFilters.visibility}
+                              onChange={(event) => {
+                                const nextVisibility = event.currentTarget.value
+                                setShapeTableFilters((prev) => ({
+                                  ...prev,
+                                  visibility: nextVisibility,
+                                }))
+                              }}
+                              style={{
+                                width: '100%',
+                                height: 30,
+                                border: '1px solid #393C56',
+                                borderRadius: 4,
+                                background: '#0A0E19',
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                padding: '0 30px 0 10px',
+                                outline: 'none',
+                                appearance: 'none',
+                                WebkitAppearance: 'none',
+                                MozAppearance: 'none',
+                                backgroundImage:
+                                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: 'right 10px center',
+                              }}
+                            >
+                              <option value="all">All</option>
+                              <option value="shown">Shown on map</option>
+                              <option value="hidden">Hidden</option>
+                            </Box>
+                          </Box>
+
+                          <Box style={{ marginBottom: 8 }}>
+                            <Text
+                              style={{
+                                color: '#8D93A8',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                marginBottom: 4,
+                              }}
+                            >
+                              Type
+                            </Text>
+                            <Box
+                              component="select"
+                              value={shapeTableFilters.type}
+                              onChange={(event) => {
+                                const nextType = event.currentTarget.value
+                                setShapeTableFilters((prev) => ({
+                                  ...prev,
+                                  type: nextType,
+                                }))
+                              }}
+                              style={{
+                                width: '100%',
+                                height: 30,
+                                border: '1px solid #393C56',
+                                borderRadius: 4,
+                                background: '#0A0E19',
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                padding: '0 30px 0 10px',
+                                outline: 'none',
+                                appearance: 'none',
+                                WebkitAppearance: 'none',
+                                MozAppearance: 'none',
+                                backgroundImage:
+                                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: 'right 10px center',
+                              }}
+                            >
+                              <option value="all">All types</option>
+                              {shapeTypeFilterOptions.map((type) => (
+                                <option key={`shape-type-${type}`} value={type}>
+                                  {type}
+                                </option>
+                              ))}
+                            </Box>
+                          </Box>
+                          <Box
+                            component="button"
+                            type="button"
+                            onClick={() =>
+                              setShapeTableFilters({
+                                visibility: 'all',
+                                type: 'all',
+                              })
+                            }
+                            style={{
+                              marginLeft: 'auto',
+                              border: 'none',
+                              background: 'transparent',
+                              color: '#fff',
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              padding: 0,
+                            }}
+                          >
+                            Clear filters
+                          </Box>
+                        </Box>
+                      )}
                     </Box>
-                    <DataTable
-                      rows={version4BookmarkedPolygonRows}
-                      columns={
-                        isVersion5
-                          ? getColumnsByTab('polygons').map((column) =>
-                              column.key === 'name'
-                                ? {
-                                    ...column,
-                                    label: polygonEntityLabelSingular,
-                                  }
-                                : column
-                            )
-                          : getColumnsByTab('polygons')
-                      }
-                      emptyMessage={`No ${polygonEntityLabelLowerPlural} in ${listCollectionLabelLower} yet.`}
-                      onRowClick={handleShapeRowClick}
-                      activeRowId={activeShapeRowId}
-                      onRemoveRow={(row) => removeShape(row.id)}
-                    />
+                    {bookmarkViewMode === 'cards' ? (
+                      <BookmarkCardList
+                        rows={filteredVersion4BookmarkedPolygonRows}
+                        kind="shape"
+                        emptyMessage={`No ${polygonEntityLabelLowerPlural} in ${listCollectionLabelLower} yet.`}
+                        onRowClick={handleShapeRowClick}
+                        activeRowId={activeShapeRowId}
+                        onRemoveRow={(row) => removeShape(row.id)}
+                      />
+                    ) : (
+                      <DataTable
+                        rows={filteredVersion4BookmarkedPolygonRows}
+                        columns={
+                          isVersion5
+                            ? getColumnsByTab('polygons').map((column) =>
+                                column.key === 'name'
+                                  ? {
+                                      ...column,
+                                      label: polygonEntityLabelSingular,
+                                    }
+                                  : column
+                              )
+                            : getColumnsByTab('polygons')
+                        }
+                        emptyMessage={`No ${polygonEntityLabelLowerPlural} in ${listCollectionLabelLower} yet.`}
+                        onRowClick={handleShapeRowClick}
+                        activeRowId={activeShapeRowId}
+                        onRemoveRow={(row) => removeShape(row.id)}
+                      />
+                    )}
                   </>
                 )}
                 {isVersion4Or5 && version4BookmarkedAlertRows.length > 0 && (

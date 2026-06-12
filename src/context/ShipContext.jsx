@@ -299,6 +299,73 @@ export function ShipProvider({ children }) {
     )
   }, [])
 
+  // Dev helper: fill Favorites/Bookmarks with sample ships, ports, and shapes so
+  // the panel doesn't have to be populated by hand every time while testing.
+  const seedFavoritesForTesting = useCallback(() => {
+    setFavoriteShipIds((prev) => {
+      const merged = new Set(prev)
+      ;['invictus', 'tiffani', 'celestine', 'wisdom-star'].forEach((id) =>
+        merged.add(id)
+      )
+      return [...merged]
+    })
+    setFavoritePorts((prev) => {
+      const samples = [
+        { id: 'port-dubai', name: 'Dubai', flag: '\u{1F1E6}\u{1F1EA}' },
+        { id: 'port-muscat', name: 'Muscat', flag: '\u{1F1F4}\u{1F1F2}' },
+        { id: 'port-fujairah', name: 'Fujairah', flag: '\u{1F1E6}\u{1F1EA}' },
+      ]
+      const existing = new Set(prev.map((p) => p.id))
+      return [...prev, ...samples.filter((p) => !existing.has(p.id))]
+    })
+    setBookmarkedShapes((prev) => {
+      const now = new Date().toISOString()
+      const samples = [
+        {
+          id: 'shape-hormuz',
+          name: 'Strait of Hormuz watch',
+          type: 'polygon',
+          createdAt: now,
+          coordinates: [
+            [55.9, 26.1],
+            [57.1, 26.1],
+            [57.1, 27.0],
+            [55.9, 27.0],
+            [55.9, 26.1],
+          ],
+        },
+        {
+          id: 'shape-gulf-oman',
+          name: 'Gulf of Oman box',
+          type: 'polygon',
+          createdAt: now,
+          coordinates: [
+            [58.5, 22.5],
+            [61.5, 22.5],
+            [61.5, 24.5],
+            [58.5, 24.5],
+            [58.5, 22.5],
+          ],
+        },
+        {
+          id: 'shape-arabian-sea',
+          name: 'Arabian Sea zone',
+          type: 'polygon',
+          createdAt: now,
+          coordinates: [
+            [59.0, 15.0],
+            [63.0, 15.0],
+            [63.0, 18.0],
+            [59.0, 18.0],
+            [59.0, 15.0],
+          ],
+        },
+      ]
+      const existing = new Set(prev.map((s) => s.id))
+      return [...prev, ...samples.filter((s) => !existing.has(s.id))]
+    })
+  }, [])
+
   const toggleFavoritePort = useCallback((port) => {
     if (!port?.id) return
     setFavoritePorts((prev) => {
@@ -353,6 +420,7 @@ export function ShipProvider({ children }) {
         closeMapToolPanel,
         toggleFavoriteShip,
         toggleFavoritePort,
+        seedFavoritesForTesting,
         openShipTab,
         openPortTab,
         openStsTab,

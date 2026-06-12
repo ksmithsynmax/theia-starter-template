@@ -369,6 +369,14 @@ const Map = forwardRef(function Map(
     portHoverCardEnabled = true,
     forYouActive = false,
     forYouMarkerMode = 'pin',
+    forYouRingConfig = {
+      color: '#FFFFFF',
+      lineStyle: 'solid',
+      fill: true,
+      fillOpacity: 0.2,
+      borderWidth: 2.5,
+      size: 36,
+    },
     onForYouItemClick,
   },
   ref
@@ -2262,10 +2270,75 @@ const Map = forwardRef(function Map(
       return { el, anchor: 'center' }
     }
 
+    const ringInnerIconPaths = (kind, color) => {
+      if (kind === 'port') {
+        return `<path d="M9.99984 6.66675C11.3805 6.66675 12.4998 5.54746 12.4998 4.16675C12.4998 2.78604 11.3805 1.66675 9.99984 1.66675C8.61913 1.66675 7.49984 2.78604 7.49984 4.16675C7.49984 5.54746 8.61913 6.66675 9.99984 6.66675ZM9.99984 6.66675V18.3334M9.99984 18.3334C7.7897 18.3334 5.67008 17.4554 4.10728 15.8926C2.54448 14.3298 1.6665 12.2102 1.6665 10.0001H4.1665M9.99984 18.3334C12.21 18.3334 14.3296 17.4554 15.8924 15.8926C17.4552 14.3298 18.3332 12.2102 18.3332 10.0001H15.8332" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
+      }
+      if (kind === 'shape') {
+        return `<path d="M9.04746 5.83333L4.28555 14.1667M4.99984 15.8333H14.9997M15.7141 14.1667L10.9522 5.83333M2.99984 17.5H3.6665C4.13321 17.5 4.36657 17.5 4.54483 17.4092C4.70163 17.3293 4.82911 17.2018 4.90901 17.045C4.99984 16.8667 4.99984 16.6334 4.99984 16.1667V15.5C4.99984 15.0333 4.99984 14.7999 4.90901 14.6217C4.82911 14.4649 4.70163 14.3374 4.54483 14.2575C4.36657 14.1667 4.13321 14.1667 3.6665 14.1667H2.99984C2.53313 14.1667 2.29977 14.1667 2.12151 14.2575C1.96471 14.3374 1.83723 14.4649 1.75733 14.6217C1.6665 14.7999 1.6665 15.0333 1.6665 15.5V16.1667C1.6665 16.6334 1.6665 16.8667 1.75733 17.045C1.83723 17.2018 1.96471 17.3293 2.12151 17.4092C2.29977 17.5 2.53313 17.5 2.99984 17.5ZM16.3332 17.5H16.9998C17.4665 17.5 17.6999 17.5 17.8782 17.4092C18.035 17.3293 18.1624 17.2018 18.2423 17.045C18.3332 16.8667 18.3332 16.6334 18.3332 16.1667V15.5C18.3332 15.0333 18.3332 14.7999 18.2423 14.6217C18.1624 14.4649 18.035 14.3374 17.8782 14.2575C17.6999 14.1667 17.4665 14.1667 16.9998 14.1667H16.3332C15.8665 14.1667 15.6331 14.1667 15.4548 14.2575C15.298 14.3374 15.1706 14.4649 15.0907 14.6217C14.9998 14.7999 14.9998 15.0333 14.9998 15.5V16.1667C14.9998 16.6334 14.9998 16.8667 15.0907 17.045C15.1706 17.2018 15.298 17.3293 15.4548 17.4092C15.6331 17.5 15.8665 17.5 16.3332 17.5Z" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
+      }
+      // ship / detection
+      return (
+        `<path d="M15.8333 17.5L17.2458 13.6146C17.3157 13.4225 17.3125 13.2114 17.2369 13.0215C17.1614 12.8316 17.0186 12.6761 16.8358 12.5846L10.3725 9.3529C10.2568 9.2951 10.1293 9.26501 9.99999 9.26501C9.87069 9.26501 9.74316 9.2951 9.6275 9.3529L3.16416 12.5846C2.98132 12.676 2.83847 12.8315 2.7628 13.0214C2.68712 13.2113 2.6839 13.4224 2.75374 13.6146L4.16666 17.5" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>` +
+        `<path d="M12.0833 5.83332V2.49999C12.0833 2.27898 11.9955 2.06701 11.8393 1.91073C11.683 1.75445 11.471 1.66666 11.25 1.66666H8.74999C8.52898 1.66666 8.31702 1.75445 8.16074 1.91073C8.00446 2.06701 7.91666 2.27898 7.91666 2.49999V5.83332M14.5833 5.83332H5.41666C5.19565 5.83332 4.98369 5.92112 4.82741 6.0774C4.67113 6.23368 4.58333 6.44564 4.58333 6.66666V11.6667L9.65083 9.32791C9.7603 9.27739 9.87943 9.25123 9.99999 9.25123C10.1206 9.25123 10.2397 9.27739 10.3492 9.32791L15.4167 11.6667V6.66666C15.4167 6.44564 15.3289 6.23368 15.1726 6.0774C15.0163 5.92112 14.8043 5.83332 14.5833 5.83332Z" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>` +
+        `<path d="M10 13.3333V16.6666" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>` +
+        `<path d="M1.66666 18.3333C3.33333 18.3333 3.33333 17.5 4.58333 17.5C5.83333 17.5 5.83333 18.3333 7.08333 18.3333C8.33333 18.3333 8.54166 17.5 10 17.5C11.4583 17.5 11.6667 18.3333 12.9167 18.3333C14.1667 18.3333 14.1667 17.5 15.4167 17.5C16.6667 17.5 16.6667 18.3333 18.3333 18.3333" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
+      )
+    }
+
+    const buildRingEl = (item) => {
+      const el = document.createElement('div')
+      el.style.cursor = 'pointer'
+      // Kill the inline-SVG descender gap so the ring centers on the geo point
+      // (and thus on the underlying detection marker, which does the same).
+      el.style.lineHeight = '0'
+
+      const color = forYouRingConfig?.color || '#FFFFFF'
+      const isDashed = forYouRingConfig?.lineStyle === 'dashed'
+      const hasFill = forYouRingConfig?.fill !== false
+      const fillOpacity = hasFill
+        ? Number(forYouRingConfig?.fillOpacity ?? 0.2)
+        : 0
+      const borderWidth = Number(forYouRingConfig?.borderWidth ?? 2.5)
+      const dashAttr = isDashed ? ' stroke-dasharray="5 4"' : ''
+      // Ring diameter is freely sized via the slider; the port disc + anchor
+      // stay a fixed size (like detection markers don't resize).
+      const PORT_DISC = 26
+      const PORT_ICON = 16
+      const rawSize = Number(forYouRingConfig?.size)
+      const ringDiameter = Number.isFinite(rawSize)
+        ? Math.min(64, Math.max(24, rawSize))
+        : 36
+      const isPort = item.kind === 'port'
+      const dim = isPort ? Math.max(ringDiameter, PORT_DISC) : ringDiameter
+      const center = dim / 2
+      const ringRadius = ringDiameter / 2 - borderWidth
+
+      // Ports have no underlying map marker, so render a self-contained marker:
+      // a fixed dark disc + anchor icon with the (resizable) ring centered over
+      // it. Ships and shapes use an empty ring that encircles their detection.
+      let inner = ''
+      if (isPort) {
+        const scale = PORT_ICON / 20
+        const offset = (dim - PORT_ICON) / 2
+        inner =
+          `<circle cx="${center}" cy="${center}" r="${PORT_DISC / 2}" fill="#111326"/>` +
+          `<g transform="translate(${offset},${offset}) scale(${scale})">${ringInnerIconPaths('port', '#FFFFFF')}</g>`
+      }
+
+      el.innerHTML =
+        `<svg width="${dim}" height="${dim}" viewBox="0 0 ${dim} ${dim}" fill="none" xmlns="http://www.w3.org/2000/svg">` +
+        inner +
+        `<circle cx="${center}" cy="${center}" r="${Math.max(0, ringRadius)}" fill="${color}" fill-opacity="${fillOpacity}" stroke="${color}" stroke-width="${borderWidth}"${dashAttr}/>` +
+        `</svg>`
+      return { el, anchor: 'center' }
+    }
+
     const builders = {
       pin: buildPinEl,
       pulse: buildPulseEl,
       priority: buildPriorityEl,
+      ring: buildRingEl,
     }
     const build = builders[forYouMarkerMode] || buildPinEl
 
@@ -2301,7 +2374,14 @@ const Map = forwardRef(function Map(
       }
       forYouFittedRef.current = true
     }
-  }, [mapReady, forYouActive, forYouMarkerMode, forYouItems, leftPanelInset])
+  }, [
+    mapReady,
+    forYouActive,
+    forYouMarkerMode,
+    forYouRingConfig,
+    forYouItems,
+    leftPanelInset,
+  ])
 
   // Interactive polygon drawing while a shape draw tool is active.
   useEffect(() => {

@@ -238,6 +238,7 @@ const TopNav = ({
             <option value="pin">Pins</option>
             <option value="pulse">Pulsing rings</option>
             <option value="priority">Priority badges</option>
+            <option value="ring">Custom ring</option>
           </Box>
         </Box>
         <Box component="button" type="button" className="topnav-icon-btn">

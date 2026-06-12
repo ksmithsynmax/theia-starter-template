@@ -16,6 +16,7 @@ import {
 import KeyValuePair from '../components/KeyValuePair'
 import {
   Star01,
+  Bookmark,
   Copy02,
   XClose,
   ChevronDown,
@@ -366,12 +367,14 @@ function Myships() {
     }, 0) + 1000
   )
   const allDetections = useMemo(() => runtimeDetections, [runtimeDetections])
-  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange, portShapeControlEnabled = true } = useOutletContext() || {}
+  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange, portShapeControlEnabled = true, forYouPrototype = 'proto1' } = useOutletContext() || {}
   const isBookmarkVersion =
     watchlistVersion === 'version4' ||
     watchlistVersion === 'version5' ||
     watchlistVersion === 'version6' ||
     watchlistVersion === 'version7'
+  // proto2 = Bookmarks (bookmark glyph); proto1 = Favorites (star glyph).
+  const isBookmarkProto = forYouPrototype === 'proto2'
 
   const updateOverflow = useCallback(() => {
     const el = tabScrollRef.current
@@ -2444,14 +2447,25 @@ function Myships() {
                           : 'transparent',
                     }}
                   >
-                    <Star01
-                      style={{
-                        color: isActiveShipFavorite ? '#F7C948' : '#fff',
-                        fill: isActiveShipFavorite ? '#F7C948' : 'none',
-                        width: 20,
-                        height: 20,
-                      }}
-                    />
+                    {isBookmarkProto ? (
+                      <Bookmark
+                        style={{
+                          color: isActiveShipFavorite ? '#0094FF' : '#fff',
+                          fill: isActiveShipFavorite ? '#0094FF' : 'none',
+                          width: 20,
+                          height: 20,
+                        }}
+                      />
+                    ) : (
+                      <Star01
+                        style={{
+                          color: isActiveShipFavorite ? '#F7C948' : '#fff',
+                          fill: isActiveShipFavorite ? '#F7C948' : 'none',
+                          width: 20,
+                          height: 20,
+                        }}
+                      />
+                    )}
                   </Box>
                 </Tooltip>
                 <Tooltip
@@ -4182,14 +4196,25 @@ function Myships() {
                         : 'transparent',
                   }}
                 >
-                  <Star01
-                    style={{
-                      color: isActivePortFavorite ? '#F7C948' : '#fff',
-                      fill: isActivePortFavorite ? '#F7C948' : 'none',
-                      width: 20,
-                      height: 20,
-                    }}
-                  />
+                  {isBookmarkProto ? (
+                    <Bookmark
+                      style={{
+                        color: isActivePortFavorite ? '#0094FF' : '#fff',
+                        fill: isActivePortFavorite ? '#0094FF' : 'none',
+                        width: 20,
+                        height: 20,
+                      }}
+                    />
+                  ) : (
+                    <Star01
+                      style={{
+                        color: isActivePortFavorite ? '#F7C948' : '#fff',
+                        fill: isActivePortFavorite ? '#F7C948' : 'none',
+                        width: 20,
+                        height: 20,
+                      }}
+                    />
+                  )}
                 </Box>
               </Tooltip>
               <Tooltip
