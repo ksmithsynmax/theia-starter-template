@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Box, Text, Button } from '@mantine/core'
-import { ChevronDown, ChevronUp, InfoCircle, Calendar } from '@untitledui/icons'
+import { Box, Text, Button, Switch, Checkbox, Tooltip } from '@mantine/core'
+import {
+  ChevronDown,
+  ChevronUp,
+  InfoCircle,
+  Calendar,
+  Eye,
+} from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
 import stsSatImage from '../../assets/HAfSz3HbAAA34GM.jpeg'
 import shipSatImage from '../../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
@@ -76,6 +82,9 @@ const EventTimelineCard = ({
   onGoToDate,
   isPreviewed,
   onTogglePreview,
+  isViewedOnMap,
+  onToggleViewOnMap,
+  viewOnMapVariant = 'switch',
   onViewStsShips,
   aisInfo = {},
   partnerAisInfo,
@@ -95,6 +104,141 @@ const EventTimelineCard = ({
     }
     onTogglePreview?.()
   }
+
+  // Control that shows the event on the map (fly to + highlight) without
+  // selecting it, so an analyst can scan an event before committing to it.
+  // Several layout variants are available for A/B testing.
+  const renderViewOnMapControl = () => {
+    if (!onToggleViewOnMap) return null
+    const checked = Boolean(isViewedOnMap)
+
+    if (viewOnMapVariant === 'checkbox') {
+      return (
+        <Checkbox
+          checked={checked}
+          onChange={(e) => onToggleViewOnMap?.(e.currentTarget.checked)}
+          color={PRIMARY_BUTTON_COLOR}
+          label="View on map"
+          styles={{
+            body: { alignItems: 'center' },
+            input: {
+              cursor: 'pointer',
+              '&:not(:checked)': {
+                backgroundColor: 'transparent',
+                borderColor: '#393C56',
+              },
+            },
+            label: {
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 500,
+              paddingLeft: 8,
+              cursor: 'pointer',
+            },
+          }}
+        />
+      )
+    }
+
+    // Active = a secondary "selected" treatment (blue tint + blue border/icon)
+    // rather than a solid primary, so it doesn't compete with the Select button.
+    const activeBg = 'rgba(0, 108, 215, 0.18)'
+    const activeAccent = '#fff'
+
+    if (viewOnMapVariant === 'icon') {
+      return (
+        <Tooltip label={checked ? 'Hide on map' : 'View on map'} withArrow>
+          <Box
+            role="button"
+            onClick={() => onToggleViewOnMap?.(!checked)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              minWidth: 32,
+              height: 32,
+              borderRadius: 4,
+              cursor: 'pointer',
+              border: `1px solid ${checked ? PRIMARY_BUTTON_COLOR : '#fff'}`,
+              background: checked ? activeBg : 'transparent',
+            }}
+          >
+            <Eye
+              style={{
+                color: checked ? activeAccent : '#fff',
+                width: 16,
+                height: 16,
+              }}
+            />
+          </Box>
+        </Tooltip>
+      )
+    }
+
+    if (viewOnMapVariant === 'button') {
+      return (
+        <Box
+          role="button"
+          onClick={() => onToggleViewOnMap?.(!checked)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            height: 32,
+            padding: '0 12px',
+            borderRadius: 4,
+            cursor: 'pointer',
+            border: `1px solid ${checked ? PRIMARY_BUTTON_COLOR : '#fff'}`,
+            background: checked ? activeBg : 'transparent',
+          }}
+        >
+          <Eye
+            style={{
+              color: checked ? activeAccent : '#fff',
+              width: 14,
+              height: 14,
+            }}
+          />
+          <Text
+            style={{
+              color: checked ? activeAccent : '#fff',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            View on map
+          </Text>
+        </Box>
+      )
+    }
+
+    // Default: switch + label
+    return (
+      <Switch
+        checked={checked}
+        onChange={(e) => onToggleViewOnMap?.(e.currentTarget.checked)}
+        size="sm"
+        color={PRIMARY_BUTTON_COLOR}
+        withThumbIndicator={false}
+        label="View on map"
+        labelPosition="right"
+        styles={{
+          body: { alignItems: 'center' },
+          track: { cursor: 'pointer' },
+          label: {
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: 500,
+            paddingLeft: 8,
+            cursor: 'pointer',
+          },
+        }}
+      />
+    )
+  }
+
+  const viewOnMapToggle = renderViewOnMapControl()
 
   useEffect(() => {
     if (selected) {
@@ -173,6 +317,10 @@ const EventTimelineCard = ({
             </Box>
           </Box>
           <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!selected &&
+              viewOnMapVariant !== 'icon' &&
+              viewOnMapVariant !== 'button' &&
+              viewOnMapToggle}
             {!selected && (
               <Button
                 size="xs"
@@ -226,6 +374,10 @@ const EventTimelineCard = ({
                 Go to Date
               </Button>
             )}
+            {!selected &&
+              (viewOnMapVariant === 'icon' ||
+                viewOnMapVariant === 'button') &&
+              viewOnMapToggle}
             <Box
               onClick={handlePreviewToggle}
               onMouseEnter={() => setDetailsHovered(true)}
@@ -420,6 +572,10 @@ const EventTimelineCard = ({
           </Box>
         </Box>
         <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {!selected &&
+              viewOnMapVariant !== 'icon' &&
+              viewOnMapVariant !== 'button' &&
+              viewOnMapToggle}
           {!selected && (
             <Button
               size="xs"
@@ -472,6 +628,10 @@ const EventTimelineCard = ({
               Go to Date
             </Button>
           )}
+          {!selected &&
+              (viewOnMapVariant === 'icon' ||
+                viewOnMapVariant === 'button') &&
+              viewOnMapToggle}
           <Box
             onClick={handlePreviewToggle}
             onMouseEnter={() => setDetailsHovered(true)}

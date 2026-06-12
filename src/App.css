@@ -299,6 +299,21 @@ textarea::placeholder {
   opacity: 0;
 }
 
+/* Trail of previously-clicked detections: dimmed white halo. */
+.mapboxgl-marker.visited::before {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  opacity: 1;
+}
+
+/* Previewing an event ("View on map") — outlined blue halo, no fill,
+   to read as "looking at" rather than selected. */
+.mapboxgl-marker.previewed::before {
+  background: transparent;
+  border: 2px dashed rgba(0, 148, 255, 0.9);
+  opacity: 1;
+}
+
 .mapboxgl-marker.active::before {
   background: rgba(0, 148, 255, 0.2);
   border: 2px solid #0094ff;

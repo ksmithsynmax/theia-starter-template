@@ -12,6 +12,7 @@ import {
   Button,
   Accordion,
   Select,
+  Switch,
 } from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
 import {
@@ -246,6 +247,9 @@ function Myships() {
     activeDetectionId,
     setActiveDetectionId,
     setPreviewDetectionId,
+    viewOnMapDetectionIds,
+    toggleViewOnMapDetection,
+    setViewOnMapDetectionIds,
     setPanelFocusDetectionId,
     runtimeDetections,
     setRuntimeDetections,
@@ -366,7 +370,7 @@ function Myships() {
     }, 0) + 1000
   )
   const allDetections = useMemo(() => runtimeDetections, [runtimeDetections])
-  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange, portShapeControlEnabled = true } = useOutletContext() || {}
+  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange, portShapeControlEnabled = true, viewOnMapVariant = 'switch' } = useOutletContext() || {}
   const isBookmarkVersion =
     watchlistVersion === 'version4' ||
     watchlistVersion === 'version5' ||
@@ -1078,6 +1082,43 @@ function Myships() {
       ),
     [filteredTimelineItems, timelineSortOrder]
   )
+
+  // Detections in the timeline that can be toggled "View on map".
+  const timelineDetectionIds = useMemo(
+    () =>
+      sortedFilteredTimelineItems
+        .filter((i) => i.kind !== 'context' && i.detection)
+        .map((i) => String(i.detection.id)),
+    [sortedFilteredTimelineItems]
+  )
+
+  const viewOnMapIdSet = useMemo(
+    () => new Set((viewOnMapDetectionIds || []).map(String)),
+    [viewOnMapDetectionIds]
+  )
+
+  const allViewedOnMap =
+    timelineDetectionIds.length > 0 &&
+    timelineDetectionIds.every((id) => viewOnMapIdSet.has(id))
+
+  const someViewedOnMap =
+    !allViewedOnMap && timelineDetectionIds.some((id) => viewOnMapIdSet.has(id))
+
+  const handleToggleAllViewOnMap = useCallback(() => {
+    const ids = timelineDetectionIds
+    setViewOnMapDetectionIds((prev) => {
+      const prevIds = (prev || []).map(String)
+      if (ids.length > 0 && ids.every((id) => prevIds.includes(id))) {
+        // All on → turn the timeline detections off (leave others untouched).
+        const remove = new Set(ids)
+        return prevIds.filter((id) => !remove.has(id))
+      }
+      // Otherwise turn them all on (union with anything already shown).
+      const merged = new Set(prevIds)
+      ids.forEach((id) => merged.add(id))
+      return [...merged]
+    })
+  }, [timelineDetectionIds, setViewOnMapDetectionIds])
 
   const latestDetection = activeShipDetections[0] || null
   const latestAisDetection =
@@ -3324,6 +3365,51 @@ function Myships() {
                         />
                       </Box>
                     </Box>
+                    {timelineDetectionIds.length > 0 && (
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: '#1B1D2E',
+                          border: '1px solid #393C56',
+                          borderRadius: 4,
+                          padding: '10px 12px',
+                          marginBottom: 4,
+                        }}
+                      >
+                        <Box>
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 13,
+                              fontWeight: 600,
+                            }}
+                          >
+                            View all Events on map
+                          </Text>
+                          <Text style={{ color: '#898f9d', fontSize: 11 }}>
+                            {someViewedOnMap
+                              ? `${
+                                  timelineDetectionIds.filter((id) =>
+                                    viewOnMapIdSet.has(id)
+                                  ).length
+                                } of ${timelineDetectionIds.length} shown`
+                              : allViewedOnMap
+                                ? 'All events shown on the map'
+                                : 'Toggle every event on the map at once'}
+                          </Text>
+                        </Box>
+                        <Switch
+                          checked={allViewedOnMap}
+                          onChange={handleToggleAllViewOnMap}
+                          size="sm"
+                          color="#006CD7"
+                          withThumbIndicator={false}
+                          styles={{ track: { cursor: 'pointer' } }}
+                        />
+                      </Box>
+                    )}
                     {sortedFilteredTimelineItems.map((item, index) => {
                       const isLastTimelineItem =
                         index === sortedFilteredTimelineItems.length - 1
@@ -3332,7 +3418,7 @@ function Myships() {
                         return (
                           <Box
                             key={contextEvent.id}
-                            style={{ marginBottom: isLastTimelineItem ? 0 : 8 }}
+                            style={{ marginBottom: isLastTimelineItem ? 0 : 4 }}
                           >
                             <EventTimelineCard
                               date={contextEvent.dateLabel}
@@ -3383,7 +3469,7 @@ function Myships() {
                           ref={(el) => {
                             cardRefs.current[det.id] = el
                           }}
-                          style={{ marginBottom: isLastTimelineItem ? 0 : 8 }}
+                          style={{ marginBottom: isLastTimelineItem ? 0 : 4 }}
                         >
                           <EventTimelineCard
                             date={det.date}
@@ -3409,6 +3495,17 @@ function Myships() {
                               // Keep "Show Details" local to the card; do not move map focus.
                               setPreviewDetectionId(null)
                             }}
+                            isViewedOnMap={viewOnMapDetectionIds.some(
+                              (id) =>
+                                normalizeDetectionId(id) ===
+                                normalizeDetectionId(det.id)
+                            )}
+                            onToggleViewOnMap={() => {
+                              // Preview the event on the map (fly + highlight)
+                              // without selecting it. Multiple can be on at once.
+                              toggleViewOnMapDetection(det.id)
+                            }}
+                            viewOnMapVariant={viewOnMapVariant}
                             onGoToDate={
                               detDateKey !== mapDate
                                 ? () => {

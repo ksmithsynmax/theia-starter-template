@@ -94,6 +94,8 @@ const TopNav = ({
   onMarkerModeChange,
   forYouPrototype = 'proto1',
   onForYouPrototypeChange,
+  viewOnMapVariant = 'switch',
+  onViewOnMapVariantChange,
 }) => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -238,6 +240,31 @@ const TopNav = ({
             <option value="pin">Pins</option>
             <option value="pulse">Pulsing rings</option>
             <option value="priority">Priority badges</option>
+          </Box>
+          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>View on map UI</Text>
+          <Box
+            component="select"
+            value={viewOnMapVariant}
+            onChange={(event) =>
+              onViewOnMapVariantChange?.(event.currentTarget.value)
+            }
+            style={{
+              height: 32,
+              background: '#24263C',
+              border: '1px solid #393C56',
+              color: '#FFFFFF',
+              borderRadius: 4,
+              padding: '0 32px 0 10px',
+              minWidth: 150,
+              fontSize: 12,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="switch">Switch + label</option>
+            <option value="checkbox">Checkbox + label</option>
+            <option value="icon">Icon only</option>
+            <option value="button">Toggle button</option>
           </Box>
         </Box>
         <Box component="button" type="button" className="topnav-icon-btn">

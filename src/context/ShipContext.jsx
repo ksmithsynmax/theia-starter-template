@@ -29,6 +29,21 @@ export function ShipProvider({ children }) {
   const [mapDate, setMapDate] = useState(todayStr)
   const [activeDetectionId, setActiveDetectionId] = useState(null)
   const [previewDetectionId, setPreviewDetectionId] = useState(null)
+  // Trail of detections the analyst has clicked. The most recent is the active
+  // (blue) highlight; earlier ones keep a dimmed white halo so the analyst can
+  // see the full story. Cleared when ship tabs close.
+  const [visitedDetectionIds, setVisitedDetectionIds] = useState([])
+  // Detections toggled on via "View on map". Multiple can be shown at once so
+  // an analyst can compare several detections without selecting any. Cleared
+  // when ship tabs close.
+  const [viewOnMapDetectionIds, setViewOnMapDetectionIds] = useState([])
+
+  const toggleViewOnMapDetection = useCallback((detectionId) => {
+    const id = String(detectionId)
+    setViewOnMapDetectionIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }, [])
   const [panelFocusDetectionId, setPanelFocusDetectionId] = useState(null)
   const [runtimeDetections, setRuntimeDetections] = useState(seedDetections)
   const [shipFilters, setShipFilters] = useState(SHIP_FILTER_DEFAULTS)
@@ -237,6 +252,10 @@ export function ShipProvider({ children }) {
       setActiveDetectionId(detection.id)
       setPreviewDetectionId(null)
       setPanelFocusDetectionId(detection.id)
+      setVisitedDetectionIds((prev) => {
+        const id = String(detection.id)
+        return prev.includes(id) ? prev : [...prev, id]
+      })
 
       if (source === 'map') {
         setDetailPanelOpen(true)
@@ -247,6 +266,7 @@ export function ShipProvider({ children }) {
 
   const closeShipTab = useCallback(
     (id) => {
+      const wasActive = String(id) === String(activeShipTab)
       setShipTabs((prev) => {
         const updated = prev.filter((t) => t.id !== id)
         if (id === activeShipTab && updated.length > 0) {
@@ -257,6 +277,17 @@ export function ShipProvider({ children }) {
         }
         return updated
       })
+      // Closing the active tab must clear its detection selection, otherwise the
+      // ship stays highlighted in Favorites and active on the map.
+      if (wasActive) {
+        setSelectedDetectionId(null)
+        setActiveDetectionId(null)
+        setPanelFocusDetectionId(null)
+        setPreviewDetectionId(null)
+      }
+      // Closing a tab clears the clicked-detection trail and map previews.
+      setVisitedDetectionIds([])
+      setViewOnMapDetectionIds([])
     },
     [activeShipTab]
   )
@@ -266,6 +297,12 @@ export function ShipProvider({ children }) {
     setActiveShipTab(null)
     setDetailPanelOpen(false)
     setOpenMapToolPanelsByTab({})
+    setSelectedDetectionId(null)
+    setActiveDetectionId(null)
+    setPanelFocusDetectionId(null)
+    setPreviewDetectionId(null)
+    setVisitedDetectionIds([])
+    setViewOnMapDetectionIds([])
   }, [])
 
   const toggleMapToolPanel = useCallback((toolId) => {
@@ -369,6 +406,10 @@ export function ShipProvider({ children }) {
         setActiveDetectionId,
         previewDetectionId,
         setPreviewDetectionId,
+        visitedDetectionIds,
+        viewOnMapDetectionIds,
+        toggleViewOnMapDetection,
+        setViewOnMapDetectionIds,
         panelFocusDetectionId,
         setPanelFocusDetectionId,
         runtimeDetections,

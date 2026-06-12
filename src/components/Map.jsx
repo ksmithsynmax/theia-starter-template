@@ -377,6 +377,8 @@ const Map = forwardRef(function Map(
     activeDetectionId,
     previewDetectionId,
     panelFocusDetectionId,
+    visitedDetectionIds,
+    viewOnMapDetectionIds,
     mapDate,
     activeShipTab,
     shipTabs,
@@ -1900,10 +1902,18 @@ const Map = forwardRef(function Map(
       previewDetectionId == null ? null : String(previewDetectionId)
     const primaryFocusId = panelFocusId || activeId
 
-    // Clear all selection/preview highlights
+    // Clear all selection/preview/visited highlights
     Object.values(markersRef.current).forEach((m) => {
       m.getElement().classList.remove('active')
       m.getElement().classList.remove('previewed')
+      m.getElement().classList.remove('visited')
+    })
+
+    // Dimmed white halo on every previously-clicked detection (the trail),
+    // except the one that is currently active.
+    ;(visitedDetectionIds || []).forEach((id) => {
+      if (String(id) === String(primaryFocusId)) return
+      markersRef.current[String(id)]?.getElement().classList.add('visited')
     })
 
     if (primaryFocusId) {
@@ -1911,10 +1921,14 @@ const Map = forwardRef(function Map(
       selectedMarker?.getElement().classList.add('active')
     }
 
-    if (previewId && !primaryFocusId) {
-      const previewMarker = markersRef.current[previewId]
-      previewMarker?.getElement().classList.add('previewed')
-    }
+    // "View on map" previews — multiple can be highlighted at once. The legacy
+    // single previewDetectionId is folded in for any other preview flows.
+    const previewSet = new Set((viewOnMapDetectionIds || []).map(String))
+    if (previewId) previewSet.add(previewId)
+    previewSet.forEach((id) => {
+      if (String(id) === String(primaryFocusId)) return
+      markersRef.current[String(id)]?.getElement().classList.add('previewed')
+    })
 
     // Panel-selected event is authoritative, then active, then preview.
     const focusDetectionId = primaryFocusId || previewId
@@ -1947,9 +1961,59 @@ const Map = forwardRef(function Map(
     panelFocusDetectionId,
     activeDetectionId,
     previewDetectionId,
+    visitedDetectionIds,
+    viewOnMapDetectionIds,
     runtimeDetections,
     panelAwareFocusPadding,
   ])
+
+  // Fly to a detection when it's newly toggled on via "View on map" (without
+  // moving the camera when one is toggled off).
+  const viewOnMapPrevRef = useRef([])
+  useEffect(() => {
+    if (!map.current) return
+    const prev = new Set(viewOnMapPrevRef.current.map(String))
+    const curr = (viewOnMapDetectionIds || []).map(String)
+    const added = curr.filter((id) => !prev.has(id))
+    viewOnMapPrevRef.current = curr
+    if (added.length === 0) return
+
+    const addedDets = added
+      .map((id) => runtimeDetections.find((d) => String(d.id) === String(id)))
+      .filter(
+        (d) =>
+          d &&
+          typeof d.lng === 'number' &&
+          typeof d.lat === 'number' &&
+          Number.isFinite(d.lng) &&
+          Number.isFinite(d.lat)
+      )
+    if (addedDets.length === 0) return
+
+    if (addedDets.length === 1) {
+      map.current.flyTo({
+        center: [addedDets[0].lng, addedDets[0].lat],
+        zoom: 6,
+        duration: 1500,
+        padding: panelAwareFocusPadding,
+      })
+      return
+    }
+
+    // Multiple toggled on at once (e.g. "View all on map") → frame them all.
+    const bounds = addedDets.reduce(
+      (acc, d) => acc.extend([d.lng, d.lat]),
+      new mapboxgl.LngLatBounds(
+        [addedDets[0].lng, addedDets[0].lat],
+        [addedDets[0].lng, addedDets[0].lat]
+      )
+    )
+    map.current.fitBounds(bounds, {
+      padding: panelAwareFocusPadding,
+      duration: 1500,
+      maxZoom: 7,
+    })
+  }, [viewOnMapDetectionIds, runtimeDetections, panelAwareFocusPadding])
 
   // Filter markers by date, but keep selected/preview detection visible
   useEffect(() => {
@@ -1963,6 +2027,9 @@ const Map = forwardRef(function Map(
       previewDetectionId == null ? null : String(previewDetectionId)
     const primaryFocusId = panelFocusId || activeId
 
+    const visitedSet = new Set((visitedDetectionIds || []).map(String))
+    const viewOnMapSet = new Set((viewOnMapDetectionIds || []).map(String))
+
     runtimeDetections.forEach((det) => {
       const marker = markersRef.current[det.id]
       if (!marker) return
@@ -1970,11 +2037,17 @@ const Map = forwardRef(function Map(
       const isSelected =
         primaryFocusId != null && String(det.id) === String(primaryFocusId)
       const isPreviewed = previewId != null && String(det.id) === previewId
+      const isVisited = visitedSet.has(String(det.id))
+      const isViewedOnMap = viewOnMapSet.has(String(det.id))
       const isCurrentDate = getDateKey(det.date) === mapDate
       const isTypeEnabled = enabledDetectionTypes.has(det.type)
       el.dataset.historical = isCurrentDate ? 'false' : 'true'
       el.style.display =
-        (isCurrentDate && isTypeEnabled) || isSelected || isPreviewed
+        (isCurrentDate && isTypeEnabled) ||
+        isSelected ||
+        isPreviewed ||
+        isVisited ||
+        isViewedOnMap
           ? ''
           : 'none'
     })
@@ -1983,6 +2056,8 @@ const Map = forwardRef(function Map(
     enabledDetectionTypes,
     panelFocusDetectionId,
     activeDetectionId,
+    visitedDetectionIds,
+    viewOnMapDetectionIds,
     previewDetectionId,
     runtimeDetections,
   ])

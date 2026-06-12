@@ -24,6 +24,7 @@ function Layout() {
   // Bookmarks uses a star but For You shipped with a bookmark icon.
   // 'proto1' = star icon + "Bookmark"; 'proto2' = bookmark icon + "Save".
   const [forYouPrototype, setForYouPrototype] = useState('proto1')
+  const [viewOnMapVariant, setViewOnMapVariant] = useState('switch')
   const [forceHideSelectedPortContext, setForceHideSelectedPortContext] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(true)
@@ -286,6 +287,8 @@ function Layout() {
         onMarkerModeChange={setForYouMarkerMode}
         forYouPrototype={forYouPrototype}
         onForYouPrototypeChange={setForYouPrototype}
+        viewOnMapVariant={viewOnMapVariant}
+        onViewOnMapVariantChange={setViewOnMapVariant}
       />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
@@ -486,6 +489,7 @@ function Layout() {
                         forceHideSelectedPortContext,
                         onForceHideSelectedPortContextChange: setForceHideSelectedPortContext,
                         portShapeControlEnabled,
+                        viewOnMapVariant,
                       }}
                     />
                   </Box>
