@@ -4407,7 +4407,9 @@ const SecondaryNav = ({
                   }}
                 >
                   {isVersion4Or5
-                    ? 'Add bookmarks'
+                    ? isFavoritesProto
+                      ? 'Add to Favorites'
+                      : 'Add to Bookmarks'
                     : isVersion3
                       ? 'Start tracking'
                       : `Add to ${listCollectionLabel}`}
@@ -5038,7 +5040,7 @@ const SecondaryNav = ({
                           gap: 6,
                         }}
                       >
-                        {isVersion4Or5 && (
+                        {isVersion4Or5 && bookmarkViewMode === 'table' && (
                           <ShipIcon
                             style={{
                               width: 16,
@@ -5276,7 +5278,7 @@ const SecondaryNav = ({
                           gap: 6,
                         }}
                       >
-                        {isVersion4Or5 && (
+                        {isVersion4Or5 && bookmarkViewMode === 'table' && (
                           <Box
                             component="img"
                             src={AnchorIcon}
@@ -5513,16 +5515,32 @@ const SecondaryNav = ({
                         width: '100%',
                       }}
                     >
-                      <Text
+                      <Box
                         style={{
-                          color: '#FFFFFF',
-                          fontSize: 14,
-                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
                         }}
                       >
-                        {polygonEntityLabelPlural}:{' '}
-                        {filteredVersion4BookmarkedPolygonRows.length}
-                      </Text>
+                        {isVersion4Or5 && bookmarkViewMode === 'table' && (
+                          <PolygonIcon
+                            style={{
+                              width: 16,
+                              height: 16,
+                            }}
+                          />
+                        )}
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 14,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {polygonEntityLabelPlural}:{' '}
+                          {filteredVersion4BookmarkedPolygonRows.length}
+                        </Text>
+                      </Box>
                       <Box
                         component="button"
                         type="button"
@@ -5818,7 +5836,9 @@ const SecondaryNav = ({
                 >
                   {activeTopTab === 'my-watchlist'
                     ? isVersion4Or5
-                      ? 'Add bookmarks'
+                      ? isFavoritesProto
+                        ? 'Add to Favorites'
+                        : 'Add to Bookmarks'
                       : 'Start tracking'
                     : 'No recently viewed items'}
                 </Text>

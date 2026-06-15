@@ -201,6 +201,27 @@ const getPolygonCenter = (feature) => {
   return [cx * k, cy * k]
 }
 
+// Top-center of a polygon's bounding box. Used to anchor the floating shape
+// label above the shape (horizontally centered) instead of over its center
+// marker.
+const getPolygonTopCenter = (feature) => {
+  const ring = feature?.geometry?.coordinates?.[0]
+  if (!Array.isArray(ring) || ring.length < 3) return null
+  let minLng = Infinity
+  let maxLng = -Infinity
+  let maxLat = -Infinity
+  ring.forEach(([lng, lat]) => {
+    if (Number.isFinite(lng)) {
+      if (lng < minLng) minLng = lng
+      if (lng > maxLng) maxLng = lng
+    }
+    if (Number.isFinite(lat) && lat > maxLat) maxLat = lat
+  })
+  if (!Number.isFinite(minLng) || !Number.isFinite(maxLng) || !Number.isFinite(maxLat))
+    return null
+  return [(minLng + maxLng) / 2, maxLat]
+}
+
 const ALERT_PREVIEW_AREAS = {
   persian_gulf: {
     label: 'Persian Gulf',
@@ -2103,8 +2124,12 @@ const Map = forwardRef(function Map(
     })
 
     visibleShapes.forEach((shape) => {
-      const center = getPolygonCenter(shapeToPolygonFeature(shape, 'saved'))
-      if (!center) return
+      const feature = shapeToPolygonFeature(shape, 'saved')
+      // Anchor the label above the shape, horizontally centered, so it doesn't
+      // sit on top of the centered For You ring marker.
+      const labelPoint =
+        getPolygonTopCenter(feature) || getPolygonCenter(feature)
+      if (!labelPoint) return
 
       let marker = shapeMarkersRef.current[shape.id]
       if (!marker) {
@@ -2148,12 +2173,16 @@ const Map = forwardRef(function Map(
         })
         el.appendChild(closeButton)
 
-        marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-          .setLngLat(center)
+        marker = new mapboxgl.Marker({
+          element: el,
+          anchor: 'bottom',
+          offset: [0, -8],
+        })
+          .setLngLat(labelPoint)
           .addTo(m)
         shapeMarkersRef.current[shape.id] = marker
       } else {
-        marker.setLngLat(center)
+        marker.setLngLat(labelPoint)
       }
 
       const labelEl = marker
@@ -2350,11 +2379,15 @@ const Map = forwardRef(function Map(
       // detection markers are created) so the ring fill never hides it.
       const innerKind =
         item.kind === 'port' ? 'port' : item.kind === 'shape' ? 'shape' : null
-      // Shapes have no underlying selectable marker, so when the shape is the
-      // active one we draw the white "active" halo onto its ring (ships get it
-      // from the detection marker, ports from the white port-icon border).
+      // Ports/shapes draw their own white "active" halo onto the For You ring
+      // (ships get it from the detection marker). The ring now sits on an opaque
+      // backing, so we can no longer rely on the underlying white port-icon
+      // border bleeding through — the halo is the active indicator for both.
       const isActive =
-        item.kind === 'shape' && (visibleShapeIds || []).includes(item.id)
+        (item.kind === 'shape' && (visibleShapeIds || []).includes(item.id)) ||
+        (item.kind === 'port' &&
+          item.portId != null &&
+          String(activeShipTab) === String(item.portId))
       const HALO_GAP = 3
       const HALO_WIDTH = 2
       const haloRadius = ringDiameter / 2 + HALO_GAP
@@ -2369,6 +2402,9 @@ const Map = forwardRef(function Map(
       // pick black or white based on the EFFECTIVE fill (the chosen color
       // composited at its opacity over the dark map). This keeps the glyph
       // readable from a transparent fill all the way to a solid light color.
+      // When active, lighten the interior with a translucent white overlay so it
+      // reads as a "white opacity overlay" wash (matching the active ship look).
+      const ACTIVE_OVERLAY_OPACITY = 0.3
       let inner = ''
       if (innerKind) {
         const fill = hexToRgb(color)
@@ -2377,6 +2413,11 @@ const Map = forwardRef(function Map(
           r: base.r * (1 - fillOpacity) + fill.r * fillOpacity,
           g: base.g * (1 - fillOpacity) + fill.g * fillOpacity,
           b: base.b * (1 - fillOpacity) + fill.b * fillOpacity,
+        }
+        if (isActive) {
+          eff.r = eff.r * (1 - ACTIVE_OVERLAY_OPACITY) + 255 * ACTIVE_OVERLAY_OPACITY
+          eff.g = eff.g * (1 - ACTIVE_OVERLAY_OPACITY) + 255 * ACTIVE_OVERLAY_OPACITY
+          eff.b = eff.b * (1 - ACTIVE_OVERLAY_OPACITY) + 255 * ACTIVE_OVERLAY_OPACITY
         }
         const luminance =
           (0.299 * eff.r + 0.587 * eff.g + 0.114 * eff.b) / 255
@@ -2391,12 +2432,30 @@ const Map = forwardRef(function Map(
         ? `<circle cx="${center}" cy="${center}" r="${haloRadius}" fill="none" stroke="#FFFFFF" stroke-width="${HALO_WIDTH}"/>`
         : ''
 
-      // Paint the halo, then the ring (fill + stroke), then the glyph on top so a
-      // high fill opacity can no longer hide the icon.
+      // Ports/shapes carry a glyph and have no marker beneath them, so paint an
+      // opaque dark disc behind the translucent fill. This keeps the interior a
+      // solid backdrop (no map labels bleeding through) while the colored fill
+      // still reads as an overlay on top. Ships stay open so their detection
+      // marker remains visible through the ring.
+      const backing = innerKind
+        ? `<circle cx="${center}" cy="${center}" r="${Math.max(0, ringRadius)}" fill="#0A0E19"/>`
+        : ''
+
+      // White wash over the colored fill when active (ports/shapes only), so the
+      // interior brightens like the active ship marker.
+      const activeOverlay =
+        isActive && innerKind
+          ? `<circle cx="${center}" cy="${center}" r="${Math.max(0, ringRadius)}" fill="#FFFFFF" fill-opacity="${ACTIVE_OVERLAY_OPACITY}"/>`
+          : ''
+
+      // Paint the halo, the dark backing, the colored ring (fill + stroke), the
+      // active white wash, then the glyph on top so the icon stays readable.
       el.innerHTML =
         `<svg width="${dim}" height="${dim}" viewBox="0 0 ${dim} ${dim}" fill="none" xmlns="http://www.w3.org/2000/svg">` +
         halo +
+        backing +
         `<circle cx="${center}" cy="${center}" r="${Math.max(0, ringRadius)}" fill="${color}" fill-opacity="${fillOpacity}" stroke="${color}" stroke-width="${borderWidth}"${dashAttr}/>` +
+        activeOverlay +
         inner +
         `</svg>`
       return { el, anchor: 'center' }
@@ -2481,6 +2540,7 @@ const Map = forwardRef(function Map(
     forYouItems,
     runtimeDetections,
     visibleShapeIds,
+    activeShipTab,
     leftPanelInset,
   ])
 

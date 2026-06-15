@@ -73,6 +73,8 @@ function Layout() {
     runtimeDetections,
     openPortTab,
     closeAllTabs,
+    addBookmarkedShape,
+    showShape,
   } =
     useShipContext()
 
@@ -277,14 +279,38 @@ function Layout() {
     })
   }, [])
 
+  const handleForYouShapeSelect = useCallback(
+    (item) => {
+      if (!item?.id) return
+      setForYouContext(true)
+      // Ships/shapes are mutually exclusive, so clear any open ship/port detail
+      // first, then (re-)show the saved area. This also re-enables a shape that
+      // was closed via the map label's "x" while its For You ring stayed on.
+      closeAllTabs()
+      addBookmarkedShape?.({
+        id: item.id,
+        name: item.name,
+        coordinates: item.geometry?.coordinates?.[0] || [],
+      })
+      showShape?.(item.id)
+    },
+    [closeAllTabs, addBookmarkedShape, showShape]
+  )
+
   const handleForYouItemClick = useCallback(
     (item) => {
       if (!item) return
       if (item.kind === 'ship') handleForYouShipSelect(item)
       else if (item.kind === 'port') handleForYouPortSelect(item)
+      else if (item.kind === 'shape') handleForYouShapeSelect(item)
       focusForYouItem(item)
     },
-    [handleForYouShipSelect, handleForYouPortSelect, focusForYouItem]
+    [
+      handleForYouShipSelect,
+      handleForYouPortSelect,
+      handleForYouShapeSelect,
+      focusForYouItem,
+    ]
   )
 
   const handleRemoveTimelineEvent = useCallback((eventId) => {
@@ -503,6 +529,7 @@ function Layout() {
             onNavClick={handleNavClick}
             watchlistVersion={watchlistVersion}
             forYouPrototype={forYouPrototype}
+            forYouActive={showForYouNav}
           />
           {!isTimelineView && (
             <>

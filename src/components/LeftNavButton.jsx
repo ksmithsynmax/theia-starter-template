@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Tooltip } from '@mantine/core'
 import { NavLink } from 'react-router-dom'
 
-const LeftNavButton = ({ icon, to, onNavClick, label }) => {
+const LeftNavButton = ({ icon, to, onNavClick, label, active }) => {
   const handleClick = (e) => {
     e.preventDefault()
     onNavClick(to)
@@ -34,7 +34,7 @@ const LeftNavButton = ({ icon, to, onNavClick, label }) => {
       <Box
         component={NavLink}
         to={to}
-        className="leftnav-btn"
+        className={`leftnav-btn${active ? ' active' : ''}`}
         onClick={handleClick}
         aria-label={label}
         title={label}

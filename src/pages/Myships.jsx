@@ -2408,7 +2408,9 @@ function Myships() {
                 <Tooltip
                   label={
                     isBookmarkVersion
-                      ? 'Bookmark'
+                      ? isBookmarkProto
+                        ? 'Bookmark'
+                        : 'Favorite'
                       : isActiveShipFavorite
                         ? 'Remove from My Ships'
                         : 'Add to My Ships'
@@ -4161,7 +4163,13 @@ function Myships() {
             </Box>
             <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Tooltip
-                label={isBookmarkVersion ? 'Bookmark' : 'Add/Remove from My Ships'}
+                label={
+                  isBookmarkVersion
+                    ? isBookmarkProto
+                      ? 'Bookmark'
+                      : 'Favorite'
+                    : 'Add/Remove from My Ships'
+                }
                 withArrow
                 openDelay={200}
                 styles={{

@@ -124,6 +124,7 @@ function ForYouSecondaryNav({
   } = useShipContext()
   const [expandHovered, setExpandHovered] = useState(false)
   const [collapseHovered, setCollapseHovered] = useState(false)
+  const [hoveredItemId, setHoveredItemId] = useState(null)
   // The ring-style customizer is tucked behind a settings toggle so it isn't
   // always taking up space at the top of the feed.
   const [showRingSettings, setShowRingSettings] = useState(false)
@@ -677,10 +678,17 @@ function ForYouSecondaryNav({
                 (item.kind === 'port' && activeShipTab === item.portId) ||
                 (item.kind === 'shape' &&
                   (visibleShapeIds || []).includes(item.id))
+              const isHovered = clickable && hoveredItemId === item.id
               return (
                 <Box
                   key={item.id}
                   onClick={clickable ? () => handleRowClick(item) : undefined}
+                  onMouseEnter={
+                    clickable ? () => setHoveredItemId(item.id) : undefined
+                  }
+                  onMouseLeave={
+                    clickable ? () => setHoveredItemId(null) : undefined
+                  }
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
@@ -688,8 +696,12 @@ function ForYouSecondaryNav({
                     padding: 8,
                     background: isActive
                       ? 'linear-gradient(0deg, rgba(0,108,215,0.16), rgba(0,108,215,0.16)), #24263C'
-                      : '#24263C',
-                    border: `1px solid ${isActive ? '#006CD7' : '#393C56'}`,
+                      : isHovered
+                        ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                        : '#24263C',
+                    border: `1px solid ${
+                      isActive || isHovered ? '#006CD7' : '#393C56'
+                    }`,
                     borderRadius: 4,
                     marginBottom: 4,
                     cursor: clickable ? 'pointer' : 'default',
@@ -733,9 +745,17 @@ function ForYouSecondaryNav({
                     )}
                   </Box>
                   <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
                       <Text
                         style={{
+                          flex: 1,
+                          minWidth: 0,
                           color: '#FFFFFF',
                           fontSize: 13,
                           fontWeight: 600,
@@ -747,12 +767,14 @@ function ForYouSecondaryNav({
                         {item.name}
                         {item.flag ? ` ${item.flag}` : ''}
                       </Text>
-                    </Box>
-                    <Text style={{ color: '#888F9E', fontSize: 12, marginTop: 2 }}>
-                      {item.reason}
-                    </Text>
-                  </Box>
-                  <Box style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          flexShrink: 0,
+                        }}
+                      >
                     {showItemCheckboxes && (
                       <Tooltip
                         label={
@@ -780,8 +802,8 @@ function ForYouSecondaryNav({
                             display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            width: 24,
-                            height: 24,
+                            width: 22,
+                            height: 18,
                             border: 'none',
                             background: 'transparent',
                             cursor: 'pointer',
@@ -815,8 +837,8 @@ function ForYouSecondaryNav({
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          width: 24,
-                          height: 24,
+                          width: 22,
+                          height: 18,
                           border: 'none',
                           background: 'transparent',
                           cursor: 'pointer',
@@ -842,8 +864,8 @@ function ForYouSecondaryNav({
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          width: 24,
-                          height: 24,
+                          width: 22,
+                          height: 18,
                           border: 'none',
                           background: 'transparent',
                           cursor: 'pointer',
@@ -853,6 +875,17 @@ function ForYouSecondaryNav({
                         <Trash01 size={15} color="#888F9E" />
                       </Box>
                     </Tooltip>
+                      </Box>
+                    </Box>
+                    <Text
+                      style={{
+                        color: '#888F9E',
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      {item.reason}
+                    </Text>
                   </Box>
                 </Box>
               )

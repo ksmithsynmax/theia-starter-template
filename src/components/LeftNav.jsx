@@ -1,4 +1,5 @@
 import React from 'react'
+import { useLocation } from 'react-router-dom'
 import { Box } from '@mantine/core'
 import {
   Signal01,
@@ -15,7 +16,8 @@ import LeftNavButton from './LeftNavButton'
 
 const timelineNavItem = { icon: <Clock color="white" size={20} />, to: '/timeline', label: 'Timeline' }
 
-const LeftNav = ({ onNavClick, watchlistVersion = 'grouped', forYouPrototype = 'proto1' }) => {
+const LeftNav = ({ onNavClick, watchlistVersion = 'grouped', forYouPrototype = 'proto1', forYouActive = false }) => {
+  const location = useLocation()
   const isVersion2 = watchlistVersion === 'version2'
   const isVersion4Or5 =
     watchlistVersion === 'version4' ||
@@ -37,12 +39,24 @@ const LeftNav = ({ onNavClick, watchlistVersion = 'grouped', forYouPrototype = '
       ? 'Favorites'
       : 'Bookmarks'
     : 'Watchlist'
+  // Opening a ship/port from the watchlist or favorites navigates to /myships,
+  // which would otherwise drop the active highlight off this nav item. Treat
+  // /myships as part of the watchlist section unless we're in the For You flow.
+  const onWatchlistRoute =
+    location.pathname === '/watchlist' || location.pathname === '/myships'
+  const bookmarksActive = !forYouActive && onWatchlistRoute
   const primaryNavItems = [
-    { icon: <Signal01 color="white" size={20} />, to: '/for-you', label: 'For You' },
+    {
+      icon: <Signal01 color="white" size={20} />,
+      to: '/for-you',
+      label: 'For You',
+      active: forYouActive,
+    },
     {
       icon: bookmarksIcon,
       to: '/watchlist',
       label: bookmarksLabel,
+      active: bookmarksActive,
     },
     { icon: <SatelliteIcon />, to: '/tip-cue', label: 'Tip & Cue' },
     { icon: <VideoRecorder color="white" size={20} />, to: '/webcams', label: 'Webcams' },
@@ -72,6 +86,7 @@ const LeftNav = ({ onNavClick, watchlistVersion = 'grouped', forYouPrototype = '
             icon={item.icon}
             to={item.to}
             label={item.label}
+            active={item.active}
             onNavClick={onNavClick}
           />
         ))}
