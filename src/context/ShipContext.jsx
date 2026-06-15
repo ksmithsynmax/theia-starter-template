@@ -266,6 +266,11 @@ export function ShipProvider({ children }) {
     setActiveShipTab(null)
     setDetailPanelOpen(false)
     setOpenMapToolPanelsByTab({})
+    // Also clear any detection selection; otherwise the map's detection-focus
+    // effect can re-fire and fly back to a previously selected detection.
+    setActiveDetectionId(null)
+    setPreviewDetectionId(null)
+    setPanelFocusDetectionId(null)
   }, [])
 
   const toggleMapToolPanel = useCallback((toolId) => {

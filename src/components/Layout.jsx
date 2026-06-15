@@ -21,14 +21,23 @@ function Layout() {
   // top-nav dropdown so we can compare approaches:
   // 'pin' | 'pulse' | 'priority' | 'ring'.
   const [forYouMarkerMode, setForYouMarkerMode] = useState('ring')
+  // Master on/off for all "For You" map markers (defaults to visible).
+  const [forYouMarkersVisible, setForYouMarkersVisible] = useState(true)
+  // When the master toggle is off, these item ids are shown individually.
+  const [forYouVisibleIds, setForYouVisibleIds] = useState([])
+  // Explicit "fly to this item" request. The built-in port/shape focus logic
+  // only recenters under certain conditions (first-visible / unchanged focus
+  // key), so re-clicking an item wouldn't always move the map. This nonce-keyed
+  // target guarantees every For You click recenters on the item.
+  const [forYouFocus, setForYouFocus] = useState(null)
   // User-customizable styling for the 'ring' marker, edited from the For You
   // panel: stroke color, solid/dashed line, and optional fill with opacity.
   const [forYouRingConfig, setForYouRingConfig] = useState({
-    color: '#FFFFFF',
+    color: '#F75349',
     lineStyle: 'solid',
     fill: true,
     fillOpacity: 0.2,
-    borderWidth: 2.5,
+    borderWidth: 2,
     size: 36,
   })
   // A/B for the save-to-bookmarks icon + naming in the For You list, since
@@ -63,6 +72,7 @@ function Layout() {
     mapDate,
     runtimeDetections,
     openPortTab,
+    closeAllTabs,
   } =
     useShipContext()
 
@@ -86,6 +96,19 @@ function Layout() {
   useEffect(() => {
     if (shipTabs.length === 0) setPanelOpen(false)
   }, [shipTabs])
+
+  // While browsing For You, drilling into a ship/port moves to /myships. Once
+  // the detail closes (no tabs left), return to the canonical /for-you route so
+  // we never sit on /myships while showing the For You panel.
+  useEffect(() => {
+    if (
+      forYouContext &&
+      shipTabs.length === 0 &&
+      location.pathname === '/myships'
+    ) {
+      navigate('/for-you', { replace: true })
+    }
+  }, [forYouContext, shipTabs, location.pathname, navigate])
 
   const handleDetectionClick = useCallback(
     (detection) => {
@@ -229,22 +252,39 @@ function Layout() {
     (item) => {
       if (!item?.portId) return
       setForYouContext(true)
+      // Clear any open ship/detection first; a lingering detection selection
+      // would otherwise make the map fly back to that ship instead of the port.
+      closeAllTabs()
       handlePortSelectFromBookmarks({
         id: item.portId,
         name: item.name,
         flag: item.flag,
       })
     },
-    [handlePortSelectFromBookmarks]
+    [handlePortSelectFromBookmarks, closeAllTabs]
   )
+
+  // Ships already fly to their selected detection, so only ports/shapes need an
+  // explicit map focus (they otherwise can fail to recenter on re-click).
+  const focusForYouItem = useCallback((item) => {
+    if (!item || item.kind === 'ship') return
+    if (!Number.isFinite(item.lng) || !Number.isFinite(item.lat)) return
+    setForYouFocus({
+      lng: item.lng,
+      lat: item.lat,
+      kind: item.kind,
+      nonce: Date.now(),
+    })
+  }, [])
 
   const handleForYouItemClick = useCallback(
     (item) => {
       if (!item) return
       if (item.kind === 'ship') handleForYouShipSelect(item)
       else if (item.kind === 'port') handleForYouPortSelect(item)
+      focusForYouItem(item)
     },
-    [handleForYouShipSelect, handleForYouPortSelect]
+    [handleForYouShipSelect, handleForYouPortSelect, focusForYouItem]
   )
 
   const handleRemoveTimelineEvent = useCallback((eventId) => {
@@ -258,12 +298,19 @@ function Layout() {
   const showForYouNav =
     location.pathname === '/for-you' ||
     (forYouContext && location.pathname.startsWith('/myships'))
-  const showPanelExpand = !panelOpen && shipTabs.length > 0
-  const slidePanelClass = panelOpen
-    ? 'slide-panel--open'
-    : shipTabs.length > 0
-      ? 'slide-panel--collapsed'
-      : ''
+  // The bare For You list view (/for-you) has no detail content — its route
+  // renders null. Any leftover open ship/port panel from a previous view would
+  // show as an empty blank panel here, so suppress the slide panel entirely.
+  const isForYouListView = location.pathname === '/for-you'
+  const showPanelExpand =
+    !panelOpen && shipTabs.length > 0 && !isForYouListView
+  const slidePanelClass = isForYouListView
+    ? ''
+    : panelOpen
+      ? 'slide-panel--open'
+      : shipTabs.length > 0
+        ? 'slide-panel--collapsed'
+        : ''
   const detectionById = useMemo(
     () => new globalThis.Map(runtimeDetections.map((det) => [String(det.id), det])),
     [runtimeDetections]
@@ -299,7 +346,13 @@ function Layout() {
     return timelineSortOrder === 'asc' ? sorted : sorted.reverse()
   }, [timelineSortOrder, visibleTimelineEvents])
   const secondaryNavInset = secondaryNavOpen ? 386 : 32
-  const detailPanelInset = panelOpen ? 500 : shipTabs.length > 0 ? 32 : 0
+  const detailPanelInset = isForYouListView
+    ? 0
+    : panelOpen
+      ? 500
+      : shipTabs.length > 0
+        ? 32
+        : 0
   const leftPanelInset = isTimelineView
     ? 50
     : 50 + secondaryNavInset + detailPanelInset
@@ -325,9 +378,12 @@ function Layout() {
           portVisibilityBehavior={portVisibilityBehavior}
           forceHideSelectedPortContext={forceHideSelectedPortContext}
           portHoverCardEnabled={portHoverCardEnabled}
-          forYouActive={location.pathname === '/for-you'}
+          forYouActive={showForYouNav}
           forYouMarkerMode={forYouMarkerMode}
           forYouRingConfig={forYouRingConfig}
+          forYouMarkersVisible={forYouMarkersVisible}
+          forYouVisibleIds={forYouVisibleIds}
+          forYouFocus={forYouFocus}
           onForYouItemClick={handleForYouItemClick}
         />
         {shipFiltersOpen && (
@@ -471,8 +527,13 @@ function Layout() {
                 markerMode={forYouMarkerMode}
                 ringConfig={forYouRingConfig}
                 onRingConfigChange={setForYouRingConfig}
+                markersVisible={forYouMarkersVisible}
+                onMarkersVisibleChange={setForYouMarkersVisible}
+                visibleIds={forYouVisibleIds}
+                onVisibleIdsChange={setForYouVisibleIds}
                 onShipSelect={handleForYouShipSelect}
                 onPortSelect={handleForYouPortSelect}
+                onItemActivate={focusForYouItem}
               />
 
               <Box className={`slide-panel ${slidePanelClass}`}>

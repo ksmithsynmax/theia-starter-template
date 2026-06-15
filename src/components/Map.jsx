@@ -370,13 +370,16 @@ const Map = forwardRef(function Map(
     forYouActive = false,
     forYouMarkerMode = 'pin',
     forYouRingConfig = {
-      color: '#FFFFFF',
+      color: '#F75349',
       lineStyle: 'solid',
       fill: true,
       fillOpacity: 0.2,
-      borderWidth: 2.5,
+      borderWidth: 2,
       size: 36,
     },
+    forYouMarkersVisible = true,
+    forYouVisibleIds = null,
+    forYouFocus = null,
     onForYouItemClick,
   },
   ref
@@ -428,6 +431,7 @@ const Map = forwardRef(function Map(
   const shapeMarkersRef = useRef({})
   const lastVisibleShapeIdsRef = useRef([])
   const forYouMarkersRef = useRef({})
+  const forYouFocusNonceRef = useRef(null)
   const onForYouItemClickRef = useRef(onForYouItemClick)
   const forYouFittedRef = useRef(false)
   onForYouItemClickRef.current = onForYouItemClick
@@ -711,7 +715,7 @@ const Map = forwardRef(function Map(
           map.current.addImage('active-port-custom', activePortIcon, { pixelRatio: 1 })
         }
         activePortIcon.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-          getPortIconSvg('#0094FF', 30)
+          getPortIconSvg('#FFFFFF', 30)
         )}`
       }
 
@@ -1643,7 +1647,7 @@ const Map = forwardRef(function Map(
           // Select this port
           el.dataset.selected = 'true'
           const circle = el.querySelector('circle')
-          if (circle) circle.setAttribute('stroke', '#0094FF')
+          if (circle) circle.setAttribute('stroke', '#FFFFFF')
           if (onPortClickRef.current) onPortClickRef.current(port)
         }
 
@@ -1659,7 +1663,7 @@ const Map = forwardRef(function Map(
         if (activeTab?.type === 'port' && activeTab.id === port.id) {
           el.dataset.selected = 'true'
           const circle = el.querySelector('circle')
-          if (circle) circle.setAttribute('stroke', '#0094FF')
+          if (circle) circle.setAttribute('stroke', '#FFFFFF')
         }
       } else {
         marker.setLngLat(targetLngLat)
@@ -1848,6 +1852,9 @@ const Map = forwardRef(function Map(
         const el = document.createElement('div')
         el.className = 'map-marker'
         el.style.cursor = 'pointer'
+        // Keep detections above the curated "For You" ring overlay so a solid
+        // ring fill never hides the underlying ship detection.
+        el.style.zIndex = '1'
         el.addEventListener('click', (event) => {
           const markerEl = event.currentTarget
           const detectionId = markerEl?.dataset?.detectionId
@@ -2200,7 +2207,24 @@ const Map = forwardRef(function Map(
     forYouMarkersRef.current = {}
 
     if (!forYouActive || !Array.isArray(forYouItems) || forYouItems.length === 0) {
-      forYouFittedRef.current = false
+      // Note: intentionally do NOT reset forYouFittedRef here. Resetting on every
+      // navigation away made the feed re-fit to ALL items when returning to For
+      // You, which stomped single-item focus (e.g. clicking a shape after a ship
+      // briefly routes through /myships). We fit to the whole feed once.
+      return
+    }
+
+    // When the master toggle is on, show everything. When it's off, show only
+    // the items the user individually enabled via the per-card checkboxes.
+    const visibleForYouItems = forYouMarkersVisible
+      ? forYouItems
+      : forYouItems.filter((item) =>
+          Array.isArray(forYouVisibleIds)
+            ? forYouVisibleIds.includes(item.id)
+            : false
+        )
+
+    if (visibleForYouItems.length === 0) {
       return
     }
 
@@ -2275,7 +2299,7 @@ const Map = forwardRef(function Map(
         return `<path d="M9.99984 6.66675C11.3805 6.66675 12.4998 5.54746 12.4998 4.16675C12.4998 2.78604 11.3805 1.66675 9.99984 1.66675C8.61913 1.66675 7.49984 2.78604 7.49984 4.16675C7.49984 5.54746 8.61913 6.66675 9.99984 6.66675ZM9.99984 6.66675V18.3334M9.99984 18.3334C7.7897 18.3334 5.67008 17.4554 4.10728 15.8926C2.54448 14.3298 1.6665 12.2102 1.6665 10.0001H4.1665M9.99984 18.3334C12.21 18.3334 14.3296 17.4554 15.8924 15.8926C17.4552 14.3298 18.3332 12.2102 18.3332 10.0001H15.8332" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
       }
       if (kind === 'shape') {
-        return `<path d="M9.04746 5.83333L4.28555 14.1667M4.99984 15.8333H14.9997M15.7141 14.1667L10.9522 5.83333M2.99984 17.5H3.6665C4.13321 17.5 4.36657 17.5 4.54483 17.4092C4.70163 17.3293 4.82911 17.2018 4.90901 17.045C4.99984 16.8667 4.99984 16.6334 4.99984 16.1667V15.5C4.99984 15.0333 4.99984 14.7999 4.90901 14.6217C4.82911 14.4649 4.70163 14.3374 4.54483 14.2575C4.36657 14.1667 4.13321 14.1667 3.6665 14.1667H2.99984C2.53313 14.1667 2.29977 14.1667 2.12151 14.2575C1.96471 14.3374 1.83723 14.4649 1.75733 14.6217C1.6665 14.7999 1.6665 15.0333 1.6665 15.5V16.1667C1.6665 16.6334 1.6665 16.8667 1.75733 17.045C1.83723 17.2018 1.96471 17.3293 2.12151 17.4092C2.29977 17.5 2.53313 17.5 2.99984 17.5ZM16.3332 17.5H16.9998C17.4665 17.5 17.6999 17.5 17.8782 17.4092C18.035 17.3293 18.1624 17.2018 18.2423 17.045C18.3332 16.8667 18.3332 16.6334 18.3332 16.1667V15.5C18.3332 15.0333 18.3332 14.7999 18.2423 14.6217C18.1624 14.4649 18.035 14.3374 17.8782 14.2575C17.6999 14.1667 17.4665 14.1667 16.9998 14.1667H16.3332C15.8665 14.1667 15.6331 14.1667 15.4548 14.2575C15.298 14.3374 15.1706 14.4649 15.0907 14.6217C14.9998 14.7999 14.9998 15.0333 14.9998 15.5V16.1667C14.9998 16.6334 14.9998 16.8667 15.0907 17.045C15.1706 17.2018 15.298 17.3293 15.4548 17.4092C15.6331 17.5 15.8665 17.5 16.3332 17.5Z" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
+        return `<path d="M9.04746 5.83333L4.28555 14.1667M4.99984 15.8333H14.9997M15.7141 14.1667L10.9522 5.83333M2.99984 17.5H3.6665C4.13321 17.5 4.36657 17.5 4.54483 17.4092C4.70163 17.3293 4.82911 17.2018 4.90901 17.045C4.99984 16.8667 4.99984 16.6334 4.99984 16.1667V15.5C4.99984 15.0333 4.99984 14.7999 4.90901 14.6217C4.82911 14.4649 4.70163 14.3374 4.54483 14.2575C4.36657 14.1667 4.13321 14.1667 3.6665 14.1667H2.99984C2.53313 14.1667 2.29977 14.1667 2.12151 14.2575C1.96471 14.3374 1.83723 14.4649 1.75733 14.6217C1.6665 14.7999 1.6665 15.0333 1.6665 15.5V16.1667C1.6665 16.6334 1.6665 16.8667 1.75733 17.045C1.83723 17.2018 1.96471 17.3293 2.12151 17.4092C2.29977 17.5 2.53313 17.5 2.99984 17.5ZM16.3332 17.5H16.9998C17.4665 17.5 17.6999 17.5 17.8782 17.4092C18.035 17.3293 18.1624 17.2018 18.2423 17.045C18.3332 16.8667 18.3332 16.6334 18.3332 16.1667V15.5C18.3332 15.0333 18.3332 14.7999 18.2423 14.6217C18.1624 14.4649 18.035 14.3374 17.8782 14.2575C17.6999 14.1667 17.4665 14.1667 16.9998 14.1667H16.3332C15.8665 14.1667 15.6331 14.1667 15.4548 14.2575C15.298 14.3374 15.1706 14.4649 15.0907 14.6217C14.9998 14.7999 14.9998 15.0333 14.9998 15.5V16.1667C14.9998 16.6334 14.9998 16.8667 15.0907 17.045C15.1706 17.2018 15.298 17.3293 15.4548 17.4092C15.6331 17.5 15.8665 17.5 16.3332 17.5ZM9.6665 5.83333H10.3332C10.7999 5.83333 11.0332 5.83333 11.2115 5.74251C11.3683 5.66261 11.4958 5.53513 11.5757 5.37833C11.6665 5.20007 11.6665 4.96671 11.6665 4.5V3.83333C11.6665 3.36662 11.6665 3.13327 11.5757 2.95501C11.4958 2.79821 11.3683 2.67072 11.2115 2.59083C11.0332 2.5 10.7999 2.5 10.3332 2.5H9.6665C9.19979 2.5 8.96644 2.5 8.78818 2.59083C8.63138 2.67072 8.50389 2.79821 8.424 2.95501C8.33317 3.13327 8.33317 3.36662 8.33317 3.83333V4.5C8.33317 4.96671 8.33317 5.20007 8.424 5.37833C8.50389 5.53513 8.63138 5.66261 8.78818 5.74251C8.96644 5.83333 9.19979 5.83333 9.6665 5.83333Z" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
       }
       // ship / detection
       return (
@@ -2284,6 +2308,20 @@ const Map = forwardRef(function Map(
         `<path d="M10 13.3333V16.6666" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>` +
         `<path d="M1.66666 18.3333C3.33333 18.3333 3.33333 17.5 4.58333 17.5C5.83333 17.5 5.83333 18.3333 7.08333 18.3333C8.33333 18.3333 8.54166 17.5 10 17.5C11.4583 17.5 11.6667 18.3333 12.9167 18.3333C14.1667 18.3333 14.1667 17.5 15.4167 17.5C16.6667 17.5 16.6667 18.3333 18.3333 18.3333" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
       )
+    }
+
+    const hexToRgb = (hex) => {
+      const h = String(hex).replace('#', '').trim()
+      const full =
+        h.length === 3
+          ? h
+              .split('')
+              .map((c) => c + c)
+              .join('')
+          : h
+      const n = parseInt(full, 16)
+      if (full.length !== 6 || Number.isNaN(n)) return { r: 255, g: 255, b: 255 }
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
     }
 
     const buildRingEl = (item) => {
@@ -2295,41 +2333,71 @@ const Map = forwardRef(function Map(
 
       const color = forYouRingConfig?.color || '#FFFFFF'
       const isDashed = forYouRingConfig?.lineStyle === 'dashed'
-      const hasFill = forYouRingConfig?.fill !== false
-      const fillOpacity = hasFill
-        ? Number(forYouRingConfig?.fillOpacity ?? 0.2)
-        : 0
-      const borderWidth = Number(forYouRingConfig?.borderWidth ?? 2.5)
+      // Fill is driven purely by opacity now (0 = no fill).
+      const fillOpacity = Number(forYouRingConfig?.fillOpacity ?? 0.2)
+      const borderWidth = Number(forYouRingConfig?.borderWidth ?? 2)
       const dashAttr = isDashed ? ' stroke-dasharray="5 4"' : ''
-      // Ring diameter is freely sized via the slider; the port disc + anchor
-      // stay a fixed size (like detection markers don't resize).
-      const PORT_DISC = 26
-      const PORT_ICON = 16
+      // Ring diameter is freely sized via the slider; the inner glyph stays a
+      // fixed size (like detection markers don't resize).
+      const INNER_ICON = 16
       const rawSize = Number(forYouRingConfig?.size)
       const ringDiameter = Number.isFinite(rawSize)
         ? Math.min(64, Math.max(24, rawSize))
         : 36
-      const isPort = item.kind === 'port'
-      const dim = isPort ? Math.max(ringDiameter, PORT_DISC) : ringDiameter
+      // Ports and shapes have no underlying map marker, so they carry their own
+      // glyph inside the ring. Ships render as an empty ring; their existing
+      // detection marker stays on top via a higher z-index (set where the
+      // detection markers are created) so the ring fill never hides it.
+      const innerKind =
+        item.kind === 'port' ? 'port' : item.kind === 'shape' ? 'shape' : null
+      // Shapes have no underlying selectable marker, so when the shape is the
+      // active one we draw the white "active" halo onto its ring (ships get it
+      // from the detection marker, ports from the white port-icon border).
+      const isActive =
+        item.kind === 'shape' && (visibleShapeIds || []).includes(item.id)
+      const HALO_GAP = 3
+      const HALO_WIDTH = 2
+      const haloRadius = ringDiameter / 2 + HALO_GAP
+      const baseDim = innerKind ? Math.max(ringDiameter, INNER_ICON) : ringDiameter
+      const dim = isActive
+        ? Math.max(baseDim, (haloRadius + HALO_WIDTH) * 2)
+        : baseDim
       const center = dim / 2
       const ringRadius = ringDiameter / 2 - borderWidth
 
-      // Ports have no underlying map marker, so render a self-contained marker:
-      // a fixed dark disc + anchor icon with the (resizable) ring centered over
-      // it. Ships and shapes use an empty ring that encircles their detection.
+      // Auto-contrast glyph color: the ring fill is the glyph's background, so
+      // pick black or white based on the EFFECTIVE fill (the chosen color
+      // composited at its opacity over the dark map). This keeps the glyph
+      // readable from a transparent fill all the way to a solid light color.
       let inner = ''
-      if (isPort) {
-        const scale = PORT_ICON / 20
-        const offset = (dim - PORT_ICON) / 2
-        inner =
-          `<circle cx="${center}" cy="${center}" r="${PORT_DISC / 2}" fill="#111326"/>` +
-          `<g transform="translate(${offset},${offset}) scale(${scale})">${ringInnerIconPaths('port', '#FFFFFF')}</g>`
+      if (innerKind) {
+        const fill = hexToRgb(color)
+        const base = { r: 16, g: 19, b: 31 } // approx. dark map under the marker
+        const eff = {
+          r: base.r * (1 - fillOpacity) + fill.r * fillOpacity,
+          g: base.g * (1 - fillOpacity) + fill.g * fillOpacity,
+          b: base.b * (1 - fillOpacity) + fill.b * fillOpacity,
+        }
+        const luminance =
+          (0.299 * eff.r + 0.587 * eff.g + 0.114 * eff.b) / 255
+        const iconColor = luminance > 0.6 ? '#0A0E19' : '#FFFFFF'
+        const scale = INNER_ICON / 20
+        const offset = (dim - INNER_ICON) / 2
+        inner = `<g transform="translate(${offset},${offset}) scale(${scale})">${ringInnerIconPaths(innerKind, iconColor)}</g>`
       }
 
+      // Active halo (white ring around the marker) drawn outside the colored ring.
+      const halo = isActive
+        ? `<circle cx="${center}" cy="${center}" r="${haloRadius}" fill="none" stroke="#FFFFFF" stroke-width="${HALO_WIDTH}"/>`
+        : ''
+
+      // Paint the halo, then the ring (fill + stroke), then the glyph on top so a
+      // high fill opacity can no longer hide the icon.
       el.innerHTML =
         `<svg width="${dim}" height="${dim}" viewBox="0 0 ${dim} ${dim}" fill="none" xmlns="http://www.w3.org/2000/svg">` +
-        inner +
+        halo +
         `<circle cx="${center}" cy="${center}" r="${Math.max(0, ringRadius)}" fill="${color}" fill-opacity="${fillOpacity}" stroke="${color}" stroke-width="${borderWidth}"${dashAttr}/>` +
+        inner +
         `</svg>`
       return { el, anchor: 'center' }
     }
@@ -2342,8 +2410,37 @@ const Map = forwardRef(function Map(
     }
     const build = builders[forYouMarkerMode] || buildPinEl
 
-    forYouItems.forEach((item) => {
-      if (!Number.isFinite(item.lng) || !Number.isFinite(item.lat)) return
+    // For ships, anchor the ring on the ship's actual latest detection (the same
+    // one selecting the ship flies to) so the ring wraps the detection marker
+    // instead of sitting at the feed's approximate coordinate. Ports/shapes use
+    // their own coordinate.
+    const resolveItemLngLat = (item) => {
+      if (
+        item.kind === 'ship' &&
+        item.shipId &&
+        Array.isArray(runtimeDetections)
+      ) {
+        const dets = runtimeDetections.filter(
+          (d) => String(d.shipId) === String(item.shipId)
+        )
+        if (dets.length > 0) {
+          const latest = [...dets].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )[0]
+          if (Number.isFinite(latest?.lng) && Number.isFinite(latest?.lat)) {
+            return [latest.lng, latest.lat]
+          }
+        }
+      }
+      if (Number.isFinite(item.lng) && Number.isFinite(item.lat)) {
+        return [item.lng, item.lat]
+      }
+      return null
+    }
+
+    visibleForYouItems.forEach((item) => {
+      const lngLat = resolveItemLngLat(item)
+      if (!lngLat) return
       const { el, anchor } = build(item)
       el.title = `${item.name} — ${item.reason}`
       el.addEventListener('click', (event) => {
@@ -2351,16 +2448,16 @@ const Map = forwardRef(function Map(
         onForYouItemClickRef.current?.(item)
       })
       const marker = new mapboxgl.Marker({ element: el, anchor })
-        .setLngLat([item.lng, item.lat])
+        .setLngLat(lngLat)
         .addTo(m)
       forYouMarkersRef.current[item.id] = marker
     })
 
     // Fit the map to the curated set once when the feed first becomes active.
     if (!forYouFittedRef.current) {
-      const coords = forYouItems
-        .filter((item) => Number.isFinite(item.lng) && Number.isFinite(item.lat))
-        .map((item) => [item.lng, item.lat])
+      const coords = visibleForYouItems
+        .map((item) => resolveItemLngLat(item))
+        .filter(Boolean)
       if (coords.length > 1) {
         const bounds = coords.reduce(
           (acc, coord) => acc.extend(coord),
@@ -2379,9 +2476,30 @@ const Map = forwardRef(function Map(
     forYouActive,
     forYouMarkerMode,
     forYouRingConfig,
+    forYouMarkersVisible,
+    forYouVisibleIds,
     forYouItems,
+    runtimeDetections,
+    visibleShapeIds,
     leftPanelInset,
   ])
+
+  // Explicit recenter when a For You item is clicked. Runs on every click (the
+  // nonce changes each time) so re-clicking an already-shown port/shape still
+  // flies the map back to it.
+  useEffect(() => {
+    if (!map.current || !mapReady || !forYouFocus) return
+    if (forYouFocusNonceRef.current === forYouFocus.nonce) return
+    const { lng, lat } = forYouFocus
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return
+    forYouFocusNonceRef.current = forYouFocus.nonce
+    map.current.flyTo({
+      center: [lng, lat],
+      zoom: forYouFocus.kind === 'shape' ? 7.5 : 9.5,
+      duration: 1200,
+      padding: panelAwareFocusPadding,
+    })
+  }, [forYouFocus, mapReady, panelAwareFocusPadding])
 
   // Interactive polygon drawing while a shape draw tool is active.
   useEffect(() => {

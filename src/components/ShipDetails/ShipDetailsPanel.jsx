@@ -3,13 +3,11 @@ import { Box, Text, Checkbox, Radio, Group } from '@mantine/core'
 import { ChevronUp, ChevronDown } from '@untitledui/icons'
 import ShipPathPanelButton from './ShipPathPanelButton'
 import ViewExtendedPathIcon from '../../custom-icons/ViewExtendedPathIcon'
-import ViewPathPlaybackIcon from '../../custom-icons/ViewPathPlaybackIcon'
 import FuturePathPredictionIcon from '../../custom-icons/FuturePathPredictionIcon'
 import ViewEstimatedLocationIcon from '../../custom-icons/ViewEstimatedLocationIcon'
 import SatelliteIcon from '../../custom-icons/SatelliteIcon'
 import SimilarSearchIcon from '../../custom-icons/SimilarSearchIcon'
 import AlertIcon from '../../custom-icons/AlertIcon'
-import DownloadPathXLS from '../../custom-icons/DownloadPathXLS'
 import AisIcon from '../../custom-icons/AisIcon'
 import LightShipIcon from '../../custom-icons/LighShipIcon'
 import DarkShipIcon from '../../custom-icons/DarkShipIcon'
@@ -187,7 +185,15 @@ const ShipDetailsPanel = ({
                   className="dark-controls"
                   style={{ display: 'flex', gap: 16, marginBottom: 12 }}
                 >
-                  <Checkbox defaultChecked label="Show AIS path" size="xs" />
+                  <Checkbox
+                    defaultChecked
+                    label="Show AIS path"
+                    size="xs"
+                    radius={4}
+                    color="#006CD7"
+                    iconColor="#FFFFFF"
+                    styles={{ input: { borderColor: '#888F9E' } }}
+                  />
                   <Radio.Group name="favoriteFramework">
                     <Group>
                       <Radio
@@ -209,6 +215,7 @@ const ShipDetailsPanel = ({
               <Box style={{ marginTop: unattributed ? 0 : 8 }}>
                 <Box style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                   <ShipPathPanelButton
+                    fullWidth
                     label="View Extended Path"
                     icon={<ViewExtendedPathIcon />}
                     disabled={unattributed}
@@ -216,12 +223,7 @@ const ShipDetailsPanel = ({
                     onClick={() => handleToolButtonClick('extended-path')}
                   />
                   <ShipPathPanelButton
-                    label="View Path Playback"
-                    icon={<ViewPathPlaybackIcon />}
-                    disabled={unattributed}
-                    onClick={() => handleToolButtonClick('path-playback')}
-                  />
-                  <ShipPathPanelButton
+                    fullWidth
                     label="Future Path Prediction"
                     icon={<FuturePathPredictionIcon />}
                     active={activeToolIds.includes('future-path-prediction')}
@@ -230,6 +232,7 @@ const ShipDetailsPanel = ({
                     }
                   />
                   <ShipPathPanelButton
+                    fullWidth
                     label="View Estimated Location"
                     icon={<ViewEstimatedLocationIcon />}
                     disabled={unattributed}
@@ -239,28 +242,25 @@ const ShipDetailsPanel = ({
                 </Box>
                 <Box style={{ display: 'flex', gap: 6 }}>
                   <ShipPathPanelButton
+                    fullWidth
                     label="Task Satellite Imagery"
                     icon={<SatelliteIcon />}
                     disabled={unattributed}
                     onClick={() => handleToolButtonClick('satellite-imagery')}
                   />
                   <ShipPathPanelButton
+                    fullWidth
                     label="Search Similar Ship"
                     icon={<SimilarSearchIcon />}
                     disabled={unattributed}
                     onClick={() => handleToolButtonClick('search-similar-ship')}
                   />
                   <ShipPathPanelButton
+                    fullWidth
                     label="Create Ship Alert"
                     icon={<AlertIcon />}
                     disabled={unattributed}
                     onClick={() => handleToolButtonClick('create-ship-alert')}
-                  />
-                  <ShipPathPanelButton
-                    label="Download Path in XLS"
-                    icon={<DownloadPathXLS />}
-                    disabled={unattributed}
-                    onClick={() => handleToolButtonClick('download-path-xls')}
                   />
                 </Box>
               </Box>
