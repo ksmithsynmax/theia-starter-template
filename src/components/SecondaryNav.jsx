@@ -122,6 +122,30 @@ const tableShellStyles = {
   background: 'transparent',
 }
 
+// Geodesic polygon area (km²) from an open ring of [lng, lat] points.
+const getShapeAreaKm2 = (coordinates) => {
+  const coords = (coordinates || []).filter(
+    (c) => Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1])
+  )
+  const len = coords.length
+  if (len < 3) return null
+  const R = 6378137 // earth radius (m)
+  const RAD = Math.PI / 180
+  let area = 0
+  for (let i = 0; i < len; i++) {
+    const [lowerLng] = coords[i]
+    const [, middleLat] = coords[(i + 1) % len]
+    const [upperLng] = coords[(i + 2) % len]
+    area += (upperLng * RAD - lowerLng * RAD) * Math.sin(middleLat * RAD)
+  }
+  return Math.abs((area * R * R) / 2) / 1e6
+}
+
+const formatShapeArea = (km2) =>
+  km2 == null
+    ? '—'
+    : km2.toLocaleString(undefined, { maximumFractionDigits: 0 })
+
 const getColumnsByTab = (tabId) => {
   if (tabId === 'ships') {
     return [
@@ -145,11 +169,9 @@ const getColumnsByTab = (tabId) => {
 
   if (tabId === 'polygons') {
     return [
-      { key: 'name', label: 'Polygon', width: 'minmax(0, 1.3fr)' },
-      { key: 'polygonType', label: 'Type', width: 'minmax(0, 0.9fr)' },
-      { key: 'region', label: 'Region', width: 'minmax(0, 1fr)' },
-      { key: 'rule', label: 'Rule', width: 'minmax(0, 1fr)' },
-      { key: 'updatedAt', label: 'Updated', width: 'minmax(0, 0.9fr)' },
+      { key: 'name', label: 'Shape Name', width: 'minmax(0, 1.6fr)' },
+      { key: 'area', label: 'Area (km²)', width: 'minmax(0, 1fr)' },
+      { key: 'lastEdited', label: 'Last Edited', width: 'minmax(0, 1fr)' },
     ]
   }
 
@@ -667,7 +689,6 @@ const SecondaryNav = ({
     useState(false)
   const [version2BookmarkSearchQuery, setVersion2BookmarkSearchQuery] =
     useState('')
-  const [shapeNameInput, setShapeNameInput] = useState('')
   const [activeShapeRowId, setActiveShapeRowId] = useState(null)
   const [openTableFilterId, setOpenTableFilterId] = useState(null)
   const [bookmarkViewMode, setBookmarkViewMode] = useState('table')
@@ -710,6 +731,8 @@ const SecondaryNav = ({
     activeDetectionId,
     shapeDrawMode,
     pendingShape,
+    pendingShapeName: shapeNameInput,
+    setPendingShapeName: setShapeNameInput,
     bookmarkedShapes,
     startShapeDraw,
     cancelShapeDraw,
@@ -1197,10 +1220,12 @@ const SecondaryNav = ({
   const version4BookmarkedPolygonRows = useMemo(
     () =>
       (bookmarkedShapes || []).map((shape) => {
-        const createdDate = shape.createdAt ? new Date(shape.createdAt) : null
-        const updatedAt =
-          createdDate && !Number.isNaN(createdDate.getTime())
-            ? createdDate.toLocaleDateString('en-US', {
+        // Prefer the last edit time; fall back to creation until it's edited.
+        const stamp = shape.updatedAt || shape.createdAt
+        const stampDate = stamp ? new Date(stamp) : null
+        const lastEdited =
+          stampDate && !Number.isNaN(stampDate.getTime())
+            ? stampDate.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric',
@@ -1209,10 +1234,12 @@ const SecondaryNav = ({
         return {
           id: shape.id,
           name: shape.name || 'Untitled shape',
+          area: formatShapeArea(getShapeAreaKm2(shape.coordinates)),
+          lastEdited,
           polygonType: isVersion5 ? 'Shape' : 'Polygon',
           region: 'Custom',
           rule: 'None',
-          updatedAt,
+          updatedAt: lastEdited,
         }
       }),
     [bookmarkedShapes, isVersion5]

@@ -46,6 +46,9 @@ export function ShipProvider({ children }) {
   // bookmarkedShapes: shapes saved to bookmarks
   const [shapeDrawMode, setShapeDrawMode] = useState(null)
   const [pendingShape, setPendingShape] = useState(null)
+  // Shared name for the pending shape. Single source of truth so the left-panel
+  // input and the on-map info card stay in sync (two-way binding).
+  const [pendingShapeName, setPendingShapeName] = useState('')
   const [bookmarkedShapes, setBookmarkedShapes] = useState([])
   // IDs of saved shapes currently shown on the map. Saved shapes are hidden by
   // default and re-shown by clicking their row in the bookmarks table.
@@ -90,25 +93,33 @@ export function ShipProvider({ children }) {
 
   const startShapeDraw = useCallback((type = 'polygon') => {
     setPendingShape(null)
+    setPendingShapeName('')
     setShapeDrawMode(type)
   }, [])
 
   const cancelShapeDraw = useCallback(() => {
     setShapeDrawMode(null)
     setPendingShape(null)
+    setPendingShapeName('')
   }, [])
 
-  // Called by the map once the user finishes drawing a shape.
-  const completeShapeDraw = useCallback((shape) => {
-    if (!shape) return
-    setShapeDrawMode(null)
-    setPendingShape(shape)
-  }, [])
+  // Called by the map once the user finishes drawing a shape. Seed a default
+  // name ("Shape N") so it's pre-filled in both the panel input and map card.
+  const completeShapeDraw = useCallback(
+    (shape) => {
+      if (!shape) return
+      setShapeDrawMode(null)
+      setPendingShape(shape)
+      setPendingShapeName(`Shape ${bookmarkedShapes.length + 1}`)
+    },
+    [bookmarkedShapes.length]
+  )
 
   const saveShape = useCallback(
     (name) => {
       if (!pendingShape) return null
-      const trimmedName = String(name || '').trim() || 'Untitled shape'
+      const trimmedName =
+        String(name ?? pendingShapeName).trim() || 'Untitled shape'
       const savedShape = {
         id: `shape-${Date.now()}`,
         name: trimmedName,
@@ -118,11 +129,19 @@ export function ShipProvider({ children }) {
       setBookmarkedShapes((prev) => [...prev, savedShape])
       setVisibleShapeIds((prev) => [...prev, savedShape.id])
       setPendingShape(null)
+      setPendingShapeName('')
       setShapeDrawMode(null)
       return savedShape
     },
-    [pendingShape]
+    [pendingShape, pendingShapeName]
   )
+
+  // Update the pending shape's geometry (e.g. while editing vertices) without
+  // disturbing its chosen name.
+  const updatePendingShape = useCallback((coordinates) => {
+    if (!Array.isArray(coordinates)) return
+    setPendingShape((prev) => (prev ? { ...prev, coordinates } : prev))
+  }, [])
 
   const removeShape = useCallback((shapeId) => {
     if (!shapeId) return
@@ -464,11 +483,14 @@ export function ShipProvider({ children }) {
         setSelectedBerth,
         shapeDrawMode,
         pendingShape,
+        pendingShapeName,
+        setPendingShapeName,
         bookmarkedShapes,
         visibleShapeIds,
         startShapeDraw,
         cancelShapeDraw,
         completeShapeDraw,
+        updatePendingShape,
         saveShape,
         removeShape,
         addBookmarkedShape,

@@ -222,6 +222,43 @@ const getPolygonTopCenter = (feature) => {
   return [(minLng + maxLng) / 2, maxLat]
 }
 
+// Geodesic area (km²) of a polygon's outer ring, using the spherical-excess
+// approximation on a WGS84-radius sphere (same algorithm Turf uses).
+const getPolygonAreaKm2 = (feature) => {
+  const ring = feature?.geometry?.coordinates?.[0]
+  if (!Array.isArray(ring) || ring.length < 3) return null
+  const R = 6378137 // earth radius (m)
+  const RAD = Math.PI / 180
+  const coords = ring.filter(
+    (c) => Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1])
+  )
+  const len = coords.length
+  if (len < 3) return null
+  let area = 0
+  for (let i = 0; i < len; i++) {
+    const [lowerLng] = coords[i]
+    const [, middleLat] = coords[(i + 1) % len]
+    const [upperLng] = coords[(i + 2) % len]
+    area += (upperLng * RAD - lowerLng * RAD) * Math.sin(middleLat * RAD)
+  }
+  const areaSqMeters = Math.abs((area * R * R) / 2)
+  return areaSqMeters / 1e6
+}
+
+const formatAreaKm2 = (km2) =>
+  km2 == null
+    ? ''
+    : `${km2.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} km²`
+
+// Minus/plus icons for collapsing/expanding the pending shape info box.
+const SHAPE_BOX_COLLAPSE_ICON =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+const SHAPE_BOX_EXPAND_ICON =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+
 const ALERT_PREVIEW_AREAS = {
   persian_gulf: {
     label: 'Persian Gulf',
@@ -402,6 +439,7 @@ const Map = forwardRef(function Map(
     forYouVisibleIds = null,
     forYouFocus = null,
     onForYouItemClick,
+    saveShapeLabel = 'Save to Bookmarks',
   },
   ref
 ) {
@@ -425,10 +463,14 @@ const Map = forwardRef(function Map(
     alertPreviewAreas,
     shapeDrawMode,
     pendingShape,
+    pendingShapeName,
+    setPendingShapeName,
     bookmarkedShapes,
     visibleShapeIds,
     completeShapeDraw,
+    updatePendingShape,
     cancelShapeDraw,
+    saveShape,
     hideShape,
     closeShipTab,
     forYouItems,
@@ -450,6 +492,16 @@ const Map = forwardRef(function Map(
   const activePortCenterRef = useRef(null)
   const portHoverPopupRef = useRef(null)
   const shapeMarkersRef = useRef({})
+  const pendingShapeMarkerRef = useRef(null)
+  // Whether the pending shape is in vertex-edit mode (pencil toggled on).
+  const [isEditingShape, setIsEditingShape] = useState(false)
+  // Whether the pending shape info box is collapsed to a compact pill.
+  const [isShapeBoxMinimized, setIsShapeBoxMinimized] = useState(false)
+  // Holds the latest pending-shape menu actions/labels so the (once-created)
+  // dropdown handlers never read stale closures.
+  const pendingShapeMenuCtxRef = useRef({})
+  // Document-level click-outside handler used to close the dropdown.
+  const pendingShapeOutsideHandlerRef = useRef(null)
   const lastVisibleShapeIdsRef = useRef([])
   const forYouMarkersRef = useRef({})
   const forYouFocusNonceRef = useRef(null)
@@ -549,6 +601,17 @@ const Map = forwardRef(function Map(
         marker.remove()
       })
       shapeMarkersRef.current = {}
+      if (pendingShapeMarkerRef.current) {
+        pendingShapeMarkerRef.current.remove()
+        pendingShapeMarkerRef.current = null
+      }
+      if (pendingShapeOutsideHandlerRef.current) {
+        document.removeEventListener(
+          'mousedown',
+          pendingShapeOutsideHandlerRef.current
+        )
+        pendingShapeOutsideHandlerRef.current = null
+      }
       map.current.remove()
       map.current = null
     }
@@ -2191,6 +2254,374 @@ const Map = forwardRef(function Map(
       if (labelEl) labelEl.textContent = shape.name || 'Shape'
     })
 
+    // Info box for a freshly drawn (pending) shape: shows a default name and the
+    // computed area while the user decides to save it.
+    if (pendingShape) {
+      const pendingFeature = shapeToPolygonFeature(pendingShape, 'pending')
+      const pendingPoint =
+        getPolygonTopCenter(pendingFeature) || getPolygonCenter(pendingFeature)
+      if (pendingFeature && pendingPoint) {
+        const defaultName = `Shape ${(bookmarkedShapes || []).length + 1}`
+        const areaText = formatAreaKm2(getPolygonAreaKm2(pendingFeature))
+
+        // Keep the latest actions/labels available to the once-created menu
+        // handlers so they don't capture stale closures.
+        pendingShapeMenuCtxRef.current = {
+          defaultName,
+          saveShape,
+          cancelShapeDraw,
+          setPendingShapeName,
+          pendingShapeName,
+          pendingShape,
+          saveShapeLabel,
+        }
+
+        if (!pendingShapeMarkerRef.current) {
+
+          const el = document.createElement('div')
+          el.style.position = 'relative'
+          el.style.minWidth = '180px'
+          el.style.maxWidth = '260px'
+          el.style.padding = '10px 12px'
+          el.style.background = '#181926'
+          el.style.border = '1px solid #393C56'
+          el.style.borderRadius = '8px'
+          el.style.color = '#FFFFFF'
+          el.style.fontFamily = 'Inter, sans-serif'
+          // Keep the info box above detection markers (which use z-index: 1).
+          el.style.zIndex = '10'
+          // The box is a Mapbox marker (lives in the canvas container), so a
+          // quick double-click on it bubbles to the map and triggers the
+          // default double-click zoom. Swallow it here.
+          el.addEventListener('dblclick', (event) => {
+            event.stopPropagation()
+          })
+
+          const header = document.createElement('div')
+          header.dataset.pendingShapeHeader = 'true'
+          header.style.display = 'flex'
+          header.style.alignItems = 'center'
+          header.style.justifyContent = 'space-between'
+          header.style.gap = '12px'
+
+          const title = document.createElement('span')
+          title.dataset.pendingShapeTitle = 'true'
+          title.style.fontSize = '13px'
+          title.style.fontWeight = '600'
+          title.style.color = '#FFFFFF'
+          title.style.whiteSpace = 'nowrap'
+          // While edit mode makes the title contenteditable, keep the shared
+          // name in sync as the user types and give a clear focus affordance.
+          title.addEventListener('input', () => {
+            if (!title.isContentEditable) return
+            const latest = pendingShapeMenuCtxRef.current || {}
+            latest.setPendingShapeName?.(title.textContent)
+          })
+          title.addEventListener('focus', () => {
+            if (title.isContentEditable) title.style.borderColor = '#006CD7'
+          })
+          title.addEventListener('blur', () => {
+            title.style.borderColor = '#393C56'
+          })
+          // Don't let clicks to place the caret bubble out to the map.
+          title.addEventListener('mousedown', (event) => {
+            if (title.isContentEditable) event.stopPropagation()
+          })
+          header.appendChild(title)
+
+          const actions = document.createElement('div')
+          actions.style.display = 'inline-flex'
+          actions.style.alignItems = 'center'
+          actions.style.gap = '4px'
+
+          const styleIconButton = (button) => {
+            button.type = 'button'
+            button.style.position = 'relative'
+            button.style.display = 'inline-flex'
+            button.style.alignItems = 'center'
+            button.style.justifyContent = 'center'
+            button.style.width = '20px'
+            button.style.height = '20px'
+            button.style.border = 'none'
+            button.style.background = 'transparent'
+            button.style.color = '#A4ABBE'
+            button.style.cursor = 'pointer'
+            button.style.padding = '0'
+          }
+
+          // Small black tooltip matching the app's nav tooltips.
+          const attachTooltip = (button, text) => {
+            const tip = document.createElement('div')
+            tip.dataset.tooltip = 'true'
+            const tipLabel = document.createElement('span')
+            tipLabel.dataset.tooltipLabel = 'true'
+            tipLabel.textContent = text
+            tip.appendChild(tipLabel)
+            tip.style.position = 'absolute'
+            tip.style.bottom = 'calc(100% + 8px)'
+            tip.style.left = '50%'
+            tip.style.transform = 'translateX(-50%)'
+            tip.style.padding = '6px 8px'
+            tip.style.background = '#000000'
+            tip.style.color = '#FFFFFF'
+            tip.style.fontFamily = 'Inter, sans-serif'
+            tip.style.fontSize = '11px'
+            tip.style.fontWeight = '500'
+            tip.style.lineHeight = '1'
+            tip.style.whiteSpace = 'nowrap'
+            tip.style.borderRadius = '4px'
+            tip.style.pointerEvents = 'none'
+            tip.style.opacity = '0'
+            tip.style.transition = 'opacity 120ms'
+            tip.style.zIndex = '12'
+
+            const arrow = document.createElement('div')
+            arrow.style.position = 'absolute'
+            arrow.style.top = '100%'
+            arrow.style.left = '50%'
+            arrow.style.transform = 'translateX(-50%)'
+            arrow.style.width = '0'
+            arrow.style.height = '0'
+            arrow.style.borderLeft = '5px solid transparent'
+            arrow.style.borderRight = '5px solid transparent'
+            arrow.style.borderTop = '5px solid #000000'
+            tip.appendChild(arrow)
+
+            button.appendChild(tip)
+            button.addEventListener('mouseenter', () => {
+              tip.style.opacity = '1'
+            })
+            button.addEventListener('mouseleave', () => {
+              tip.style.opacity = '0'
+            })
+          }
+
+          const editButton = document.createElement('button')
+          editButton.setAttribute('aria-label', 'Edit shape')
+          editButton.dataset.shapeEditBtn = 'true'
+          styleIconButton(editButton)
+          editButton.innerHTML =
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.876 18.116c.046-.414.069-.62.131-.814a2 2 0 0 1 .234-.485c.111-.17.259-.317.553-.61L17 3a2.828 2.828 0 1 1 4 4L7.794 20.206c-.294.294-.442.442-.611.553a2 2 0 0 1-.485.233c-.193.063-.4.086-.814.132L2.5 21.5l.376-3.384Z"/></svg>'
+          editButton.addEventListener('click', (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            // Toggle vertex-edit mode for the pending shape.
+            setIsEditingShape((value) => !value)
+          })
+          attachTooltip(editButton, 'Edit shape')
+          actions.appendChild(editButton)
+
+          const menuButton = document.createElement('button')
+          menuButton.setAttribute('aria-label', 'Shape options')
+          menuButton.dataset.shapeMenuBtn = 'true'
+          styleIconButton(menuButton)
+          menuButton.innerHTML =
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>'
+          attachTooltip(menuButton, 'More actions')
+          actions.appendChild(menuButton)
+
+          const minimizeButton = document.createElement('button')
+          minimizeButton.setAttribute('aria-label', 'Minimize')
+          minimizeButton.dataset.shapeMinBtn = 'true'
+          styleIconButton(minimizeButton)
+          const minimizeIcon = document.createElement('span')
+          minimizeIcon.dataset.shapeMinIcon = 'true'
+          minimizeIcon.style.display = 'inline-flex'
+          minimizeIcon.innerHTML = SHAPE_BOX_COLLAPSE_ICON
+          minimizeButton.appendChild(minimizeIcon)
+          minimizeButton.addEventListener('click', (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setIsShapeBoxMinimized((value) => !value)
+          })
+          attachTooltip(minimizeButton, 'Minimize')
+          actions.appendChild(minimizeButton)
+
+          header.appendChild(actions)
+
+          el.appendChild(header)
+
+          const meta = document.createElement('div')
+          meta.dataset.pendingShapeArea = 'true'
+          meta.style.marginTop = '1px'
+          meta.style.fontSize = '12px'
+          meta.style.fontWeight = '400'
+          meta.style.color = '#888F9E'
+          el.appendChild(meta)
+
+          // ── Dropdown menu ──────────────────────────────────────────────
+          const menu = document.createElement('div')
+          menu.dataset.pendingShapeMenu = 'true'
+          menu.style.position = 'absolute'
+          menu.style.top = 'calc(100% + 4px)'
+          menu.style.right = '0'
+          menu.style.minWidth = '160px'
+          menu.style.padding = '4px'
+          menu.style.background = '#181926'
+          menu.style.border = '1px solid #393C56'
+          menu.style.borderRadius = '8px'
+          menu.style.display = 'none'
+          menu.style.flexDirection = 'column'
+          menu.style.zIndex = '11'
+
+          const closeMenu = () => {
+            menu.style.display = 'none'
+          }
+
+          const makeMenuItem = (label, onClick, variant) => {
+            const item = document.createElement('button')
+            item.type = 'button'
+            item.textContent = label
+            item.style.display = 'block'
+            item.style.width = '100%'
+            item.style.textAlign = 'left'
+            item.style.padding = '7px 10px'
+            item.style.border = 'none'
+            item.style.background = 'transparent'
+            item.style.color = variant === 'danger' ? '#F75349' : '#FFFFFF'
+            item.style.fontFamily = 'Inter, sans-serif'
+            item.style.fontSize = '13px'
+            item.style.fontWeight = '400'
+            item.style.borderRadius = '4px'
+            item.style.cursor = 'pointer'
+            item.addEventListener('mouseenter', () => {
+              item.style.background = '#24263C'
+            })
+            item.addEventListener('mouseleave', () => {
+              item.style.background = 'transparent'
+            })
+            item.addEventListener('click', (event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              closeMenu()
+              onClick()
+            })
+            return item
+          }
+
+          const beginRename = () => {
+            const titleEl = el.querySelector(
+              '[data-pending-shape-title="true"]'
+            )
+            if (!titleEl) return
+            const ctx = pendingShapeMenuCtxRef.current || {}
+            const input = document.createElement('input')
+            input.type = 'text'
+            input.dataset.pendingShapeRename = 'true'
+            input.value = ctx.pendingShapeName || ctx.defaultName || ''
+            input.style.width = '120px'
+            input.style.fontFamily = 'Inter, sans-serif'
+            input.style.fontSize = '13px'
+            input.style.fontWeight = '600'
+            input.style.color = '#FFFFFF'
+            input.style.background = '#0a0f1a'
+            input.style.border = '1px solid #393C56'
+            input.style.borderRadius = '4px'
+            input.style.padding = '2px 6px'
+            input.style.outline = 'none'
+            // Live two-way binding: typing here updates the shared name (which
+            // flows back to the left-panel input and the card title).
+            input.addEventListener('input', () => {
+              const latest = pendingShapeMenuCtxRef.current || {}
+              latest.setPendingShapeName?.(input.value)
+            })
+            input.addEventListener('keydown', (event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                input.blur()
+              } else if (event.key === 'Escape') {
+                input.blur()
+              }
+            })
+            // On blur, restore the static title span so the effect can keep
+            // updating it from the shared name.
+            input.addEventListener('blur', () => {
+              const latest = pendingShapeMenuCtxRef.current || {}
+              const span = document.createElement('span')
+              span.dataset.pendingShapeTitle = 'true'
+              span.style.fontSize = '13px'
+              span.style.fontWeight = '600'
+              span.style.color = '#FFFFFF'
+              span.textContent =
+                latest.pendingShapeName || latest.defaultName || ''
+              input.replaceWith(span)
+            })
+            titleEl.replaceWith(input)
+            input.focus()
+            input.select()
+          }
+
+          menu.appendChild(makeMenuItem('Rename', beginRename))
+          const saveItem = makeMenuItem(saveShapeLabel, () => {
+            const ctx = pendingShapeMenuCtxRef.current || {}
+            const name = ctx.pendingShapeName || ctx.defaultName
+            ctx.saveShape?.(name)
+          })
+          saveItem.dataset.pendingShapeSave = 'true'
+          menu.appendChild(saveItem)
+          menu.appendChild(
+            makeMenuItem(
+              'Delete shape',
+              () => {
+                const ctx = pendingShapeMenuCtxRef.current || {}
+                ctx.cancelShapeDraw?.()
+              },
+              'danger'
+            )
+          )
+
+          el.appendChild(menu)
+
+          menuButton.addEventListener('click', (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            menu.style.display =
+              menu.style.display === 'none' ? 'flex' : 'none'
+          })
+
+          // Close the dropdown when clicking anywhere outside the info box.
+          const handleOutside = (event) => {
+            if (!el.contains(event.target)) closeMenu()
+          }
+          document.addEventListener('mousedown', handleOutside)
+          pendingShapeOutsideHandlerRef.current = handleOutside
+
+          pendingShapeMarkerRef.current = new mapboxgl.Marker({
+            element: el,
+            anchor: 'bottom',
+            offset: [0, -12],
+          })
+            .setLngLat(pendingPoint)
+            .addTo(m)
+        } else {
+          pendingShapeMarkerRef.current.setLngLat(pendingPoint)
+        }
+
+        const pendingEl = pendingShapeMarkerRef.current.getElement()
+        // Live two-way binding: the card title mirrors the shared name. Skip
+        // while the user is renaming inline on the map (input is focused).
+        const titleEl = pendingEl.querySelector('[data-pending-shape-title="true"]')
+        // Skip while the user is actively typing in the title (editable focus)
+        // so we don't reset the caret; two-way sync resumes on blur.
+        if (titleEl && document.activeElement !== titleEl)
+          titleEl.textContent = pendingShapeName || defaultName
+        const areaEl = pendingEl.querySelector('[data-pending-shape-area="true"]')
+        if (areaEl) areaEl.textContent = areaText ? `${areaText}: area` : ''
+        const saveEl = pendingEl.querySelector('[data-pending-shape-save="true"]')
+        if (saveEl) saveEl.textContent = saveShapeLabel
+      }
+    } else if (pendingShapeMarkerRef.current) {
+      pendingShapeMarkerRef.current.remove()
+      pendingShapeMarkerRef.current = null
+      if (pendingShapeOutsideHandlerRef.current) {
+        document.removeEventListener(
+          'mousedown',
+          pendingShapeOutsideHandlerRef.current
+        )
+        pendingShapeOutsideHandlerRef.current = null
+      }
+    }
+
     // Fly to a shape the first time it becomes visible.
     const previousIds = new Set(lastVisibleShapeIdsRef.current)
     const newlyVisible = visibleShapes.filter(
@@ -2220,7 +2651,18 @@ const Map = forwardRef(function Map(
       }
     }
     lastVisibleShapeIdsRef.current = visibleShapes.map((shape) => shape.id)
-  }, [mapReady, bookmarkedShapes, pendingShape, visibleShapeIds, hideShape])
+  }, [
+    mapReady,
+    bookmarkedShapes,
+    pendingShape,
+    pendingShapeName,
+    setPendingShapeName,
+    visibleShapeIds,
+    hideShape,
+    saveShape,
+    cancelShapeDraw,
+    saveShapeLabel,
+  ])
 
   // "For You" curated items rendered on the map. We support three marker
   // approaches so we can compare them, toggled via the top-nav dropdown:
@@ -2663,6 +3105,287 @@ const Map = forwardRef(function Map(
       }
     }
   }, [mapReady, shapeDrawMode, completeShapeDraw, cancelShapeDraw])
+
+  // Leaving a pending shape (saved/cancelled) resets edit + minimized state.
+  useEffect(() => {
+    if (!pendingShape) {
+      setIsEditingShape(false)
+      setIsShapeBoxMinimized(false)
+    }
+  }, [pendingShape])
+
+  // In edit mode, make the title a subtly-bordered, editable field (I-beam
+  // cursor) so it's discoverable that the name can be changed too.
+  useEffect(() => {
+    const markerEl = pendingShapeMarkerRef.current?.getElement?.()
+    const titleEl = markerEl?.querySelector('[data-pending-shape-title="true"]')
+    if (!titleEl) return
+    if (isEditingShape) {
+      titleEl.setAttribute('contenteditable', 'true')
+      titleEl.spellcheck = false
+      titleEl.style.cursor = 'text'
+      titleEl.style.border = '1px solid #393C56'
+      titleEl.style.borderRadius = '4px'
+      titleEl.style.padding = '1px 6px'
+      titleEl.style.outline = 'none'
+      titleEl.style.minWidth = '40px'
+    } else {
+      titleEl.setAttribute('contenteditable', 'false')
+      titleEl.style.cursor = ''
+      titleEl.style.border = ''
+      titleEl.style.borderRadius = ''
+      titleEl.style.padding = ''
+      titleEl.style.outline = ''
+      titleEl.style.minWidth = ''
+      titleEl.blur()
+    }
+  }, [isEditingShape, pendingShape])
+
+  // When entering edit mode, focus the name field and drop a blinking caret so
+  // it's obvious the name is active/editable. Keyed only to the toggle so a
+  // vertex-drag commit (which changes pendingShape) doesn't steal focus.
+  useEffect(() => {
+    if (!isEditingShape) return
+    const markerEl = pendingShapeMarkerRef.current?.getElement?.()
+    const titleEl = markerEl?.querySelector('[data-pending-shape-title="true"]')
+    if (!titleEl) return
+    titleEl.focus({ preventScroll: true })
+    const selection = window.getSelection?.()
+    if (selection) {
+      const range = document.createRange()
+      range.selectNodeContents(titleEl)
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+  }, [isEditingShape])
+
+  // Collapse/expand the pending shape info box. Minimized = just the name and
+  // the toggle; area + edit/menu actions are hidden for a compact pill.
+  useEffect(() => {
+    const markerEl = pendingShapeMarkerRef.current?.getElement?.()
+    if (!markerEl) return
+    const minimized = isShapeBoxMinimized
+    const meta = markerEl.querySelector('[data-pending-shape-area="true"]')
+    const editBtn = markerEl.querySelector('[data-shape-edit-btn="true"]')
+    const menuBtn = markerEl.querySelector('[data-shape-menu-btn="true"]')
+    const menu = markerEl.querySelector('[data-pending-shape-menu="true"]')
+    const toggleBtn = markerEl.querySelector('[data-shape-min-btn="true"]')
+
+    if (meta) meta.style.display = minimized ? 'none' : ''
+    if (editBtn) editBtn.style.display = minimized ? 'none' : ''
+    if (menuBtn) menuBtn.style.display = minimized ? 'none' : ''
+    if (minimized && menu) menu.style.display = 'none'
+    // Block-level box stretches to its max width; shrink it to content when
+    // collapsed so it's just the name + toggle.
+    markerEl.style.minWidth = minimized ? '0' : '180px'
+    markerEl.style.width = minimized ? 'fit-content' : ''
+    markerEl.style.padding = minimized ? '4px 8px' : '10px 12px'
+    const header = markerEl.querySelector('[data-pending-shape-header="true"]')
+    if (header) header.style.gap = minimized ? '6px' : '12px'
+    // Shrink the title while minimized so the pill stays out of the way.
+    const titleEl = markerEl.querySelector('[data-pending-shape-title="true"]')
+    if (titleEl) {
+      titleEl.style.fontSize = minimized ? '11px' : '13px'
+      titleEl.style.fontWeight = minimized ? '500' : '600'
+    }
+
+    if (toggleBtn) {
+      const toggleIcon = toggleBtn.querySelector('[data-shape-min-icon="true"]')
+      if (toggleIcon) {
+        toggleIcon.innerHTML = minimized
+          ? SHAPE_BOX_EXPAND_ICON
+          : SHAPE_BOX_COLLAPSE_ICON
+      }
+      toggleBtn.setAttribute('aria-label', minimized ? 'Expand' : 'Minimize')
+      const tipLabel = toggleBtn.querySelector('[data-tooltip-label="true"]')
+      if (tipLabel) tipLabel.textContent = minimized ? 'Expand' : 'Minimize'
+    }
+  }, [isShapeBoxMinimized, pendingShape])
+
+  // Tint the pending shape's pencil button blue while edit mode is active.
+  useEffect(() => {
+    const markerEl = pendingShapeMarkerRef.current?.getElement?.()
+    const btn = markerEl?.querySelector('[data-shape-edit-btn="true"]')
+    if (btn) btn.style.color = isEditingShape ? '#006CD7' : '#A4ABBE'
+  }, [isEditingShape, pendingShape])
+
+  // Vertex-editing interaction for the pending shape: draggable corner handles
+  // plus midpoint handles to insert new vertices. Geometry changes are written
+  // back to the pending shape on release.
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    if (!isEditingShape || !pendingShape) return
+    const m = map.current
+
+    // Working copy of the open ring (no duplicated closing vertex).
+    let pts = (pendingShape.coordinates || []).map((coord) => [...coord])
+    if (pts.length < 3) return
+
+    if (!m.getSource('shape-edit')) {
+      m.addSource('shape-edit', {
+        type: 'geojson',
+        data: EMPTY_FEATURE_COLLECTION,
+      })
+      m.addLayer({
+        id: 'shape-edit-midpoints',
+        type: 'circle',
+        source: 'shape-edit',
+        filter: ['==', ['get', 'kind'], 'midpoint'],
+        paint: {
+          'circle-radius': 4,
+          'circle-color': '#006CD7',
+          'circle-opacity': 0.55,
+          'circle-stroke-color': '#FFFFFF',
+          'circle-stroke-width': 1,
+        },
+      })
+      m.addLayer({
+        id: 'shape-edit-vertices',
+        type: 'circle',
+        source: 'shape-edit',
+        filter: ['==', ['get', 'kind'], 'vertex'],
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#FFFFFF',
+          'circle-stroke-color': '#006CD7',
+          'circle-stroke-width': 2,
+        },
+      })
+    }
+
+    const editSource = () => m.getSource('shape-edit')
+    const pointFeature = (coord, properties) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: coord },
+      properties,
+    })
+    const midpointOf = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+
+    const renderHandles = () => {
+      const features = []
+      pts.forEach((point, index) =>
+        features.push(pointFeature(point, { kind: 'vertex', index }))
+      )
+      for (let i = 0; i < pts.length; i++) {
+        const next = pts[(i + 1) % pts.length]
+        features.push(
+          pointFeature(midpointOf(pts[i], next), { kind: 'midpoint', index: i })
+        )
+      }
+      editSource()?.setData({ type: 'FeatureCollection', features })
+    }
+
+    // Live preview of the polygon fill/outline during a drag, bypassing React
+    // state so it stays smooth.
+    const renderPolygonPreview = () => {
+      const shapesSource = m.getSource('user-shapes')
+      if (!shapesSource) return
+      const visibleIdSet = new Set(visibleShapeIds || [])
+      const features = (bookmarkedShapes || [])
+        .filter((shape) => visibleIdSet.has(shape.id))
+        .map((shape) => shapeToPolygonFeature(shape, 'saved'))
+        .filter(Boolean)
+      const pendingFeature = shapeToPolygonFeature(
+        { ...pendingShape, coordinates: pts },
+        'pending'
+      )
+      if (pendingFeature) features.push(pendingFeature)
+      shapesSource.setData({ type: 'FeatureCollection', features })
+    }
+
+    let dragIndex = null
+
+    const onMouseMove = (event) => {
+      if (dragIndex == null) return
+      pts[dragIndex] = [event.lngLat.lng, event.lngLat.lat]
+      renderHandles()
+      renderPolygonPreview()
+    }
+
+    const onMouseUp = () => {
+      if (dragIndex == null) return
+      m.off('mousemove', onMouseMove)
+      m.dragPan.enable()
+      m.getCanvas().style.cursor = ''
+      dragIndex = null
+      updatePendingShape(pts.map((coord) => [...coord]))
+    }
+
+    const beginDrag = (event) => {
+      const feature = event.features?.[0]
+      if (!feature) return
+      event.preventDefault()
+      const { kind, index } = feature.properties
+      if (kind === 'midpoint') {
+        // Dragging a midpoint inserts a new vertex between its neighbors.
+        const insertAt = index + 1
+        pts = [
+          ...pts.slice(0, insertAt),
+          [event.lngLat.lng, event.lngLat.lat],
+          ...pts.slice(insertAt),
+        ]
+        dragIndex = insertAt
+      } else {
+        dragIndex = index
+      }
+      m.dragPan.disable()
+      m.getCanvas().style.cursor = 'grabbing'
+      renderHandles()
+      m.on('mousemove', onMouseMove)
+      m.once('mouseup', onMouseUp)
+    }
+
+    const onEnter = () => {
+      if (dragIndex == null) m.getCanvas().style.cursor = 'pointer'
+    }
+    const onLeave = () => {
+      if (dragIndex == null) m.getCanvas().style.cursor = ''
+    }
+
+    // Enter commits the edits and exits edit mode; Escape just exits.
+    const handleKeyDown = (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        updatePendingShape(pts.map((coord) => [...coord]))
+        setIsEditingShape(false)
+      } else if (event.key === 'Escape') {
+        setIsEditingShape(false)
+      }
+    }
+
+    const interactiveLayers = ['shape-edit-vertices', 'shape-edit-midpoints']
+    interactiveLayers.forEach((layerId) => {
+      m.on('mousedown', layerId, beginDrag)
+      m.on('mouseenter', layerId, onEnter)
+      m.on('mouseleave', layerId, onLeave)
+    })
+    window.addEventListener('keydown', handleKeyDown)
+
+    renderHandles()
+
+    return () => {
+      interactiveLayers.forEach((layerId) => {
+        m.off('mousedown', layerId, beginDrag)
+        m.off('mouseenter', layerId, onEnter)
+        m.off('mouseleave', layerId, onLeave)
+      })
+      window.removeEventListener('keydown', handleKeyDown)
+      m.off('mousemove', onMouseMove)
+      if (map.current) {
+        m.dragPan.enable()
+        m.getCanvas().style.cursor = ''
+        editSource()?.setData(EMPTY_FEATURE_COLLECTION)
+      }
+    }
+  }, [
+    mapReady,
+    isEditingShape,
+    pendingShape,
+    updatePendingShape,
+    bookmarkedShapes,
+    visibleShapeIds,
+  ])
 
   useEffect(() => {
     popupPositionsRef.current = popupPositions

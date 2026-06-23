@@ -77,8 +77,8 @@ const RING_SLIDER_STYLES = {
 const SAVE_VARIANTS = {
   proto1: {
     Icon: Star01,
-    addLabel: 'Bookmark',
-    removeLabel: 'Remove bookmark',
+    addLabel: 'Favorite',
+    removeLabel: 'Remove favorite',
     activeColor: '#FFCF5C',
   },
   proto2: {

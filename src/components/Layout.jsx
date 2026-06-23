@@ -411,6 +411,11 @@ function Layout() {
           forYouVisibleIds={forYouVisibleIds}
           forYouFocus={forYouFocus}
           onForYouItemClick={handleForYouItemClick}
+          saveShapeLabel={
+            forYouPrototype === 'proto1'
+              ? 'Save to Favorites'
+              : 'Save to Bookmarks'
+          }
         />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
