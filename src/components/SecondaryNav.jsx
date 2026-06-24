@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Box, Loader, Text } from '@mantine/core'
 import {
   Plus,
@@ -27,6 +28,10 @@ import RectangleIcon from '../custom-icons/RectangleIcon'
 import AnchorIcon from '../custom-icons/AnchorIcon.svg'
 import { ships } from '../data/mockData'
 import { useShipContext } from '../context/ShipContext'
+
+// Sentinel id for the freshly drawn, not-yet-saved shape in the /my-shapes
+// analysis dropdown.
+const PENDING_SHAPE_OPTION_ID = '__pending_shape__'
 
 const SECONDARY_NAV_DEFAULT_WIDTH = 386
 const SECONDARY_NAV_MIN_WIDTH = 360
@@ -170,7 +175,7 @@ const getColumnsByTab = (tabId) => {
   if (tabId === 'polygons') {
     return [
       { key: 'name', label: 'Shape Name', width: 'minmax(0, 1.6fr)' },
-      { key: 'area', label: 'Area (km²)', width: 'minmax(0, 1fr)' },
+      { key: 'area', label: 'Area', width: 'minmax(0, 1fr)' },
       { key: 'lastEdited', label: 'Last Edited', width: 'minmax(0, 1fr)' },
     ]
   }
@@ -690,6 +695,22 @@ const SecondaryNav = ({
   const [version2BookmarkSearchQuery, setVersion2BookmarkSearchQuery] =
     useState('')
   const [activeShapeRowId, setActiveShapeRowId] = useState(null)
+  // /my-shapes workspace state. 'draw' shows the add/draw flow; 'workspace'
+  // shows the tabbed Shape Analysis / My Shapes screen shown once a shape exists.
+  const [myShapesScreen, setMyShapesScreen] = useState('draw')
+  const [shapeWorkspaceTab, setShapeWorkspaceTab] = useState('analysis')
+  const [selectedAnalysisShapeId, setSelectedAnalysisShapeId] = useState(null)
+  // Tracks the id of the shape we've already auto-saved on /my-shapes so the
+  // auto-save fires once per drawn shape (and doesn't re-add after "Remove").
+  const autoSavedShapeIdRef = useRef(null)
+  const [analysisStartDate, setAnalysisStartDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 1)
+    return d.toISOString().slice(0, 10)
+  })
+  const [analysisEndDate, setAnalysisEndDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  )
   const [openTableFilterId, setOpenTableFilterId] = useState(null)
   const [bookmarkViewMode, setBookmarkViewMode] = useState('table')
   const [shipTableFilters, setShipTableFilters] = useState({
@@ -738,15 +759,35 @@ const SecondaryNav = ({
     cancelShapeDraw,
     saveShape,
     removeShape,
+    savePendingShape,
+    updateSavedShape,
+    editSavedShape,
     showShape,
     visibleShapeIds,
     seedFavoritesForTesting,
+    shapePendingDelete,
+    setShapePendingDelete,
   } = useShipContext()
+  // Close the delete-confirmation modal on Escape.
+  useEffect(() => {
+    if (!shapePendingDelete) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setShapePendingDelete(null)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [shapePendingDelete, setShapePendingDelete])
   const [devSeedHovered, setDevSeedHovered] = useState(false)
 
+  // Dedicated "My Shapes" destination: the same SecondaryNav instance, but the
+  // /my-shapes route locks it to a shapes-only experience (saved shapes list +
+  // the draw/add flow), hiding ships/ports/alerts and the top-level tabs.
+  const shapesOnly = currentPath === '/my-shapes'
   const isWatchlistView =
     !forceHidden &&
-    (currentPath === '/watchlist' || currentPath.startsWith('/myships'))
+    (currentPath === '/watchlist' ||
+      currentPath.startsWith('/myships') ||
+      shapesOnly)
   const isGroupedVersion = watchlistVersion === 'grouped'
   const isVersion2 = watchlistVersion === 'version2'
   const isVersion3 = watchlistVersion === 'version3'
@@ -788,9 +829,14 @@ const SecondaryNav = ({
   const isVersion3ShapeUploadHovered =
     version2HoveredFlow === 'upload-file-shapes'
   const version2AddOptions = useMemo(() => {
-    const baseOptions = isVersion5
+    let baseOptions = isVersion5
       ? VERSION2_ADD_OPTIONS.filter((option) => option.id !== 'alerts')
       : VERSION2_ADD_OPTIONS
+
+    // The /my-shapes destination only offers the shape flow.
+    if (shapesOnly) {
+      baseOptions = baseOptions.filter((option) => option.id === 'polygons')
+    }
 
     return baseOptions.map((option) =>
       isVersion5 && option.id === 'polygons'
@@ -801,7 +847,7 @@ const SecondaryNav = ({
           }
         : option
     )
-  }, [isVersion5])
+  }, [isVersion5, shapesOnly])
 
   const shipLookup = useMemo(() => {
     const rows = {}
@@ -1244,6 +1290,42 @@ const SecondaryNav = ({
       }),
     [bookmarkedShapes, isVersion5]
   )
+  // On /my-shapes the freshly drawn (still-pending) shape should appear in the
+  // My Shapes list right away, alongside any saved shapes.
+  const myShapesTabRows = useMemo(() => {
+    // Saved shapes keep their stable (insertion) order. The active shape is
+    // auto-saved, so it already lives in this list at its own position — we do
+    // NOT hoist it to the top; the active highlight just overlays it in place.
+    const rows = version4BookmarkedPolygonRows
+    // Only when the active shape isn't in the saved list (a brand-new draw not
+    // yet auto-saved, or one removed from My Shapes while still active) do we
+    // surface it as a temporary row appended at the end, so existing rows don't
+    // shift.
+    if (pendingShape?.id && !rows.some((row) => row.id === pendingShape.id)) {
+      return [
+        ...rows,
+        {
+          id: pendingShape.id,
+          name:
+            shapeNameInput ||
+            `${polygonEntityLabelSingular} ${bookmarkedShapes.length + 1}`,
+          area: formatShapeArea(getShapeAreaKm2(pendingShape.coordinates)),
+          lastEdited: 'Just now',
+          polygonType: polygonEntityLabelSingular,
+          region: 'Custom',
+          rule: 'None',
+          updatedAt: 'Just now',
+        },
+      ]
+    }
+    return rows
+  }, [
+    pendingShape,
+    shapeNameInput,
+    version4BookmarkedPolygonRows,
+    polygonEntityLabelSingular,
+    bookmarkedShapes.length,
+  ])
   const version4BookmarkedAlertRows = useMemo(() => [], [])
   const activeShipRowId = useMemo(() => {
     // Ships/ports and shapes are mutually exclusive: if a shape is shown on the
@@ -1675,7 +1757,14 @@ const SecondaryNav = ({
 
   const handleShapeRowClick = (row) => {
     if (!row) return
-    showShape(row.id)
+    // My Shapes flow: clicking a row makes that shape the active/selected one
+    // (blue rich card on the map), demoting the previously active shape. The
+    // favorites/bookmarks flow keeps its lightweight show + highlight behavior.
+    if (shapesOnly) {
+      editSavedShape(row.id)
+    } else {
+      showShape(row.id)
+    }
     setActiveShapeRowId(String(row.id))
   }
 
@@ -2314,6 +2403,82 @@ const SecondaryNav = ({
     }
   }, [isVersion5, version2Mode])
 
+  // Entering the /my-shapes destination: if the user already has shapes, open the
+  // tabbed workspace; otherwise drop straight into the draw/add flow.
+  useEffect(() => {
+    if (!shapesOnly) return
+    setActiveTopTab('my-watchlist')
+    if (bookmarkedShapes.length > 0) {
+      setMyShapesScreen('workspace')
+      setShapeWorkspaceTab('analysis')
+    } else {
+      setMyShapesScreen('draw')
+      setVersion2Mode('polygons')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shapesOnly])
+
+  // On /my-shapes, finishing a drawing keeps the shape active (so the rich
+  // on-map info card stays) and opens the Shape Analysis screen with the
+  // just-drawn shape selected. The shape is also auto-saved into My Shapes once
+  // (the card CTA then offers "Remove from My Shapes").
+  useEffect(() => {
+    if (!shapesOnly || !pendingShape) return
+    setSelectedAnalysisShapeId(PENDING_SHAPE_OPTION_ID)
+    setMyShapesScreen('workspace')
+    // A freshly drawn shape isn't in the saved list yet (it gets auto-saved just
+    // below). Only a brand-new draw should jump to the Shape Analysis tab —
+    // activating an existing saved shape (e.g. clicking a table row) must keep
+    // the user on whichever tab they're already viewing.
+    const isNewlyDrawn =
+      !!pendingShape.id &&
+      !(bookmarkedShapes || []).some((s) => s.id === pendingShape.id)
+    if (isNewlyDrawn) {
+      setShapeWorkspaceTab('analysis')
+    }
+    if (pendingShape.id && autoSavedShapeIdRef.current !== pendingShape.id) {
+      autoSavedShapeIdRef.current = pendingShape.id
+      savePendingShape(shapeNameInput)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shapesOnly, pendingShape])
+
+  // Keep a saved shape in sync as the user renames or reshapes the active shape:
+  // a saved shape updates automatically; an unsaved one only updates locally.
+  useEffect(() => {
+    if (!shapesOnly || !pendingShape?.id) return
+    updateSavedShape(pendingShape.id, {
+      name: shapeNameInput,
+      coordinates: pendingShape.coordinates,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shapesOnly, pendingShape, shapeNameInput])
+
+  // Keep the analysis dropdown selection valid. A pending (just-drawn) shape
+  // drives the selection; otherwise default to the newest saved shape. If there
+  // are no shapes at all, fall back to the draw flow.
+  useEffect(() => {
+    if (!shapesOnly) return
+    if (pendingShape) return
+    if (bookmarkedShapes.length === 0) {
+      setSelectedAnalysisShapeId(null)
+      if (myShapesScreen === 'workspace') {
+        setMyShapesScreen('draw')
+        setVersion2Mode('polygons')
+      }
+      return
+    }
+    const stillExists = bookmarkedShapes.some(
+      (shape) => shape.id === selectedAnalysisShapeId
+    )
+    if (!stillExists) {
+      setSelectedAnalysisShapeId(
+        bookmarkedShapes[bookmarkedShapes.length - 1].id
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shapesOnly, bookmarkedShapes, pendingShape])
+
   useEffect(() => {
     setVersion2UploadError('')
     setVersion2UploadedFileName('')
@@ -2492,7 +2657,7 @@ const SecondaryNav = ({
         </Box>
       )}
 
-      {isOpen && isWatchlistView && (
+      {isOpen && isWatchlistView && !shapesOnly && (
         <Box
           component="button"
           type="button"
@@ -2536,7 +2701,7 @@ const SecondaryNav = ({
       >
         <Box
           style={{
-            display: 'flex',
+            display: shapesOnly ? 'none' : 'flex',
             borderBottom: '1px solid #393C56',
             height: 50,
           }}
@@ -2624,9 +2789,344 @@ const SecondaryNav = ({
           }}
         >
           {isVersion2Or3Or4Or5 ? (
-            activeTopTab === 'recently-viewed' &&
-            isVersion6 &&
-            version6HasRecentActivity ? (
+            shapesOnly && myShapesScreen === 'workspace' ? (
+              <Box
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  minHeight: 0,
+                }}
+              >
+                <Box
+                  style={{
+                    display: 'flex',
+                    borderBottom: '1px solid #393C56',
+                    flexShrink: 0,
+                  }}
+                >
+                  {[
+                    { id: 'analysis', label: `${polygonEntityLabelSingular} Analysis` },
+                    { id: 'list', label: `My ${polygonEntityLabelPlural}` },
+                  ].map((tab) => (
+                    <Box
+                      key={tab.id}
+                      onClick={() => setShapeWorkspaceTab(tab.id)}
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: 48,
+                        cursor: 'pointer',
+                        borderBottom:
+                          shapeWorkspaceTab === tab.id
+                            ? '2px solid #FFFFFF'
+                            : '2px solid transparent',
+                        color:
+                          shapeWorkspaceTab === tab.id ? '#FFFFFF' : '#888F9E',
+                        fontWeight: shapeWorkspaceTab === tab.id ? 600 : 400,
+                        fontSize: 14,
+                      }}
+                    >
+                      {tab.label}
+                    </Box>
+                  ))}
+                </Box>
+                {shapeWorkspaceTab === 'analysis' ? (
+                  <Box
+                    style={{
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 16,
+                    }}
+                  >
+                    <Box
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}
+                    >
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 14,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {polygonEntityLabelSingular}
+                        </Text>
+                        <Box
+                          component="button"
+                          type="button"
+                          onClick={() => {
+                            setVersion2SelectedFlow(null)
+                            setVersion2HoveredFlow(null)
+                            setVersion2Mode('polygons')
+                            setMyShapesScreen('draw')
+                          }}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: '#2E90FA',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            padding: 0,
+                          }}
+                        >
+                          {`+ Create New ${polygonEntityLabelSingular}`}
+                        </Box>
+                      </Box>
+                      <Box
+                        component="select"
+                        value={selectedAnalysisShapeId || ''}
+                        onChange={(event) => {
+                          const nextId = event.currentTarget.value
+                          setSelectedAnalysisShapeId(nextId)
+                          if (nextId && nextId !== PENDING_SHAPE_OPTION_ID) {
+                            showShape(nextId)
+                            setActiveShapeRowId(String(nextId))
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          height: 44,
+                          border: '1px solid #393C56',
+                          borderRadius: 6,
+                          background: '#0A0E19',
+                          color: '#FFFFFF',
+                          fontSize: 13,
+                          padding: '0 36px 0 12px',
+                          outline: 'none',
+                          appearance: 'none',
+                          WebkitAppearance: 'none',
+                          MozAppearance: 'none',
+                          backgroundImage:
+                            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 12px center',
+                        }}
+                      >
+                        {pendingShape && (
+                          <option value={PENDING_SHAPE_OPTION_ID}>
+                            {shapeNameInput ||
+                              `${polygonEntityLabelSingular} ${
+                                bookmarkedShapes.length + 1
+                              }`}
+                          </option>
+                        )}
+                        {bookmarkedShapes
+                          .filter(
+                            (shape) =>
+                              !pendingShape || shape.id !== pendingShape.id
+                          )
+                          .map((shape) => (
+                            <option key={shape.id} value={shape.id}>
+                              {shape.name || 'Untitled shape'}
+                            </option>
+                          ))}
+                      </Box>
+                    </Box>
+                    <Box style={{ display: 'flex', gap: 12 }}>
+                      <Box
+                        style={{
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 14,
+                            fontWeight: 600,
+                          }}
+                        >
+                          Start Date
+                        </Text>
+                        <Box
+                          component="input"
+                          type="date"
+                          className="secondary-nav-text-input"
+                          value={analysisStartDate}
+                          onChange={(event) =>
+                            setAnalysisStartDate(event.currentTarget.value)
+                          }
+                          style={{
+                            width: '100%',
+                            height: 44,
+                            border: '1px solid #393C56',
+                            borderRadius: 6,
+                            background: '#0A0E19',
+                            color: '#FFFFFF',
+                            fontSize: 13,
+                            padding: '0 12px',
+                            outline: 'none',
+                            colorScheme: 'dark',
+                          }}
+                        />
+                      </Box>
+                      <Box
+                        style={{
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 14,
+                            fontWeight: 600,
+                          }}
+                        >
+                          End Date
+                        </Text>
+                        <Box
+                          component="input"
+                          type="date"
+                          className="secondary-nav-text-input"
+                          value={analysisEndDate}
+                          onChange={(event) =>
+                            setAnalysisEndDate(event.currentTarget.value)
+                          }
+                          style={{
+                            width: '100%',
+                            height: 44,
+                            border: '1px solid #393C56',
+                            borderRadius: 6,
+                            background: '#0A0E19',
+                            color: '#FFFFFF',
+                            fontSize: 13,
+                            padding: '0 12px',
+                            outline: 'none',
+                            colorScheme: 'dark',
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                    <Box
+                      style={{ display: 'flex', justifyContent: 'flex-end' }}
+                    >
+                      <Box
+                        component="button"
+                        type="button"
+                        disabled={!selectedAnalysisShapeId}
+                        onClick={() => {
+                          if (
+                            selectedAnalysisShapeId &&
+                            selectedAnalysisShapeId !== PENDING_SHAPE_OPTION_ID
+                          ) {
+                            showShape(selectedAnalysisShapeId)
+                            setActiveShapeRowId(String(selectedAnalysisShapeId))
+                          }
+                        }}
+                        style={{
+                          height: 40,
+                          borderRadius: 6,
+                          border: 'none',
+                          background: selectedAnalysisShapeId
+                            ? '#006CD7'
+                            : '#3A3E5E',
+                          color: '#FFFFFF',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          padding: '0 20px',
+                          cursor: selectedAnalysisShapeId
+                            ? 'pointer'
+                            : 'not-allowed',
+                        }}
+                      >
+                        Load Ships
+                      </Box>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box
+                    style={{
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      minHeight: 0,
+                      overflowY: 'auto',
+                    }}
+                  >
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 14,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {`${polygonEntityLabelPlural}: ${myShapesTabRows.length}`}
+                      </Text>
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={() => {
+                          setVersion2SelectedFlow(null)
+                          setVersion2HoveredFlow(null)
+                          setVersion2Mode('polygons')
+                          setMyShapesScreen('draw')
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          border: 'none',
+                          borderRadius: 4,
+                          background: '#006CD7',
+                          color: '#FFFFFF',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          lineHeight: '14px',
+                          height: 30,
+                          padding: '0 10px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Plus size={14} color="#FFFFFF" />
+                        {`Add ${polygonEntityLabelSingular.toLowerCase()}`}
+                      </Box>
+                    </Box>
+                    <DataTable
+                      rows={myShapesTabRows}
+                      columns={getColumnsByTab('polygons').map((column) =>
+                        column.key === 'name'
+                          ? { ...column, label: polygonEntityLabelSingular }
+                          : column
+                      )}
+                      emptyMessage={`No ${polygonEntityLabelLowerPlural} yet.`}
+                      onRowClick={(row) => handleShapeRowClick(row)}
+                      activeRowId={pendingShape?.id || activeShapeRowId}
+                      onRemoveRow={(row) => setShapePendingDelete(row)}
+                    />
+                  </Box>
+                )}
+              </Box>
+            ) : activeTopTab === 'recently-viewed' &&
+              isVersion6 &&
+              version6HasRecentActivity ? (
               <Box
                 style={{
                   display: 'flex',
@@ -3408,9 +3908,9 @@ const SecondaryNav = ({
                   {version2Mode === 'alerts'
                     ? 'Select the ship(s) you’d like to be alerted with.'
                     : version2Mode === 'polygons'
-                      ? pendingShape
+                      ? pendingShape && !shapesOnly
                         ? `Name your ${polygonEntityLabelSingular.toLowerCase()} and save it to bookmarks.`
-                        : shapeDrawMode
+                        : shapeDrawMode && !shapesOnly
                           ? `Draw your ${polygonEntityLabelSingular.toLowerCase()} on the map.`
                           : `Create a ${polygonEntityLabelLowerPlural.slice(0, -1)} by:`
                       : 'Search by port name, Locode, or country and choose ports to watch.'}
@@ -3515,7 +4015,8 @@ const SecondaryNav = ({
                 )}
                 {version2Mode === 'polygons' &&
                   shapeDrawMode &&
-                  !pendingShape && (
+                  !pendingShape &&
+                  !shapesOnly && (
                     <Box
                       style={{
                         display: 'flex',
@@ -3550,8 +4051,10 @@ const SecondaryNav = ({
                             lineHeight: '17px',
                           }}
                         >
-                          Click on the map to drop points. Click the first point
-                          again or double-click to finish. Press Esc to cancel.
+                          {shapeDrawMode === 'rectangle' ||
+                          shapeDrawMode === 'circle'
+                            ? 'Press and drag on the map to size the shape, then release to finish. Press Esc to cancel.'
+                            : 'Click on the map to drop points. Click the first point again or double-click to finish. Press Esc to cancel.'}
                         </Text>
                       </Box>
                       <Box
@@ -3576,7 +4079,7 @@ const SecondaryNav = ({
                       </Box>
                     </Box>
                   )}
-                {version2Mode === 'polygons' && pendingShape && (
+                {version2Mode === 'polygons' && pendingShape && !shapesOnly && (
                   <Box
                     style={{
                       display: 'flex',
@@ -3672,8 +4175,8 @@ const SecondaryNav = ({
                   </Box>
                 )}
                 {version2Mode === 'polygons' &&
-                  !shapeDrawMode &&
-                  !pendingShape && (
+                  (!shapeDrawMode || shapesOnly) &&
+                  (!pendingShape || shapesOnly) && (
                   <Box
                     style={{
                       display: 'flex',
@@ -3706,6 +4209,13 @@ const SecondaryNav = ({
                     ].map((item) => {
                       const drawCardHoverId = `draw-${item.id}`
                       const isHovered = version2HoveredFlow === drawCardHoverId
+                      // In the My Shapes flow the tools list stays visible while
+                      // drawing, so highlight whichever tool is currently active.
+                      const drawModeForItem =
+                        item.id === 'shape' ? 'polygon' : item.id
+                      const isSelected =
+                        shapesOnly && shapeDrawMode === drawModeForItem
+                      const isActive = isHovered || isSelected
 
                       return (
                         <Box
@@ -3717,10 +4227,10 @@ const SecondaryNav = ({
                           }
                           onMouseLeave={() => setVersion2HoveredFlow(null)}
                           onClick={() => {
-                            if (item.id === 'shape') {
-                              setShapeNameInput('')
-                              startShapeDraw('polygon')
-                            }
+                            setShapeNameInput('')
+                            startShapeDraw(
+                              item.id === 'shape' ? 'polygon' : item.id
+                            )
                           }}
                           style={{
                             display: 'flex',
@@ -3728,9 +4238,9 @@ const SecondaryNav = ({
                             justifyContent: 'flex-start',
                             alignItems: 'center',
                             gap: isVersion6 ? 14 : 10,
-                            border: `1px solid ${isHovered ? '#006CD7' : '#393C56'}`,
+                            border: `1px solid ${isActive ? '#006CD7' : '#393C56'}`,
                             borderRadius: 6,
-                            background: isHovered
+                            background: isActive
                               ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
                               : '#24263C',
                             color: '#FFFFFF',
@@ -3781,8 +4291,8 @@ const SecondaryNav = ({
                 )}
                 {isVersion5 &&
                   version2Mode === 'polygons' &&
-                  !shapeDrawMode &&
-                  !pendingShape && (
+                  (!shapeDrawMode || shapesOnly) &&
+                  (!pendingShape || shapesOnly) && (
                   <>
                     <Box
                       style={{
@@ -4240,6 +4750,7 @@ const SecondaryNav = ({
                       </Box>
                     )}
                 </Box>
+                {!shapesOnly && (
                 <Box
                   style={{
                     marginTop: 'auto',
@@ -4264,6 +4775,14 @@ const SecondaryNav = ({
                       setVersion2PendingPorts([])
                       setVersion2AlertShipSearchValue('')
                       setVersion2AlertMyShipValue('')
+                      if (shapesOnly) {
+                        if (bookmarkedShapes.length > 0) {
+                          setMyShapesScreen('workspace')
+                        } else {
+                          handleCancelShapeDraw()
+                        }
+                        return
+                      }
                       setVersion2Mode('add-options')
                     }}
                     style={{
@@ -4308,6 +4827,7 @@ const SecondaryNav = ({
                     {version2PortSubmitLabel}
                   </Box>
                 </Box>
+                )}
               </Box>
             ) : activeTopTab === 'my-watchlist' &&
               version2Mode === 'add-options' ? (
@@ -4921,11 +5441,13 @@ const SecondaryNav = ({
                       // lineHeight: '22px',
                     }}
                   >
-                    {isFavoritesProto
-                      ? 'Favorites'
-                      : isVersion4Or5
-                        ? 'My Bookmarks'
-                        : 'My Watchlist'}
+                    {shapesOnly
+                      ? 'My Shapes'
+                      : isFavoritesProto
+                        ? 'Favorites'
+                        : isVersion4Or5
+                          ? 'My Bookmarks'
+                          : 'My Watchlist'}
                   </Text>
                   <Box
                     component="button"
@@ -4938,7 +5460,7 @@ const SecondaryNav = ({
                       setVersion2BookmarkSearchQuery('')
                       setVersion2SelectedFlow(null)
                       setVersion2HoveredFlow(null)
-                      setVersion2Mode('add-options')
+                      setVersion2Mode(shapesOnly ? 'polygons' : 'add-options')
                     }}
                     style={{
                       display: 'inline-flex',
@@ -4957,7 +5479,9 @@ const SecondaryNav = ({
                     }}
                   >
                     <Plus size={14} color="#FFFFFF" />
-                    {`Add ${listCollectionLabelLower}`}
+                    {shapesOnly
+                      ? `Add ${polygonEntityLabelSingular.toLowerCase()}`
+                      : `Add ${listCollectionLabelLower}`}
                   </Box>
                 </Box>
                 <Box
@@ -4981,7 +5505,11 @@ const SecondaryNav = ({
                     onChange={(event) =>
                       setVersion2BookmarkSearchQuery(event.currentTarget.value)
                     }
-                    placeholder={`Search ${listCollectionLabelLower}`}
+                    placeholder={
+                      shapesOnly
+                        ? `Search ${polygonEntityLabelLowerPlural}`
+                        : `Search ${listCollectionLabelLower}`
+                    }
                     style={{
                       width: '100%',
                       height: 30,
@@ -5047,9 +5575,10 @@ const SecondaryNav = ({
                     })}
                   </Box>
                 </Box>
-                {(!isVersion4Or5 ||
-                  version2MyWatchlistShipRows.length > 0 ||
-                  hasBookmarkSearchQuery) && (
+                {!shapesOnly &&
+                  (!isVersion4Or5 ||
+                    version2MyWatchlistShipRows.length > 0 ||
+                    hasBookmarkSearchQuery) && (
                   <>
                     <Box
                       style={{
@@ -5285,9 +5814,10 @@ const SecondaryNav = ({
                     )}
                   </>
                 )}
-                {(!isVersion4Or5 ||
-                  version2MyWatchlistPortRows.length > 0 ||
-                  hasBookmarkSearchQuery) && (
+                {!shapesOnly &&
+                  (!isVersion4Or5 ||
+                    version2MyWatchlistPortRows.length > 0 ||
+                    hasBookmarkSearchQuery) && (
                   <>
                     <Box
                       style={{
@@ -5753,7 +6283,7 @@ const SecondaryNav = ({
                         emptyMessage={`No ${polygonEntityLabelLowerPlural} in ${listCollectionLabelLower} yet.`}
                         onRowClick={handleShapeRowClick}
                         activeRowId={activeShapeRowId}
-                        onRemoveRow={(row) => removeShape(row.id)}
+                        onRemoveRow={(row) => setShapePendingDelete(row)}
                       />
                     ) : (
                       <DataTable
@@ -5773,12 +6303,14 @@ const SecondaryNav = ({
                         emptyMessage={`No ${polygonEntityLabelLowerPlural} in ${listCollectionLabelLower} yet.`}
                         onRowClick={handleShapeRowClick}
                         activeRowId={activeShapeRowId}
-                        onRemoveRow={(row) => removeShape(row.id)}
+                        onRemoveRow={(row) => setShapePendingDelete(row)}
                       />
                     )}
                   </>
                 )}
-                {isVersion4Or5 && version4BookmarkedAlertRows.length > 0 && (
+                {!shapesOnly &&
+                  isVersion4Or5 &&
+                  version4BookmarkedAlertRows.length > 0 && (
                   <>
                     <Box
                       style={{
@@ -6405,6 +6937,122 @@ const SecondaryNav = ({
           }}
         />
       )}
+      {shapePendingDelete &&
+        createPortal(
+          <Box
+            onMouseDown={() => setShapePendingDelete(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            <Box
+              onMouseDown={(event) => event.stopPropagation()}
+              style={{
+                width: 360,
+                maxWidth: 'calc(100vw - 48px)',
+                background: '#0a0f1a',
+                border: '1px solid #1e293b',
+                borderRadius: 8,
+                padding: 20,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              <Text
+                style={{
+                  color: '#ffffff',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  lineHeight: '20px',
+                }}
+              >
+                {`Delete ${(
+                  shapePendingDelete.name ||
+                  polygonEntityLabelSingular.toLowerCase()
+                ).trim()}?`}
+              </Text>
+              <Text
+                style={{
+                  color: '#888F9E',
+                  fontSize: 13,
+                  fontWeight: 400,
+                  lineHeight: '18px',
+                }}
+              >
+                {`This ${polygonEntityLabelSingular.toLowerCase()} will be permanently deleted from your ${listCollectionLabelLower}. This can't be undone.`}
+              </Text>
+              <Box
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: 8,
+                  marginTop: 12,
+                }}
+              >
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={() => setShapePendingDelete(null)}
+                  style={{
+                    height: 32,
+                    padding: '0 14px',
+                    background: 'transparent',
+                    border: '1px solid #1e293b',
+                    borderRadius: 6,
+                    color: '#ffffff',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    fontFamily: "'Inter', sans-serif",
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </Box>
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={() => {
+                    // Deleting the active shape (the pending one) must also clear
+                    // it from the map; deleting any other saved shape just drops
+                    // it from the list.
+                    if (
+                      shapePendingDelete.id === PENDING_SHAPE_OPTION_ID ||
+                      shapePendingDelete.id === pendingShape?.id
+                    ) {
+                      handleCancelShapeDraw()
+                    } else {
+                      removeShape(shapePendingDelete.id)
+                    }
+                    setShapePendingDelete(null)
+                  }}
+                  style={{
+                    height: 32,
+                    padding: '0 14px',
+                    background: '#dc2626',
+                    border: '1px solid #dc2626',
+                    borderRadius: 6,
+                    color: '#ffffff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    fontFamily: "'Inter', sans-serif",
+                    cursor: 'pointer',
+                  }}
+                >
+                  {`Delete ${polygonEntityLabelSingular.toLowerCase()}`}
+                </Box>
+              </Box>
+            </Box>
+          </Box>,
+          document.body
+        )}
     </Box>
   )
 }

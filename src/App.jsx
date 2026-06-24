@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { ShipProvider } from './context/ShipContext'
 import Layout from './components/Layout'
 import Myships from './pages/Myships'
+import MyShapes from './pages/MyShapes'
 import Watchlist from './pages/Watchlist'
 import ForYou from './pages/ForYou'
 import Alerts from './pages/Alerts'
@@ -42,6 +43,7 @@ function App() {
                 <Route path="for-you" element={<ForYou />} />
                 <Route path="watchlist" element={<Watchlist />} />
                 <Route path="myships" element={<Myships />} />
+                <Route path="my-shapes" element={<MyShapes />} />
                 <Route path="timeline" element={<Timeline />} />
                 <Route path="ports" element={<Ports />} />
                 <Route path="alerts" element={<Alerts />} />

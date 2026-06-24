@@ -416,6 +416,7 @@ function Layout() {
               ? 'Save to Favorites'
               : 'Save to Bookmarks'
           }
+          shapesOnly={location.pathname === '/my-shapes'}
         />
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />

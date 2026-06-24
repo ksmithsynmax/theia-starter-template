@@ -12,11 +12,21 @@ import SatelliteIcon from '../custom-icons/SatelliteIcon'
 import OsintIcon from '../custom-icons/OsintIcon'
 import AlertIcon from '../custom-icons/AlertIcon'
 import SimilarSearchIcon from '../custom-icons/SimilarSearchIcon'
+import PolygonIcon from '../custom-icons/PolygonIcon'
 import LeftNavButton from './LeftNavButton'
 
-const timelineNavItem = { icon: <Clock color="white" size={20} />, to: '/timeline', label: 'Timeline' }
+const timelineNavItem = {
+  icon: <Clock color="white" size={20} />,
+  to: '/timeline',
+  label: 'Timeline',
+}
 
-const LeftNav = ({ onNavClick, watchlistVersion = 'grouped', forYouPrototype = 'proto1', forYouActive = false }) => {
+const LeftNav = ({
+  onNavClick,
+  watchlistVersion = 'grouped',
+  forYouPrototype = 'proto1',
+  forYouActive = false,
+}) => {
   const location = useLocation()
   const isVersion2 = watchlistVersion === 'version2'
   const isVersion4Or5 =
@@ -58,11 +68,27 @@ const LeftNav = ({ onNavClick, watchlistVersion = 'grouped', forYouPrototype = '
       label: bookmarksLabel,
       active: bookmarksActive,
     },
+    {
+      icon: <PolygonIcon style={{ width: 20, height: 20 }} />,
+      to: '/my-shapes',
+      label: 'My Shapes',
+      active: location.pathname === '/my-shapes',
+    },
     { icon: <SatelliteIcon />, to: '/tip-cue', label: 'Tip & Cue' },
-    { icon: <VideoRecorder color="white" size={20} />, to: '/webcams', label: 'Webcams' },
+    {
+      icon: <VideoRecorder color="white" size={20} />,
+      to: '/webcams',
+      label: 'Webcams',
+    },
     { icon: <OsintIcon />, to: '/osint', label: 'OSINT' },
-    ...(!isVersion2 ? [{ icon: <AlertIcon />, to: '/alerts', label: 'Alerts' }] : []),
-    { icon: <SimilarSearchIcon />, to: '/similarsearch', label: 'Similar Search' },
+    ...(!isVersion2
+      ? [{ icon: <AlertIcon />, to: '/alerts', label: 'Alerts' }]
+      : []),
+    {
+      icon: <SimilarSearchIcon />,
+      to: '/similarsearch',
+      label: 'Similar Search',
+    },
   ]
 
   return (

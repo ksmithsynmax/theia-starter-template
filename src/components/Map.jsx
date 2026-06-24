@@ -207,19 +207,21 @@ const getPolygonCenter = (feature) => {
 const getPolygonTopCenter = (feature) => {
   const ring = feature?.geometry?.coordinates?.[0]
   if (!Array.isArray(ring) || ring.length < 3) return null
-  let minLng = Infinity
-  let maxLng = -Infinity
-  let maxLat = -Infinity
-  ring.forEach(([lng, lat]) => {
-    if (Number.isFinite(lng)) {
-      if (lng < minLng) minLng = lng
-      if (lng > maxLng) maxLng = lng
+  // Use Mapbox's built-in LngLatBounds to compute the bounding box, then anchor
+  // at the north edge, horizontally centered. Paired with a Marker using
+  // `anchor: 'bottom'`, this keeps the card above the shape.
+  const bounds = new mapboxgl.LngLatBounds()
+  ring.forEach((coord) => {
+    if (
+      Array.isArray(coord) &&
+      Number.isFinite(coord[0]) &&
+      Number.isFinite(coord[1])
+    ) {
+      bounds.extend(coord)
     }
-    if (Number.isFinite(lat) && lat > maxLat) maxLat = lat
   })
-  if (!Number.isFinite(minLng) || !Number.isFinite(maxLng) || !Number.isFinite(maxLat))
-    return null
-  return [(minLng + maxLng) / 2, maxLat]
+  if (bounds.isEmpty()) return null
+  return [bounds.getCenter().lng, bounds.getNorth()]
 }
 
 // Geodesic area (km²) of a polygon's outer ring, using the spherical-excess
@@ -253,11 +255,12 @@ const formatAreaKm2 = (km2) =>
         maximumFractionDigits: 2,
       })} km²`
 
-// Minus/plus icons for collapsing/expanding the pending shape info box.
-const SHAPE_BOX_COLLAPSE_ICON =
-  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-const SHAPE_BOX_EXPAND_ICON =
-  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+// Geometry color while a shape is being drawn or edited; blue once complete.
+const SHAPE_DRAW_COLOR = '#F59E0B'
+const SHAPE_COMPLETE_COLOR = '#006CD7'
+// Inactive (visible but not selected) shapes render white so the active one
+// stays the only blue shape on the map — mirrors the active/inactive port style.
+const SHAPE_INACTIVE_COLOR = '#FFFFFF'
 
 const ALERT_PREVIEW_AREAS = {
   persian_gulf: {
@@ -440,6 +443,7 @@ const Map = forwardRef(function Map(
     forYouFocus = null,
     onForYouItemClick,
     saveShapeLabel = 'Save to Bookmarks',
+    shapesOnly = false,
   },
   ref
 ) {
@@ -471,7 +475,14 @@ const Map = forwardRef(function Map(
     updatePendingShape,
     cancelShapeDraw,
     saveShape,
+    savePendingShape,
+    unsavePendingShape,
+    editSavedShape,
+    updateSavedShape,
+    removeShape,
     hideShape,
+    clearPendingShape,
+    setShapePendingDelete,
     closeShipTab,
     forYouItems,
   } = useShipContext()
@@ -497,12 +508,31 @@ const Map = forwardRef(function Map(
   const [isEditingShape, setIsEditingShape] = useState(false)
   // Whether the pending shape info box is collapsed to a compact pill.
   const [isShapeBoxMinimized, setIsShapeBoxMinimized] = useState(false)
+  // Persisted per-shape minimized state (by shape id) so a card stays minimized
+  // even as the active shape changes (and its card flips pending⇄saved).
+  const minimizedShapeIdsRef = useRef(new Set())
   // Holds the latest pending-shape menu actions/labels so the (once-created)
   // dropdown handlers never read stale closures.
   const pendingShapeMenuCtxRef = useRef({})
   // Document-level click-outside handler used to close the dropdown.
   const pendingShapeOutsideHandlerRef = useRef(null)
   const lastVisibleShapeIdsRef = useRef([])
+  // Latest "click a saved shape label to edit it" action + whether the My Shapes
+  // flow is active, so once-created label handlers don't read stale closures.
+  const editSavedShapeRef = useRef(editSavedShape)
+  editSavedShapeRef.current = editSavedShape
+  const shapesOnlyRef = useRef(shapesOnly)
+  shapesOnlyRef.current = shapesOnly
+  const updateSavedShapeRef = useRef(updateSavedShape)
+  updateSavedShapeRef.current = updateSavedShape
+  const removeShapeRef = useRef(removeShape)
+  removeShapeRef.current = removeShape
+  const hideShapeRef = useRef(hideShape)
+  hideShapeRef.current = hideShape
+  const setShapePendingDeleteRef = useRef(setShapePendingDelete)
+  setShapePendingDeleteRef.current = setShapePendingDelete
+  // Bound once: closes any open saved-shape card menu on outside click.
+  const shapeCardMenuBoundRef = useRef(false)
   const forYouMarkersRef = useRef({})
   const forYouFocusNonceRef = useRef(null)
   const onForYouItemClickRef = useRef(onForYouItemClick)
@@ -2114,6 +2144,24 @@ const Map = forwardRef(function Map(
           'line-width': 2,
         },
       })
+
+      // My Shapes flow: clicking a saved shape's body activates it (rich card)
+      // so it can be edited/renamed. The active (pending) shape is ignored.
+      const handleShapeFillClick = (event) => {
+        if (!shapesOnlyRef.current) return
+        const feature = event.features?.[0]
+        if (!feature || feature.properties?.kind !== 'saved') return
+        const id = feature.properties?.id
+        if (!id || id === 'shape') return
+        editSavedShapeRef.current?.(id)
+      }
+      m.on('click', 'user-shapes-fill', handleShapeFillClick)
+      m.on('mouseenter', 'user-shapes-fill', () => {
+        if (shapesOnlyRef.current) m.getCanvas().style.cursor = 'pointer'
+      })
+      m.on('mouseleave', 'user-shapes-fill', () => {
+        m.getCanvas().style.cursor = ''
+      })
     }
 
     if (!m.getSource('shape-draft')) {
@@ -2126,7 +2174,7 @@ const Map = forwardRef(function Map(
         type: 'fill',
         source: 'shape-draft',
         filter: ['==', '$type', 'Polygon'],
-        paint: { 'fill-color': '#006CD7', 'fill-opacity': 0.12 },
+        paint: { 'fill-color': SHAPE_DRAW_COLOR, 'fill-opacity': 0.12 },
       })
       m.addLayer({
         id: 'shape-draft-line',
@@ -2134,7 +2182,7 @@ const Map = forwardRef(function Map(
         source: 'shape-draft',
         filter: ['==', '$type', 'LineString'],
         paint: {
-          'line-color': '#006CD7',
+          'line-color': SHAPE_DRAW_COLOR,
           'line-width': 2,
           'line-dasharray': [2, 1],
         },
@@ -2147,7 +2195,7 @@ const Map = forwardRef(function Map(
         paint: {
           'circle-radius': 4,
           'circle-color': 'transparent',
-          'circle-stroke-color': '#006CD7',
+          'circle-stroke-color': SHAPE_DRAW_COLOR,
           'circle-stroke-width': 2,
         },
       })
@@ -2163,8 +2211,11 @@ const Map = forwardRef(function Map(
     if (!source) return
 
     const visibleIdSet = new Set(visibleShapeIds || [])
-    const visibleShapes = (bookmarkedShapes || []).filter((shape) =>
-      visibleIdSet.has(shape.id)
+    // The active (pending) shape may also live in the saved list once auto-saved
+    // on /my-shapes. Exclude it here so it renders only via the rich card below
+    // (no duplicate polygon / plain label on top of the card).
+    const visibleShapes = (bookmarkedShapes || []).filter(
+      (shape) => visibleIdSet.has(shape.id) && shape.id !== pendingShape?.id
     )
 
     const features = []
@@ -2186,56 +2237,307 @@ const Map = forwardRef(function Map(
       delete shapeMarkersRef.current[id]
     })
 
+    // ── Plain label (bookmarks/favorites flow) ──────────────────────────
+    const buildPlainLabel = (shapeId) => {
+      const el = document.createElement('div')
+      el.style.display = 'flex'
+      el.style.alignItems = 'center'
+      el.style.gap = '6px'
+      el.style.padding = '4px 6px 4px 10px'
+      el.style.background = '#181926'
+      el.style.border = '1px solid #393C56'
+      el.style.borderRadius = '6px'
+      el.style.color = '#FFFFFF'
+      el.style.fontFamily = 'Inter, sans-serif'
+      el.style.fontSize = '12px'
+      el.style.fontWeight = '600'
+      el.style.whiteSpace = 'nowrap'
+
+      const label = document.createElement('span')
+      label.dataset.shapeLabel = 'true'
+      el.appendChild(label)
+
+      const closeButton = document.createElement('button')
+      closeButton.type = 'button'
+      closeButton.setAttribute('aria-label', 'Close shape')
+      closeButton.style.display = 'inline-flex'
+      closeButton.style.alignItems = 'center'
+      closeButton.style.justifyContent = 'center'
+      closeButton.style.width = '16px'
+      closeButton.style.height = '16px'
+      closeButton.style.border = 'none'
+      closeButton.style.background = 'transparent'
+      closeButton.style.color = '#A4ABBE'
+      closeButton.style.cursor = 'pointer'
+      closeButton.style.padding = '0'
+      closeButton.innerHTML =
+        '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+      closeButton.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        hideShape(shapeId)
+      })
+      el.appendChild(closeButton)
+      return el
+    }
+
+    // ── Full rich card for every saved shape (My Shapes flow) ────────────
+    // Mirrors the active shape's card. The pencil promotes the shape to the
+    // active/editing card (reusing the full vertex-edit machinery); rename and
+    // delete act on the saved shape directly; minimize is per-card.
+    const buildRichSavedCard = (shapeId) => {
+      const el = document.createElement('div')
+      // See the pending card note: keep the Mapbox marker root position:absolute
+      // (from .mapboxgl-marker) so its anchor transform positions the card above
+      // the shape. position:relative would drop it into flow and misplace it.
+      el.style.minWidth = '180px'
+      el.style.maxWidth = '260px'
+      el.style.padding = '10px 12px'
+      el.style.background = '#181926'
+      el.style.border = '1px solid #393C56'
+      el.style.borderRadius = '8px'
+      el.style.color = '#FFFFFF'
+      el.style.fontFamily = 'Inter, sans-serif'
+      el.style.zIndex = '9'
+      el.addEventListener('dblclick', (event) => event.stopPropagation())
+
+      const header = document.createElement('div')
+      header.style.display = 'flex'
+      header.style.alignItems = 'center'
+      header.style.justifyContent = 'space-between'
+      header.style.gap = '12px'
+
+      const title = document.createElement('span')
+      title.dataset.shapeCardTitle = 'true'
+      title.style.fontSize = '13px'
+      title.style.fontWeight = '600'
+      title.style.color = '#FFFFFF'
+      title.style.whiteSpace = 'nowrap'
+      title.style.overflow = 'hidden'
+      title.style.textOverflow = 'ellipsis'
+      title.style.maxWidth = '150px'
+      header.appendChild(title)
+
+      const actions = document.createElement('div')
+      actions.style.display = 'inline-flex'
+      actions.style.alignItems = 'center'
+      actions.style.gap = '4px'
+
+      const styleIconButton = (button) => {
+        button.type = 'button'
+        button.style.display = 'inline-flex'
+        button.style.alignItems = 'center'
+        button.style.justifyContent = 'center'
+        button.style.width = '20px'
+        button.style.height = '20px'
+        button.style.border = 'none'
+        button.style.background = 'transparent'
+        button.style.color = '#A4ABBE'
+        button.style.cursor = 'pointer'
+        button.style.padding = '0'
+      }
+
+      const body = document.createElement('div')
+      body.dataset.shapeCardBody = 'true'
+
+      const meta = document.createElement('div')
+      meta.dataset.shapeCardArea = 'true'
+      meta.style.marginTop = '1px'
+      meta.style.fontSize = '12px'
+      meta.style.fontWeight = '400'
+      meta.style.color = '#888F9E'
+      body.appendChild(meta)
+
+      // ── Dropdown menu ──
+      const menu = document.createElement('div')
+      menu.dataset.shapeCardMenu = 'true'
+      menu.style.position = 'absolute'
+      menu.style.top = 'calc(100% + 4px)'
+      menu.style.right = '0'
+      menu.style.minWidth = '160px'
+      menu.style.padding = '4px'
+      menu.style.background = '#181926'
+      menu.style.border = '1px solid #393C56'
+      menu.style.borderRadius = '8px'
+      menu.style.display = 'none'
+      menu.style.flexDirection = 'column'
+      menu.style.zIndex = '11'
+
+      const closeMenu = () => {
+        menu.style.display = 'none'
+      }
+
+      const beginRename = () => {
+        const input = document.createElement('input')
+        input.type = 'text'
+        input.value = title.textContent || ''
+        input.style.width = '130px'
+        input.style.fontFamily = 'Inter, sans-serif'
+        input.style.fontSize = '13px'
+        input.style.fontWeight = '600'
+        input.style.color = '#FFFFFF'
+        input.style.background = '#0a0f1a'
+        input.style.border = '1px solid #006CD7'
+        input.style.borderRadius = '4px'
+        input.style.padding = '1px 6px'
+        input.style.outline = 'none'
+        input.addEventListener('mousedown', (event) => event.stopPropagation())
+        input.addEventListener('click', (event) => event.stopPropagation())
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === 'Escape') input.blur()
+        })
+        input.addEventListener('blur', () => {
+          const next = input.value.trim()
+          if (next) updateSavedShapeRef.current?.(shapeId, { name: next })
+          title.textContent = next || title.textContent
+          input.replaceWith(title)
+        })
+        title.replaceWith(input)
+        input.focus()
+        input.select()
+      }
+
+      const makeMenuItem = (label, onClick, variant) => {
+        const item = document.createElement('button')
+        item.type = 'button'
+        item.textContent = label
+        item.style.display = 'block'
+        item.style.width = '100%'
+        item.style.textAlign = 'left'
+        item.style.padding = '7px 10px'
+        item.style.border = 'none'
+        item.style.background = 'transparent'
+        item.style.color = variant === 'danger' ? '#F75349' : '#FFFFFF'
+        item.style.fontFamily = 'Inter, sans-serif'
+        item.style.fontSize = '13px'
+        item.style.fontWeight = '400'
+        item.style.borderRadius = '4px'
+        item.style.cursor = 'pointer'
+        item.addEventListener('mouseenter', () => {
+          item.style.background = '#24263C'
+        })
+        item.addEventListener('mouseleave', () => {
+          item.style.background = 'transparent'
+        })
+        item.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          closeMenu()
+          onClick()
+        })
+        return item
+      }
+
+      menu.appendChild(makeMenuItem('Rename', beginRename))
+      menu.appendChild(
+        makeMenuItem('Edit shape', () => {
+          editSavedShapeRef.current?.(shapeId)
+          setIsEditingShape(true)
+        })
+      )
+      menu.appendChild(
+        makeMenuItem('Remove from My Shapes', () =>
+          // Route through the shared delete-confirmation modal (rendered in
+          // SecondaryNav); it removes the shape only if the user confirms.
+          setShapePendingDeleteRef.current?.({
+            id: shapeId,
+            name: title.textContent,
+          })
+        )
+      )
+
+      const editButton = document.createElement('button')
+      editButton.setAttribute('aria-label', 'Edit shape')
+      styleIconButton(editButton)
+      editButton.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.876 18.116c.046-.414.069-.62.131-.814a2 2 0 0 1 .234-.485c.111-.17.259-.317.553-.61L17 3a2.828 2.828 0 1 1 4 4L7.794 20.206c-.294.294-.442.442-.611.553a2 2 0 0 1-.485.233c-.193.063-.4.086-.814.132L2.5 21.5l.376-3.384Z"/></svg>'
+      editButton.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        editSavedShapeRef.current?.(shapeId)
+        setIsEditingShape(true)
+      })
+      actions.appendChild(editButton)
+
+      const menuButton = document.createElement('button')
+      menuButton.setAttribute('aria-label', 'Shape options')
+      styleIconButton(menuButton)
+      menuButton.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>'
+      menuButton.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        menu.style.display = menu.style.display === 'none' ? 'flex' : 'none'
+      })
+      actions.appendChild(menuButton)
+
+      // Minimize / Close live in the ellipsis menu (not as header buttons) to
+      // keep the card header compact. Minimized = just the name + the ellipsis,
+      // shrunk to content. Persisted per shape id so it survives switching the
+      // active shape (card flips pending⇄saved).
+      let collapsed = minimizedShapeIdsRef.current.has(shapeId)
+      const minimizeItem = makeMenuItem('Minimize', () => {
+        collapsed = !collapsed
+        if (collapsed) minimizedShapeIdsRef.current.add(shapeId)
+        else minimizedShapeIdsRef.current.delete(shapeId)
+        applyCollapsed()
+      })
+      menu.appendChild(minimizeItem)
+      // Close = hide this shape's card from the map. It stays in My Shapes and
+      // can be brought back from the list.
+      menu.appendChild(
+        makeMenuItem('Close', () => hideShapeRef.current?.(shapeId))
+      )
+
+      const applyCollapsed = () => {
+        body.style.display = collapsed ? 'none' : ''
+        editButton.style.display = collapsed ? 'none' : ''
+        // Keep the ellipsis visible while minimized so Expand stays reachable.
+        if (collapsed) menu.style.display = 'none'
+        el.style.minWidth = collapsed ? '0' : '180px'
+        el.style.width = collapsed ? 'fit-content' : ''
+        el.style.padding = collapsed ? '4px 8px' : '10px 12px'
+        header.style.gap = collapsed ? '6px' : '12px'
+        title.style.fontSize = collapsed ? '11px' : '13px'
+        title.style.fontWeight = collapsed ? '500' : '600'
+        minimizeItem.textContent = collapsed ? 'Expand' : 'Minimize'
+      }
+
+      header.appendChild(actions)
+      el.appendChild(header)
+      el.appendChild(body)
+      el.appendChild(menu)
+      // Restore the persisted minimized state for this shape.
+      applyCollapsed()
+      return el
+    }
+
+    if (shapesOnlyRef.current && !shapeCardMenuBoundRef.current) {
+      shapeCardMenuBoundRef.current = true
+      document.addEventListener('mousedown', (event) => {
+        Object.values(shapeMarkersRef.current).forEach((mk) => {
+          const root = mk.getElement?.()
+          const menuEl = root?.querySelector('[data-shape-card-menu="true"]')
+          if (menuEl && !root.contains(event.target))
+            menuEl.style.display = 'none'
+        })
+      })
+    }
+
     visibleShapes.forEach((shape) => {
       const feature = shapeToPolygonFeature(shape, 'saved')
       // Anchor the label above the shape, horizontally centered, so it doesn't
-      // sit on top of the centered For You ring marker.
-      const labelPoint =
-        getPolygonTopCenter(feature) || getPolygonCenter(feature)
+      // sit on top of the centered For You ring marker. Always the bounding-box
+      // top-center (never the centroid) so the card stays above the shape.
+      const labelPoint = getPolygonTopCenter(feature)
       if (!labelPoint) return
+      const areaText = formatAreaKm2(getPolygonAreaKm2(feature))
 
       let marker = shapeMarkersRef.current[shape.id]
       if (!marker) {
-        const el = document.createElement('div')
-        el.style.display = 'flex'
-        el.style.alignItems = 'center'
-        el.style.gap = '6px'
-        el.style.padding = '4px 6px 4px 10px'
-        el.style.background = '#181926'
-        el.style.border = '1px solid #393C56'
-        el.style.borderRadius = '6px'
-        el.style.color = '#FFFFFF'
-        el.style.fontFamily = 'Inter, sans-serif'
-        el.style.fontSize = '12px'
-        el.style.fontWeight = '600'
-        el.style.whiteSpace = 'nowrap'
-
-        const label = document.createElement('span')
-        label.dataset.shapeLabel = 'true'
-        el.appendChild(label)
-
-        const closeButton = document.createElement('button')
-        closeButton.type = 'button'
-        closeButton.setAttribute('aria-label', 'Close shape')
-        closeButton.style.display = 'inline-flex'
-        closeButton.style.alignItems = 'center'
-        closeButton.style.justifyContent = 'center'
-        closeButton.style.width = '16px'
-        closeButton.style.height = '16px'
-        closeButton.style.border = 'none'
-        closeButton.style.background = 'transparent'
-        closeButton.style.color = '#A4ABBE'
-        closeButton.style.cursor = 'pointer'
-        closeButton.style.padding = '0'
-        closeButton.innerHTML =
-          '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
-        closeButton.addEventListener('click', (event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          hideShape(shape.id)
-        })
-        el.appendChild(closeButton)
-
+        const el = shapesOnlyRef.current
+          ? buildRichSavedCard(shape.id)
+          : buildPlainLabel(shape.id)
         marker = new mapboxgl.Marker({
           element: el,
           anchor: 'bottom',
@@ -2248,38 +2550,67 @@ const Map = forwardRef(function Map(
         marker.setLngLat(labelPoint)
       }
 
-      const labelEl = marker
-        .getElement()
-        .querySelector('[data-shape-label="true"]')
-      if (labelEl) labelEl.textContent = shape.name || 'Shape'
+      const root = marker.getElement()
+      const plainLabel = root.querySelector('[data-shape-label="true"]')
+      if (plainLabel) plainLabel.textContent = shape.name || 'Shape'
+      const cardTitle = root.querySelector('[data-shape-card-title="true"]')
+      // Skip updating while the user is renaming inline (input replaces title).
+      if (cardTitle) cardTitle.textContent = shape.name || 'Shape'
+      const cardArea = root.querySelector('[data-shape-card-area="true"]')
+      if (cardArea) cardArea.textContent = areaText ? `${areaText}: area` : ''
     })
 
     // Info box for a freshly drawn (pending) shape: shows a default name and the
     // computed area while the user decides to save it.
     if (pendingShape) {
       const pendingFeature = shapeToPolygonFeature(pendingShape, 'pending')
-      const pendingPoint =
-        getPolygonTopCenter(pendingFeature) || getPolygonCenter(pendingFeature)
+      // Always anchor at the bounding-box top-center (never the centroid) so the
+      // card stays above the shape for polygons, rectangles and circles alike.
+      const pendingPoint = getPolygonTopCenter(pendingFeature)
       if (pendingFeature && pendingPoint) {
         const defaultName = `Shape ${(bookmarkedShapes || []).length + 1}`
         const areaText = formatAreaKm2(getPolygonAreaKm2(pendingFeature))
+        // On /my-shapes the active shape is auto-saved, so the CTA toggles
+        // between Save/Remove based on whether it's currently in the saved list.
+        const isPendingSaved =
+          !!pendingShape?.id &&
+          (bookmarkedShapes || []).some((s) => s.id === pendingShape.id)
+        const effectiveSaveLabel = shapesOnly
+          ? isPendingSaved
+            ? 'Remove from My Shapes'
+            : 'Save to My Shapes'
+          : saveShapeLabel
 
         // Keep the latest actions/labels available to the once-created menu
         // handlers so they don't capture stale closures.
         pendingShapeMenuCtxRef.current = {
           defaultName,
           saveShape,
+          savePendingShape,
+          unsavePendingShape,
           cancelShapeDraw,
+          clearPendingShape,
+          hideShape,
           setPendingShapeName,
           pendingShapeName,
           pendingShape,
           saveShapeLabel,
+          shapesOnly,
+          isPendingSaved,
+          effectiveSaveLabel,
         }
 
         if (!pendingShapeMarkerRef.current) {
 
           const el = document.createElement('div')
-          el.style.position = 'relative'
+          // NOTE: do not set position:relative here. The Mapbox marker element
+          // relies on its own `.mapboxgl-marker { position:absolute; top:0;
+          // left:0 }` so its transform-based anchor positions the card. Forcing
+          // position:relative drops the marker into normal flow, where it gets
+          // pushed down by other in-flow markers (the newest/active card most of
+          // all) and the card lands below its shape. The absolutely-positioned
+          // marker root still serves as the containing block for the absolute
+          // dropdown menu / tooltips, so those keep working.
           el.style.minWidth = '180px'
           el.style.maxWidth = '260px'
           el.style.padding = '10px 12px'
@@ -2420,23 +2751,8 @@ const Map = forwardRef(function Map(
           attachTooltip(menuButton, 'More actions')
           actions.appendChild(menuButton)
 
-          const minimizeButton = document.createElement('button')
-          minimizeButton.setAttribute('aria-label', 'Minimize')
-          minimizeButton.dataset.shapeMinBtn = 'true'
-          styleIconButton(minimizeButton)
-          const minimizeIcon = document.createElement('span')
-          minimizeIcon.dataset.shapeMinIcon = 'true'
-          minimizeIcon.style.display = 'inline-flex'
-          minimizeIcon.innerHTML = SHAPE_BOX_COLLAPSE_ICON
-          minimizeButton.appendChild(minimizeIcon)
-          minimizeButton.addEventListener('click', (event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            setIsShapeBoxMinimized((value) => !value)
-          })
-          attachTooltip(minimizeButton, 'Minimize')
-          actions.appendChild(minimizeButton)
-
+          // Minimize / Close live in the ellipsis menu (not as header buttons)
+          // to keep the active card header compact.
           header.appendChild(actions)
 
           el.appendChild(header)
@@ -2552,22 +2868,53 @@ const Map = forwardRef(function Map(
           }
 
           menu.appendChild(makeMenuItem('Rename', beginRename))
-          const saveItem = makeMenuItem(saveShapeLabel, () => {
+          menu.appendChild(
+            makeMenuItem('Edit shape', () => {
+              setIsEditingShape(true)
+            })
+          )
+          const saveItem = makeMenuItem(effectiveSaveLabel, () => {
             const ctx = pendingShapeMenuCtxRef.current || {}
             const name = ctx.pendingShapeName || ctx.defaultName
-            ctx.saveShape?.(name)
+            if (ctx.shapesOnly) {
+              if (ctx.isPendingSaved) {
+                // Already saved → "Remove from My Shapes" → confirm via the
+                // shared delete modal before removing.
+                setShapePendingDeleteRef.current?.({
+                  id: ctx.pendingShape?.id,
+                  name,
+                })
+              } else {
+                ctx.savePendingShape?.(name)
+              }
+            } else {
+              ctx.saveShape?.(name)
+            }
           })
           saveItem.dataset.pendingShapeSave = 'true'
           menu.appendChild(saveItem)
+
+          // Minimize / Close moved into the menu to keep the header compact.
+          const minimizeItem = makeMenuItem('Minimize', () => {
+            setIsShapeBoxMinimized((value) => {
+              const next = !value
+              const id = pendingShapeMenuCtxRef.current?.pendingShape?.id
+              if (id) {
+                if (next) minimizedShapeIdsRef.current.add(id)
+                else minimizedShapeIdsRef.current.delete(id)
+              }
+              return next
+            })
+          })
+          minimizeItem.dataset.shapeMinItem = 'true'
+          menu.appendChild(minimizeItem)
           menu.appendChild(
-            makeMenuItem(
-              'Delete shape',
-              () => {
-                const ctx = pendingShapeMenuCtxRef.current || {}
-                ctx.cancelShapeDraw?.()
-              },
-              'danger'
-            )
+            makeMenuItem('Close', () => {
+              const ctx = pendingShapeMenuCtxRef.current || {}
+              const id = ctx.pendingShape?.id
+              ctx.clearPendingShape?.()
+              if (id) ctx.hideShape?.(id)
+            })
           )
 
           el.appendChild(menu)
@@ -2608,7 +2955,7 @@ const Map = forwardRef(function Map(
         const areaEl = pendingEl.querySelector('[data-pending-shape-area="true"]')
         if (areaEl) areaEl.textContent = areaText ? `${areaText}: area` : ''
         const saveEl = pendingEl.querySelector('[data-pending-shape-save="true"]')
-        if (saveEl) saveEl.textContent = saveShapeLabel
+        if (saveEl) saveEl.textContent = effectiveSaveLabel
       }
     } else if (pendingShapeMarkerRef.current) {
       pendingShapeMarkerRef.current.remove()
@@ -2650,7 +2997,13 @@ const Map = forwardRef(function Map(
         })
       }
     }
-    lastVisibleShapeIdsRef.current = visibleShapes.map((shape) => shape.id)
+    // Treat the active (pending) shape as already on-screen so that when it
+    // transitions to a saved/visible shape (e.g. on "Create New Shape") it
+    // isn't counted as newly visible and doesn't trigger a fly-to/zoom.
+    lastVisibleShapeIdsRef.current = [
+      ...visibleShapes.map((shape) => shape.id),
+      ...(pendingShape?.id ? [pendingShape.id] : []),
+    ]
   }, [
     mapReady,
     bookmarkedShapes,
@@ -2660,8 +3013,11 @@ const Map = forwardRef(function Map(
     visibleShapeIds,
     hideShape,
     saveShape,
+    savePendingShape,
+    unsavePendingShape,
     cancelShapeDraw,
     saveShapeLabel,
+    shapesOnly,
   ])
 
   // "For You" curated items rendered on the map. We support three marker
@@ -3106,12 +3462,149 @@ const Map = forwardRef(function Map(
     }
   }, [mapReady, shapeDrawMode, completeShapeDraw, cancelShapeDraw])
 
-  // Leaving a pending shape (saved/cancelled) resets edit + minimized state.
+  // Drag-to-draw for the rectangle and circle tools: press, drag, release.
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    if (shapeDrawMode !== 'rectangle' && shapeDrawMode !== 'circle') return
+
+    const m = map.current
+    const draftSource = () => m.getSource('shape-draft')
+
+    m.getCanvas().style.cursor = 'crosshair'
+
+    // Render a closed ring as both a fill (Polygon) and outline (LineString) in
+    // the draft source so it previews while dragging.
+    const renderRing = (ring) => {
+      if (!ring || ring.length < 3) {
+        draftSource()?.setData(EMPTY_FEATURE_COLLECTION)
+        return
+      }
+      const closed = [...ring, ring[0]]
+      draftSource()?.setData({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: { type: 'Polygon', coordinates: [closed] },
+            properties: {},
+          },
+          {
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: closed },
+            properties: {},
+          },
+        ],
+      })
+    }
+
+    // Axis-aligned rectangle from two opposite corners (lng/lat space).
+    const rectRing = (start, end) => {
+      const [x1, y1] = start
+      const [x2, y2] = end
+      return [
+        [x1, y1],
+        [x2, y1],
+        [x2, y2],
+        [x1, y2],
+      ]
+    }
+
+    // Circle approximated as a 64-gon. Built in screen-pixel space so it stays
+    // visually round regardless of latitude, then unprojected back to lng/lat.
+    const circleRing = (centerLngLat, edgeLngLat) => {
+      const centerPx = m.project(centerLngLat)
+      const edgePx = m.project(edgeLngLat)
+      const radius = Math.hypot(
+        edgePx.x - centerPx.x,
+        edgePx.y - centerPx.y
+      )
+      if (radius < 2) return null
+      const segments = 64
+      const ring = []
+      for (let i = 0; i < segments; i += 1) {
+        const angle = (i / segments) * 2 * Math.PI
+        const point = m.unproject([
+          centerPx.x + radius * Math.cos(angle),
+          centerPx.y + radius * Math.sin(angle),
+        ])
+        ring.push([point.lng, point.lat])
+      }
+      return ring
+    }
+
+    let startLngLat = null
+    let currentRing = null
+
+    const buildRing = (endLngLat) =>
+      shapeDrawMode === 'rectangle'
+        ? rectRing(startLngLat, endLngLat)
+        : circleRing(startLngLat, endLngLat)
+
+    const onMouseMove = (event) => {
+      if (!startLngLat) return
+      currentRing = buildRing([event.lngLat.lng, event.lngLat.lat])
+      renderRing(currentRing)
+    }
+
+    const finish = () => {
+      m.off('mousemove', onMouseMove)
+      m.dragPan.enable()
+      m.getCanvas().style.cursor = 'crosshair'
+      const ring = currentRing
+      startLngLat = null
+      currentRing = null
+      draftSource()?.setData(EMPTY_FEATURE_COLLECTION)
+      // Ignore an empty click (no real drag) so a stray tap doesn't make a shape.
+      if (ring && ring.length >= 3) {
+        completeShapeDraw({ type: shapeDrawMode, coordinates: ring })
+      }
+    }
+
+    const onMouseDown = (event) => {
+      event.preventDefault()
+      m.dragPan.disable()
+      startLngLat = [event.lngLat.lng, event.lngLat.lat]
+      currentRing = null
+      m.on('mousemove', onMouseMove)
+      m.once('mouseup', finish)
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        m.off('mousemove', onMouseMove)
+        m.dragPan.enable()
+        startLngLat = null
+        currentRing = null
+        draftSource()?.setData(EMPTY_FEATURE_COLLECTION)
+        cancelShapeDraw()
+      }
+    }
+
+    m.on('mousedown', onMouseDown)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      m.off('mousedown', onMouseDown)
+      m.off('mousemove', onMouseMove)
+      window.removeEventListener('keydown', handleKeyDown)
+      if (map.current) {
+        m.dragPan.enable()
+        m.getCanvas().style.cursor = ''
+        draftSource()?.setData(EMPTY_FEATURE_COLLECTION)
+      }
+    }
+  }, [mapReady, shapeDrawMode, completeShapeDraw, cancelShapeDraw])
+
+  // Leaving a pending shape (saved/cancelled) resets edit state. When a shape
+  // becomes active, restore its persisted minimized state so minimized cards
+  // stay minimized across active-shape switches.
   useEffect(() => {
     if (!pendingShape) {
       setIsEditingShape(false)
       setIsShapeBoxMinimized(false)
+      return
     }
+    setIsShapeBoxMinimized(minimizedShapeIdsRef.current.has(pendingShape.id))
   }, [pendingShape])
 
   // In edit mode, make the title a subtly-bordered, editable field (I-beam
@@ -3160,6 +3653,35 @@ const Map = forwardRef(function Map(
     }
   }, [isEditingShape])
 
+  // The active (pending) shape's outline/fill is orange while being edited and
+  // blue once complete. In the My Shapes flow, other visible shapes stay on the
+  // map but render white so only the active shape is blue (same active/inactive
+  // pattern as ports). Driven by the feature's `kind`.
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    const m = map.current
+    const inactiveColor = shapesOnly
+      ? SHAPE_INACTIVE_COLOR
+      : SHAPE_COMPLETE_COLOR
+    const colorExpr = [
+      'case',
+      ['==', ['get', 'kind'], 'pending'],
+      isEditingShape ? SHAPE_DRAW_COLOR : SHAPE_COMPLETE_COLOR,
+      inactiveColor,
+    ]
+    // Keep the inactive (white) fills subtle so the active blue shape stays the
+    // visual focus.
+    const fillOpacityExpr = shapesOnly
+      ? ['case', ['==', ['get', 'kind'], 'pending'], 0.18, 0.06]
+      : 0.18
+    if (m.getLayer('user-shapes-outline'))
+      m.setPaintProperty('user-shapes-outline', 'line-color', colorExpr)
+    if (m.getLayer('user-shapes-fill')) {
+      m.setPaintProperty('user-shapes-fill', 'fill-color', colorExpr)
+      m.setPaintProperty('user-shapes-fill', 'fill-opacity', fillOpacityExpr)
+    }
+  }, [isEditingShape, mapReady, pendingShape, shapesOnly])
+
   // Collapse/expand the pending shape info box. Minimized = just the name and
   // the toggle; area + edit/menu actions are hidden for a compact pill.
   useEffect(() => {
@@ -3168,14 +3690,16 @@ const Map = forwardRef(function Map(
     const minimized = isShapeBoxMinimized
     const meta = markerEl.querySelector('[data-pending-shape-area="true"]')
     const editBtn = markerEl.querySelector('[data-shape-edit-btn="true"]')
-    const menuBtn = markerEl.querySelector('[data-shape-menu-btn="true"]')
     const menu = markerEl.querySelector('[data-pending-shape-menu="true"]')
-    const toggleBtn = markerEl.querySelector('[data-shape-min-btn="true"]')
+    const minItem = markerEl.querySelector('[data-shape-min-item="true"]')
 
     if (meta) meta.style.display = minimized ? 'none' : ''
     if (editBtn) editBtn.style.display = minimized ? 'none' : ''
-    if (menuBtn) menuBtn.style.display = minimized ? 'none' : ''
+    // Keep the ellipsis (menu) button visible while minimized so Expand stays
+    // reachable. Close the open dropdown when collapsing.
     if (minimized && menu) menu.style.display = 'none'
+    // Reflect state in the menu item label.
+    if (minItem) minItem.textContent = minimized ? 'Expand' : 'Minimize'
     // Block-level box stretches to its max width; shrink it to content when
     // collapsed so it's just the name + toggle.
     markerEl.style.minWidth = minimized ? '0' : '180px'
@@ -3188,18 +3712,6 @@ const Map = forwardRef(function Map(
     if (titleEl) {
       titleEl.style.fontSize = minimized ? '11px' : '13px'
       titleEl.style.fontWeight = minimized ? '500' : '600'
-    }
-
-    if (toggleBtn) {
-      const toggleIcon = toggleBtn.querySelector('[data-shape-min-icon="true"]')
-      if (toggleIcon) {
-        toggleIcon.innerHTML = minimized
-          ? SHAPE_BOX_EXPAND_ICON
-          : SHAPE_BOX_COLLAPSE_ICON
-      }
-      toggleBtn.setAttribute('aria-label', minimized ? 'Expand' : 'Minimize')
-      const tipLabel = toggleBtn.querySelector('[data-tooltip-label="true"]')
-      if (tipLabel) tipLabel.textContent = minimized ? 'Expand' : 'Minimize'
     }
   }, [isShapeBoxMinimized, pendingShape])
 
@@ -3234,7 +3746,7 @@ const Map = forwardRef(function Map(
         filter: ['==', ['get', 'kind'], 'midpoint'],
         paint: {
           'circle-radius': 4,
-          'circle-color': '#006CD7',
+          'circle-color': SHAPE_DRAW_COLOR,
           'circle-opacity': 0.55,
           'circle-stroke-color': '#FFFFFF',
           'circle-stroke-width': 1,
@@ -3248,7 +3760,7 @@ const Map = forwardRef(function Map(
         paint: {
           'circle-radius': 6,
           'circle-color': '#FFFFFF',
-          'circle-stroke-color': '#006CD7',
+          'circle-stroke-color': SHAPE_DRAW_COLOR,
           'circle-stroke-width': 2,
         },
       })

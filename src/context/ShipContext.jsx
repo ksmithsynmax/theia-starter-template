@@ -49,6 +49,10 @@ export function ShipProvider({ children }) {
   // Shared name for the pending shape. Single source of truth so the left-panel
   // input and the on-map info card stay in sync (two-way binding).
   const [pendingShapeName, setPendingShapeName] = useState('')
+  // The shape awaiting delete confirmation. Shared so both the on-map cards and
+  // the My Shapes list route deletion through the same confirmation modal
+  // (rendered in SecondaryNav).
+  const [shapePendingDelete, setShapePendingDelete] = useState(null)
   const [bookmarkedShapes, setBookmarkedShapes] = useState([])
   // IDs of saved shapes currently shown on the map. Saved shapes are hidden by
   // default and re-shown by clicking their row in the bookmarks table.
@@ -97,19 +101,57 @@ export function ShipProvider({ children }) {
     setShapeDrawMode(type)
   }, [])
 
+  // Fully discard the active shape. Also strips it from the saved list in case
+  // it was auto-saved (My Shapes flow), so "Delete shape" removes it everywhere.
   const cancelShapeDraw = useCallback(() => {
+    setShapeDrawMode(null)
+    if (pendingShape?.id) {
+      const pid = pendingShape.id
+      setBookmarkedShapes((prev) => prev.filter((s) => s.id !== pid))
+      setVisibleShapeIds((prev) => prev.filter((id) => id !== pid))
+    }
+    setPendingShape(null)
+    setPendingShapeName('')
+  }, [pendingShape])
+
+  // Deselect the active shape without deleting it. Saved shapes stay in My
+  // Shapes (and on the map as a plain label); used by "Create New Shape".
+  const clearPendingShape = useCallback(() => {
     setShapeDrawMode(null)
     setPendingShape(null)
     setPendingShapeName('')
   }, [])
 
+  // Make a saved shape the active/editable one (rich on-map card). Used when the
+  // user clicks a saved shape's label so they can edit/rename it again.
+  const editSavedShape = useCallback(
+    (shapeId) => {
+      if (!shapeId) return
+      const shape = (bookmarkedShapes || []).find((s) => s.id === shapeId)
+      if (!shape) return
+      setShapeDrawMode(null)
+      setPendingShape({
+        id: shape.id,
+        type: shape.type || 'polygon',
+        coordinates: shape.coordinates,
+      })
+      setPendingShapeName(shape.name || '')
+      setVisibleShapeIds((prev) =>
+        prev.includes(shape.id) ? prev : [...prev, shape.id]
+      )
+    },
+    [bookmarkedShapes]
+  )
+
   // Called by the map once the user finishes drawing a shape. Seed a default
   // name ("Shape N") so it's pre-filled in both the panel input and map card.
+  // A stable id is attached so the same geometry can be tracked as it moves
+  // between "active/working" (rich card) and "saved" (My Shapes list) states.
   const completeShapeDraw = useCallback(
     (shape) => {
       if (!shape) return
       setShapeDrawMode(null)
-      setPendingShape(shape)
+      setPendingShape(shape.id ? shape : { ...shape, id: `shape-${Date.now()}` })
       setPendingShapeName(`Shape ${bookmarkedShapes.length + 1}`)
     },
     [bookmarkedShapes.length]
@@ -147,6 +189,67 @@ export function ShipProvider({ children }) {
     if (!shapeId) return
     setBookmarkedShapes((prev) => prev.filter((shape) => shape.id !== shapeId))
     setVisibleShapeIds((prev) => prev.filter((id) => id !== shapeId))
+  }, [])
+
+  // My Shapes flow: persist the active (pending) shape into the saved list while
+  // keeping it active so the rich on-map card stays. Idempotent.
+  const savePendingShape = useCallback(
+    (name) => {
+      if (!pendingShape) return null
+      const id = pendingShape.id || `shape-${Date.now()}`
+      const trimmedName =
+        String(name ?? pendingShapeName).trim() || 'Untitled shape'
+      const entry = {
+        id,
+        name: trimmedName,
+        type: pendingShape.type || 'polygon',
+        coordinates: pendingShape.coordinates,
+        createdAt: new Date().toISOString(),
+      }
+      setBookmarkedShapes((prev) =>
+        prev.some((s) => s.id === id)
+          ? prev.map((s) => (s.id === id ? { ...s, ...entry } : s))
+          : [...prev, entry]
+      )
+      setVisibleShapeIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+      if (!pendingShape.id) setPendingShape((p) => (p ? { ...p, id } : p))
+      return entry
+    },
+    [pendingShape, pendingShapeName]
+  )
+
+  // My Shapes flow: remove the active shape from the saved list but keep it
+  // active/working on the map (CTA flips back to "Save to My Shapes").
+  const unsavePendingShape = useCallback(() => {
+    if (!pendingShape?.id) return
+    const pid = pendingShape.id
+    setBookmarkedShapes((prev) => prev.filter((s) => s.id !== pid))
+    setVisibleShapeIds((prev) => prev.filter((id) => id !== pid))
+  }, [pendingShape])
+
+  // Sync edits (name / geometry) from an active shape into its saved copy so a
+  // saved shape updates automatically. No-ops if the id isn't saved.
+  const updateSavedShape = useCallback((shapeId, patch) => {
+    if (!shapeId || !patch) return
+    setBookmarkedShapes((prev) => {
+      const idx = prev.findIndex((s) => s.id === shapeId)
+      if (idx === -1) return prev
+      const cur = prev[idx]
+      const nextName =
+        patch.name != null && String(patch.name).trim()
+          ? String(patch.name).trim()
+          : cur.name
+      const nextCoords = patch.coordinates || cur.coordinates
+      if (nextName === cur.name && nextCoords === cur.coordinates) return prev
+      const copy = prev.slice()
+      copy[idx] = {
+        ...cur,
+        name: nextName,
+        coordinates: nextCoords,
+        updatedAt: new Date().toISOString(),
+      }
+      return copy
+    })
   }, [])
 
   // Add an already-formed shape (e.g. promoting a "For You" area) to bookmarks.
@@ -489,10 +592,17 @@ export function ShipProvider({ children }) {
         visibleShapeIds,
         startShapeDraw,
         cancelShapeDraw,
+        clearPendingShape,
+        editSavedShape,
         completeShapeDraw,
         updatePendingShape,
         saveShape,
         removeShape,
+        savePendingShape,
+        unsavePendingShape,
+        updateSavedShape,
+        shapePendingDelete,
+        setShapePendingDelete,
         addBookmarkedShape,
         showShape,
         hideShape,
