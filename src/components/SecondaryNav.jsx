@@ -4,6 +4,7 @@ import { Box, Loader, Text } from '@mantine/core'
 import {
   Plus,
   Anchor,
+  ArrowLeft,
   BezierCurve03,
   Bell02,
   List,
@@ -653,6 +654,7 @@ const SecondaryNav = ({
   currentPath,
   watchlistVersion = 'grouped',
   forYouPrototype = 'proto1',
+  favoritesVersion = 'v1',
   forceHidden = false,
   onShipSelect,
   onPortSelect,
@@ -711,6 +713,10 @@ const SecondaryNav = ({
   const [analysisEndDate, setAnalysisEndDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
   )
+  // Favorites v2 Add Shape: which results view is shown under the name/dates.
+  const [favV2ResultView, setFavV2ResultView] = useState('ships')
+  // Favorites v2: the saved shape whose detail panel is open (null = list view).
+  const [shapeDetailId, setShapeDetailId] = useState(null)
   const [openTableFilterId, setOpenTableFilterId] = useState(null)
   const [bookmarkViewMode, setBookmarkViewMode] = useState('table')
   const [shipTableFilters, setShipTableFilters] = useState({
@@ -801,6 +807,9 @@ const SecondaryNav = ({
   // Prototype 1 reframes "Bookmarks" as "Favorites" (star); prototype 2 keeps
   // the bookmark icon + wording.
   const isFavoritesProto = isVersion4Or5 && forYouPrototype === 'proto1'
+  // Favorites A/B variant. Both are identical today; the v2 branch is where the
+  // reworked Add Shapes experience will live.
+  const isFavoritesV2 = isFavoritesProto && favoritesVersion === 'v2'
   const QuickAddBannerIcon = isFavoritesProto ? Star01 : Bookmark
   const quickAddTipText = isFavoritesProto
     ? 'Tap star on ship or port details to favorite.'
@@ -818,8 +827,16 @@ const SecondaryNav = ({
     : isVersion4Or5
       ? 'Bookmarks'
       : 'My Watchlist'
-  const listCollectionLabel = isVersion4Or5 ? 'Bookmarks' : 'Watchlist'
-  const listCollectionLabelLower = isVersion4Or5 ? 'bookmarks' : 'watchlist'
+  const listCollectionLabel = isFavoritesProto
+    ? 'Favorites'
+    : isVersion4Or5
+      ? 'Bookmarks'
+      : 'Watchlist'
+  const listCollectionLabelLower = isFavoritesProto
+    ? 'favorites'
+    : isVersion4Or5
+      ? 'bookmarks'
+      : 'watchlist'
   const polygonEntityLabelSingular = isVersion5 ? 'Shape' : 'Polygon'
   const polygonEntityLabelPlural = isVersion5 ? 'Shapes' : 'Polygons'
   const polygonEntityLabelLowerPlural = isVersion5 ? 'shapes' : 'polygons'
@@ -876,6 +893,43 @@ const SecondaryNav = ({
           updatedAt: 'Live',
         })),
     [favoriteShipIds, shipLookup]
+  )
+
+  // Favorites v2 Add Shape: representative "ships found in this shape" results.
+  // Uses real ship records so the table feels authentic; swap for a live query
+  // when the analysis backend is wired up.
+  const favV2ShipRows = useMemo(
+    () =>
+      Object.values(shipLookup)
+        .slice(0, 14)
+        .map((ship, index) => ({
+          id: `favv2-ship-${ship.id || index}`,
+          ship: ship.name || 'No info',
+          ctry: ship.flag || '-',
+          type: ship.shipType || ship.aisInfo?.shipType || 'No info',
+          imo: ship.imo || ship.aisInfo?.imo || 'No info',
+          mmsi: ship.mmsi || ship.aisInfo?.mmsi || 'No info',
+        })),
+    [shipLookup]
+  )
+
+  const favV2SatelliteRows = useMemo(
+    () =>
+      favV2ShipRows.map((row, index) => {
+        const d = new Date()
+        d.setDate(d.getDate() - (favV2ShipRows.length - index))
+        return {
+          id: `favv2-sat-${row.id}`,
+          type: row.type,
+          oid: row.imo !== 'No info' ? row.imo : `${792651900 + index}`,
+          captured: `${d.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })} 03:19 UTC`,
+        }
+      }),
+    [favV2ShipRows]
   )
 
   const portRows = useMemo(
@@ -1105,20 +1159,6 @@ const SecondaryNav = ({
     [version6RecentActivityRows]
   )
 
-  const version6RecentEventRows = useMemo(
-    () =>
-      version6RecentActivityRows
-        .filter((row) => row.entityType === 'Event')
-        .map((row, index) => ({
-          id: row.id || `v6-recent-event-${index}`,
-          event: row.event || row.name || 'No info',
-          ship: row.ship || 'No info',
-          flag: row.flag || 'No info',
-          date: row.date || 'No info',
-        })),
-    [version6RecentActivityRows]
-  )
-
   const version6RecentlyViewedSections = useMemo(
     () => [
       { id: 'ships', title: 'Ships', rows: version6RecentShipRows },
@@ -1128,11 +1168,9 @@ const SecondaryNav = ({
         title: polygonEntityLabelPlural,
         rows: version6RecentShapeRows,
       },
-      { id: 'events', title: 'Events', rows: version6RecentEventRows },
     ],
     [
       polygonEntityLabelPlural,
-      version6RecentEventRows,
       version6RecentPortRows,
       version6RecentShapeRows,
       version6RecentShipRows,
@@ -1159,12 +1197,6 @@ const SecondaryNav = ({
         { key: 'shapeName', label: 'Shape Name', width: 'minmax(0, 1.5fr)' },
         { key: 'area', label: 'Area', width: 'minmax(0, 1fr)' },
         { key: 'createdDate', label: 'Created Date', width: 'minmax(0, 1fr)' },
-      ],
-      events: [
-        { key: 'event', label: 'Event', width: 'minmax(0, 1.2fr)' },
-        { key: 'ship', label: 'Ship', width: 'minmax(0, 1.1fr)' },
-        { key: 'flag', label: 'Flag', width: '90px' },
-        { key: 'date', label: 'Date', width: 'minmax(0, 1fr)' },
       ],
     }),
     []
@@ -1764,6 +1796,11 @@ const SecondaryNav = ({
       editSavedShape(row.id)
     } else {
       showShape(row.id)
+      // Favorites v2: clicking a shape opens its detail panel (name + dates +
+      // ship/satellite analysis), mirroring the ship/port detail interaction.
+      if (isFavoritesV2) {
+        setShapeDetailId(row.id)
+      }
     }
     setActiveShapeRowId(String(row.id))
   }
@@ -2495,6 +2532,8 @@ const SecondaryNav = ({
     version6LastSelectedDetectionRef.current = null
   }, [isVersion6])
 
+  // Opening a detection on the map surfaces its ship's detail — record the ship
+  // (not the detection) as a recently viewed entity.
   useEffect(() => {
     if (!isVersion6 || !selectedDetectionId) return
     if (version6LastSelectedDetectionRef.current === selectedDetectionId) return
@@ -2504,20 +2543,18 @@ const SecondaryNav = ({
       (detection) => String(detection.id) === String(selectedDetectionId)
     )
     if (!selectedDetection) return
+    const ship = shipLookup[selectedDetection.shipId]
+    if (!ship) return
 
     pushVersion6RecentActivity({
-      activityKey: `event-${selectedDetection.id}`,
-      id: `recent-v6-event-${selectedDetection.id}`,
-      entityType: 'Event',
-      event: `${String(selectedDetection.type || 'event')
-        .replace(/[-_]/g, ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase())} Event`,
-      ship:
-        shipLookup[selectedDetection.shipId]?.name ||
-        selectedDetection.shipId ||
-        'Unknown ship',
-      flag: shipLookup[selectedDetection.shipId]?.flag || '-',
-      date: selectedDetection.date || 'Just now',
+      activityKey: `ship-${ship.id}`,
+      id: `recent-v6-ship-${ship.id}`,
+      entityType: 'Ship',
+      name: ship.name || 'Unknown ship',
+      ctry: ship.flag || '-',
+      imo: ship.imo || ship.aisInfo?.imo || 'No info',
+      mmsi: ship.mmsi || ship.aisInfo?.mmsi || 'No info',
+      event: ship.latestEvent || 'No info',
       lastViewed: 'Just now',
     })
   }, [
@@ -2526,6 +2563,99 @@ const SecondaryNav = ({
     runtimeDetections,
     selectedDetectionId,
     shipLookup,
+  ])
+
+  // Opening a ship or port detail tab records it as a recently viewed entity.
+  useEffect(() => {
+    if (!isVersion6 || !activeShipTab) return
+    const activeTab = shipTabs.find(
+      (tab) => String(tab?.id) === String(activeShipTab)
+    )
+    if (!activeTab || activeTab.type === 'sts') return
+
+    if (activeTab.type === 'port') {
+      const portRow = version2MyWatchlistPortRows.find((row) => {
+        const sourcePortId = String(row?.sourcePortId || '').trim()
+        const rowId = String(row?.id || '').trim()
+        return (
+          sourcePortId === String(activeTab.id) ||
+          rowId === String(activeTab.id)
+        )
+      })
+      pushVersion6RecentActivity({
+        activityKey: `port-${activeTab.id}`,
+        id: `recent-v6-port-${activeTab.id}`,
+        entityType: 'Port',
+        name: portRow?.name || activeTab.name || 'Unknown port',
+        ctry: portRow?.country || portRow?.ctry || 'No info',
+        locode: portRow?.locode || 'No info',
+        type: portRow?.type || portRow?.activity || 'No info',
+        status: portRow?.status || portRow?.risk || 'No info',
+        lastViewed: 'Just now',
+      })
+      return
+    }
+
+    const ship = shipLookup[activeTab.id]
+    if (!ship) return
+    pushVersion6RecentActivity({
+      activityKey: `ship-${ship.id}`,
+      id: `recent-v6-ship-${ship.id}`,
+      entityType: 'Ship',
+      name: ship.name || activeTab.name || 'Unknown ship',
+      ctry: ship.flag || '-',
+      imo: ship.imo || ship.aisInfo?.imo || 'No info',
+      mmsi: ship.mmsi || ship.aisInfo?.mmsi || 'No info',
+      event: ship.latestEvent || 'No info',
+      lastViewed: 'Just now',
+    })
+  }, [
+    isVersion6,
+    activeShipTab,
+    shipTabs,
+    shipLookup,
+    version2MyWatchlistPortRows,
+    pushVersion6RecentActivity,
+  ])
+
+  // Viewing a shape (active saved shape or freshly drawn) records it.
+  useEffect(() => {
+    if (!isVersion6) return
+    const shapeId = activeShapeRowId || pendingShape?.id
+    if (!shapeId) return
+    const savedShape = (bookmarkedShapes || []).find(
+      (shape) => shape.id === shapeId
+    )
+    const shape =
+      savedShape || (pendingShape?.id === shapeId ? pendingShape : null)
+    if (!shape) return
+
+    const stamp = shape.updatedAt || shape.createdAt
+    const stampDate = stamp ? new Date(stamp) : null
+    const createdDate =
+      stampDate && !Number.isNaN(stampDate.getTime())
+        ? stampDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : 'Just now'
+
+    pushVersion6RecentActivity({
+      activityKey: `shape-${shapeId}`,
+      id: `recent-v6-shape-${shapeId}`,
+      entityType: 'Shape',
+      shapeName: shape.name || 'Untitled shape',
+      area: formatShapeArea(getShapeAreaKm2(shape.coordinates)),
+      createdDate,
+      lastViewed: 'Just now',
+    })
+  }, [
+    isVersion6,
+    activeShapeRowId,
+    pendingShape,
+    bookmarkedShapes,
+    pushVersion6RecentActivity,
   ])
 
   useEffect(() => {
@@ -2602,6 +2732,175 @@ const SecondaryNav = ({
       window.removeEventListener('mouseup', handleMouseUp)
     }
   }, [isResizing])
+
+  // Shared analysis block (Start/End dates + Ship/Satellite toggle + results
+  // table) used by both the v2 Add Shape flow and the v2 shape detail panel.
+  const renderShapeAnalysis = () => (
+    <Box
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        marginTop: 4,
+      }}
+    >
+      <Box style={{ display: 'flex', gap: 12 }}>
+        <Box
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+          }}
+        >
+          <Text
+            style={{
+              color: '#FFFFFF',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            Start Date
+          </Text>
+          <Box
+            component="input"
+            type="date"
+            className="secondary-nav-text-input"
+            value={analysisStartDate}
+            onChange={(event) =>
+              setAnalysisStartDate(event.currentTarget.value)
+            }
+            style={{
+              width: '100%',
+              height: 34,
+              border: '1px solid #393C56',
+              borderRadius: 6,
+              background: '#0A0E19',
+              color: '#FFFFFF',
+              fontSize: 12,
+              padding: '0 10px',
+              outline: 'none',
+              colorScheme: 'dark',
+            }}
+          />
+        </Box>
+        <Box
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+          }}
+        >
+          <Text
+            style={{
+              color: '#FFFFFF',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            End Date
+          </Text>
+          <Box
+            component="input"
+            type="date"
+            className="secondary-nav-text-input"
+            value={analysisEndDate}
+            onChange={(event) =>
+              setAnalysisEndDate(event.currentTarget.value)
+            }
+            style={{
+              width: '100%',
+              height: 34,
+              border: '1px solid #393C56',
+              borderRadius: 6,
+              background: '#0A0E19',
+              color: '#FFFFFF',
+              fontSize: 12,
+              padding: '0 10px',
+              outline: 'none',
+              colorScheme: 'dark',
+            }}
+          />
+        </Box>
+      </Box>
+      <Box
+        style={{
+          display: 'flex',
+          gap: 6,
+          background: '#0A0E19',
+          border: '1px solid #393C56',
+          borderRadius: 6,
+          padding: 4,
+        }}
+      >
+        {[
+          { id: 'ships', label: 'Ship Icons' },
+          { id: 'satellite', label: 'Satellite Images' },
+        ].map((opt) => (
+          <Box
+            key={opt.id}
+            component="button"
+            type="button"
+            onClick={() => setFavV2ResultView(opt.id)}
+            style={{
+              flex: 1,
+              height: 30,
+              borderRadius: 4,
+              border: 'none',
+              background:
+                favV2ResultView === opt.id ? '#006CD7' : 'transparent',
+              color: favV2ResultView === opt.id ? '#FFFFFF' : '#888F9E',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {opt.label}
+          </Box>
+        ))}
+      </Box>
+      <Text
+        style={{
+          color: '#FFFFFF',
+          fontSize: 13,
+          fontWeight: 600,
+        }}
+      >
+        {favV2ResultView === 'ships'
+          ? `${favV2ShipRows.length} Ships`
+          : `${favV2SatelliteRows.length} Images`}
+      </Text>
+      <DataTable
+        rows={favV2ResultView === 'ships' ? favV2ShipRows : favV2SatelliteRows}
+        columns={
+          favV2ResultView === 'ships'
+            ? [
+                { key: 'ship', label: 'Ship', width: 'minmax(0, 1.3fr)' },
+                { key: 'ctry', label: 'Ctry', width: '52px' },
+                { key: 'type', label: 'Type', width: 'minmax(0, 1fr)' },
+                { key: 'imo', label: 'IMO', width: 'minmax(0, 1fr)' },
+                { key: 'mmsi', label: 'MMSI', width: 'minmax(0, 1fr)' },
+              ]
+            : [
+                { key: 'type', label: 'Type', width: 'minmax(0, 1fr)' },
+                { key: 'oid', label: 'OID', width: 'minmax(0, 1fr)' },
+                {
+                  key: 'captured',
+                  label: 'Image Captured Time',
+                  width: 'minmax(0, 1.6fr)',
+                },
+              ]
+        }
+        emptyMessage="No results in this range."
+      />
+    </Box>
+  )
+
+  const shapeDetailShape = shapeDetailId
+    ? (bookmarkedShapes || []).find((shape) => shape.id === shapeDetailId) ||
+      (pendingShape?.id === shapeDetailId ? pendingShape : null)
+    : null
 
   return (
     <Box
@@ -2685,6 +2984,77 @@ const SecondaryNav = ({
           }}
         >
           Load sample data
+        </Box>
+      )}
+
+      {isFavoritesV2 && isOpen && shapeDetailShape && (
+        <Box
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: navWidth,
+            height: '100%',
+            background: '#181926',
+            zIndex: 9,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <Box
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '16px 20px',
+              borderBottom: '1px solid #393C56',
+              flexShrink: 0,
+            }}
+          >
+            <Box
+              component="button"
+              type="button"
+              onClick={() => setShapeDetailId(null)}
+              aria-label="Back to favorites"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 28,
+                height: 28,
+                borderRadius: 4,
+                border: 'none',
+                background: 'transparent',
+                color: '#FFFFFF',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <ArrowLeft size={18} color="#FFFFFF" />
+            </Box>
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontSize: 18,
+                fontWeight: 700,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {shapeDetailShape.name || 'Untitled shape'}
+            </Text>
+          </Box>
+          <Box
+            style={{
+              padding: '16px 20px 20px',
+              overflowY: 'auto',
+              minHeight: 0,
+              flex: 1,
+            }}
+          >
+            {renderShapeAnalysis()}
+          </Box>
         </Box>
       )}
 
@@ -2919,10 +3289,7 @@ const SecondaryNav = ({
                       >
                         {pendingShape && (
                           <option value={PENDING_SHAPE_OPTION_ID}>
-                            {shapeNameInput ||
-                              `${polygonEntityLabelSingular} ${
-                                bookmarkedShapes.length + 1
-                              }`}
+                            {shapeNameInput || 'Untitled shape'}
                           </option>
                         )}
                         {bookmarkedShapes
@@ -3034,16 +3401,16 @@ const SecondaryNav = ({
                           }
                         }}
                         style={{
-                          height: 40,
-                          borderRadius: 6,
+                          height: 32,
+                          borderRadius: 4,
                           border: 'none',
                           background: selectedAnalysisShapeId
                             ? '#006CD7'
                             : '#3A3E5E',
                           color: '#FFFFFF',
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: 600,
-                          padding: '0 20px',
+                          padding: '0 14px',
                           cursor: selectedAnalysisShapeId
                             ? 'pointer'
                             : 'not-allowed',
@@ -3167,8 +3534,6 @@ const SecondaryNav = ({
                           />
                         ) : section.id === 'polygons' ? (
                           <BezierCurve03 size={16} color="#FFFFFF" />
-                        ) : section.id === 'events' ? (
-                          <List size={16} color="#FFFFFF" />
                         ) : null}
                         <Text
                           style={{
@@ -3909,7 +4274,7 @@ const SecondaryNav = ({
                     ? 'Select the ship(s) you’d like to be alerted with.'
                     : version2Mode === 'polygons'
                       ? pendingShape && !shapesOnly
-                        ? `Name your ${polygonEntityLabelSingular.toLowerCase()} and save it to bookmarks.`
+                        ? `Name your ${polygonEntityLabelSingular.toLowerCase()} and save it to ${listCollectionLabelLower}.`
                         : shapeDrawMode && !shapesOnly
                           ? `Draw your ${polygonEntityLabelSingular.toLowerCase()} on the map.`
                           : `Create a ${polygonEntityLabelLowerPlural.slice(0, -1)} by:`
@@ -4120,7 +4485,7 @@ const SecondaryNav = ({
                             handleSaveShape()
                           }
                         }}
-                        placeholder={`Name your ${polygonEntityLabelSingular.toLowerCase()}`}
+                        placeholder="e.g. Strait of Hormuz"
                         style={{
                           width: '100%',
                           height: 34,
@@ -4132,6 +4497,7 @@ const SecondaryNav = ({
                         }}
                       />
                     </Box>
+                    {isFavoritesV2 && renderShapeAnalysis()}
                     <Box style={{ display: 'flex', gap: 8, marginTop: 2 }}>
                       <Box
                         component="button"
@@ -4150,7 +4516,7 @@ const SecondaryNav = ({
                           cursor: 'pointer',
                         }}
                       >
-                        Save to bookmarks
+                        {`Save to ${listCollectionLabelLower}`}
                       </Box>
                       <Box
                         component="button"
@@ -6955,98 +7321,147 @@ const SecondaryNav = ({
             <Box
               onMouseDown={(event) => event.stopPropagation()}
               style={{
-                width: 360,
+                width: 420,
                 maxWidth: 'calc(100vw - 48px)',
-                background: '#0a0f1a',
-                border: '1px solid #1e293b',
+                background: '#181926',
+                border: '1px solid #24263C',
                 borderRadius: 8,
-                padding: 20,
+                overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 8,
               }}
             >
-              <Text
-                style={{
-                  color: '#ffffff',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  lineHeight: '20px',
-                }}
-              >
-                {`Delete ${(
-                  shapePendingDelete.name ||
-                  polygonEntityLabelSingular.toLowerCase()
-                ).trim()}?`}
-              </Text>
-              <Text
-                style={{
-                  color: '#888F9E',
-                  fontSize: 13,
-                  fontWeight: 400,
-                  lineHeight: '18px',
-                }}
-              >
-                {`This ${polygonEntityLabelSingular.toLowerCase()} will be permanently deleted from your ${listCollectionLabelLower}. This can't be undone.`}
-              </Text>
               <Box
                 style={{
+                  position: 'relative',
+                  background: '#24263C',
+                  padding: 16,
                   display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: 8,
-                  marginTop: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
+                <Text
+                  style={{
+                    color: '#ffffff',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    lineHeight: '20px',
+                  }}
+                >
+                  {`Delete ${(
+                    shapePendingDelete.name ||
+                    polygonEntityLabelSingular.toLowerCase()
+                  ).trim()}?`}
+                </Text>
                 <Box
                   component="button"
                   type="button"
+                  aria-label="Close"
                   onClick={() => setShapePendingDelete(null)}
                   style={{
-                    height: 32,
-                    padding: '0 14px',
+                    position: 'absolute',
+                    right: 16,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 24,
+                    height: 24,
                     background: 'transparent',
-                    border: '1px solid #1e293b',
-                    borderRadius: 6,
+                    border: 'none',
+                    padding: 0,
                     color: '#ffffff',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    fontFamily: "'Inter', sans-serif",
                     cursor: 'pointer',
                   }}
                 >
-                  Cancel
+                  <XClose size={18} color="currentColor" />
                 </Box>
-                <Box
-                  component="button"
-                  type="button"
-                  onClick={() => {
-                    // Deleting the active shape (the pending one) must also clear
-                    // it from the map; deleting any other saved shape just drops
-                    // it from the list.
-                    if (
-                      shapePendingDelete.id === PENDING_SHAPE_OPTION_ID ||
-                      shapePendingDelete.id === pendingShape?.id
-                    ) {
-                      handleCancelShapeDraw()
-                    } else {
-                      removeShape(shapePendingDelete.id)
-                    }
-                    setShapePendingDelete(null)
-                  }}
+              </Box>
+              <Box
+                style={{
+                  background: '#181926',
+                  padding: 24,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <Text
                   style={{
-                    height: 32,
-                    padding: '0 14px',
-                    background: '#dc2626',
-                    border: '1px solid #dc2626',
-                    borderRadius: 6,
                     color: '#ffffff',
                     fontSize: 13,
-                    fontWeight: 600,
-                    fontFamily: "'Inter', sans-serif",
-                    cursor: 'pointer',
+                    fontWeight: 400,
+                    lineHeight: '18px',
                   }}
                 >
-                  {`Delete ${polygonEntityLabelSingular.toLowerCase()}`}
+                  {`This ${polygonEntityLabelSingular.toLowerCase()} will be removed from your ${listCollectionLabelLower} and taken off the map. This can't be undone.`}
+                </Text>
+                <Box
+                  style={{
+                    height: 1,
+                    background: '#393C56',
+                    margin: '20px 8px',
+                  }}
+                />
+                <Box
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                  }}
+                >
+                  <Box
+                    component="button"
+                    type="button"
+                    onClick={() => setShapePendingDelete(null)}
+                    style={{
+                      height: 32,
+                      padding: '0 14px',
+                      background: 'transparent',
+                      border: '1px solid #ffffff',
+                      borderRadius: 4,
+                      color: '#ffffff',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      fontFamily: "'Inter', sans-serif",
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </Box>
+                  <Box
+                    component="button"
+                    type="button"
+                    onClick={() => {
+                      // Deleting the active shape (the pending one) must also clear
+                      // it from the map; deleting any other saved shape just drops
+                      // it from the list.
+                      if (
+                        shapePendingDelete.id === PENDING_SHAPE_OPTION_ID ||
+                        shapePendingDelete.id === pendingShape?.id
+                      ) {
+                        handleCancelShapeDraw()
+                      } else {
+                        removeShape(shapePendingDelete.id)
+                      }
+                      setShapePendingDelete(null)
+                    }}
+                    style={{
+                      height: 32,
+                      padding: '0 14px',
+                      background: '#F75349',
+                      border: '1px solid #F75349',
+                      borderRadius: 4,
+                      color: '#ffffff',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      fontFamily: "'Inter', sans-serif",
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {`Delete ${polygonEntityLabelSingular.toLowerCase()}`}
+                  </Box>
                 </Box>
               </Box>
             </Box>

@@ -40,10 +40,13 @@ function Layout() {
     borderWidth: 2,
     size: 36,
   })
-  // A/B for the save-to-bookmarks icon + naming in the For You list, since
-  // Bookmarks uses a star but For You shipped with a bookmark icon.
-  // 'proto1' = star icon + "Bookmark"; 'proto2' = bookmark icon + "Save".
-  const [forYouPrototype, setForYouPrototype] = useState('proto1')
+  // For You uses the Favorites flow only (star icon + "Save to Favorites").
+  // The bookmark-flow A/B ('proto2') was removed, so this stays fixed.
+  const forYouPrototype = 'proto1'
+  // Favorites A/B: 'v1' is the current Favorites flow, 'v2' is a variant that
+  // will diverge in the Add Shapes experience. Switched via the top-nav
+  // dropdown. Both are identical until the v2 Add Shapes work lands.
+  const [favoritesVersion, setFavoritesVersion] = useState('v1')
   // Keeps the For You list panel visible after drilling into a ship/port detail
   // (which lives on the /myships route). Starts true since we land on For You.
   const [forYouContext, setForYouContext] = useState(true)
@@ -388,8 +391,8 @@ function Layout() {
       <TopNav
         markerMode={forYouMarkerMode}
         onMarkerModeChange={setForYouMarkerMode}
-        forYouPrototype={forYouPrototype}
-        onForYouPrototypeChange={setForYouPrototype}
+        favoritesVersion={favoritesVersion}
+        onFavoritesVersionChange={setFavoritesVersion}
       />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
@@ -546,6 +549,7 @@ function Layout() {
                 currentPath={location.pathname}
                 watchlistVersion={watchlistVersion}
                 forYouPrototype={forYouPrototype}
+                favoritesVersion={favoritesVersion}
                 forceHidden={showForYouNav}
                 onShipSelect={handleShipSelectFromBookmarks}
                 onPortSelect={handlePortSelectFromBookmarks}

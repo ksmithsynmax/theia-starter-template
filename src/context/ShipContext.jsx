@@ -143,19 +143,18 @@ export function ShipProvider({ children }) {
     [bookmarkedShapes]
   )
 
-  // Called by the map once the user finishes drawing a shape. Seed a default
-  // name ("Shape N") so it's pre-filled in both the panel input and map card.
-  // A stable id is attached so the same geometry can be tracked as it moves
-  // between "active/working" (rich card) and "saved" (My Shapes list) states.
-  const completeShapeDraw = useCallback(
-    (shape) => {
-      if (!shape) return
-      setShapeDrawMode(null)
-      setPendingShape(shape.id ? shape : { ...shape, id: `shape-${Date.now()}` })
-      setPendingShapeName(`Shape ${bookmarkedShapes.length + 1}`)
-    },
-    [bookmarkedShapes.length]
-  )
+  // Called by the map once the user finishes drawing a shape. Leave the name
+  // empty so the panel input shows its placeholder and invites the user to
+  // enter a meaningful name (e.g. "Strait of Hormuz") rather than accepting a
+  // generic "Shape N" default. A stable id is attached so the same geometry can
+  // be tracked as it moves between "active/working" (rich card) and "saved"
+  // (My Shapes list) states.
+  const completeShapeDraw = useCallback((shape) => {
+    if (!shape) return
+    setShapeDrawMode(null)
+    setPendingShape(shape.id ? shape : { ...shape, id: `shape-${Date.now()}` })
+    setPendingShapeName('')
+  }, [])
 
   const saveShape = useCallback(
     (name) => {

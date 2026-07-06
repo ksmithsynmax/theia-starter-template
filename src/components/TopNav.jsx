@@ -92,8 +92,8 @@ const parseTypedDate = (rawValue) => {
 const TopNav = ({
   markerMode = 'pin',
   onMarkerModeChange,
-  forYouPrototype = 'proto1',
-  onForYouPrototypeChange,
+  favoritesVersion = 'v1',
+  onFavoritesVersionChange,
 }) => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -194,29 +194,6 @@ const TopNav = ({
             gap: 8,
           }}
         >
-          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>For You prototype</Text>
-          <Box
-            component="select"
-            value={forYouPrototype}
-            onChange={(event) =>
-              onForYouPrototypeChange?.(event.currentTarget.value)
-            }
-            style={{
-              height: 32,
-              background: '#24263C',
-              border: '1px solid #393C56',
-              color: '#FFFFFF',
-              borderRadius: 4,
-              padding: '0 32px 0 10px',
-              minWidth: 150,
-              fontSize: 12,
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="proto1">Prototype 1</option>
-            <option value="proto2">Prototype 2</option>
-          </Box>
           <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Marker style</Text>
           <Box
             component="select"
@@ -235,10 +212,32 @@ const TopNav = ({
               cursor: 'pointer',
             }}
           >
-            <option value="pin">Pins</option>
             <option value="pulse">Pulsing rings</option>
             <option value="priority">Priority badges</option>
             <option value="ring">Custom ring</option>
+          </Box>
+          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Favorites</Text>
+          <Box
+            component="select"
+            value={favoritesVersion}
+            onChange={(event) =>
+              onFavoritesVersionChange?.(event.currentTarget.value)
+            }
+            style={{
+              height: 32,
+              background: '#24263C',
+              border: '1px solid #393C56',
+              color: '#FFFFFF',
+              borderRadius: 4,
+              padding: '0 32px 0 10px',
+              minWidth: 150,
+              fontSize: 12,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="v1">Favorites v1</option>
+            <option value="v2">Favorites v2</option>
           </Box>
         </Box>
         <Box component="button" type="button" className="topnav-icon-btn">

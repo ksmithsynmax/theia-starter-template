@@ -262,6 +262,27 @@ const SHAPE_COMPLETE_COLOR = '#006CD7'
 // stays the only blue shape on the map — mirrors the active/inactive port style.
 const SHAPE_INACTIVE_COLOR = '#FFFFFF'
 
+// Untitled UI minimize-01 / maximize-01 icons, used by the in-card collapse
+// toggle on the shape info cards (built with raw DOM, so we inline the SVG).
+const SHAPE_MINIMIZE_ICON =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6-7 7m17-11h-6m0 0V4m0 6 7-7"/></svg>'
+const SHAPE_MAXIMIZE_ICON =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 10 7-7m0 0h-6m6 0v6m-11 5-7 7m0 0h6m-6 0v-6"/></svg>'
+
+// Per-type "edit shape" icons (polygon / rectangle / circle), used in the card
+// header in place of a pencil so the action reads as "edit geometry" rather
+// than "rename". Built with currentColor so the active-edit blue tint applies.
+const SHAPE_TYPE_ICONS = {
+  polygon:
+    '<svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.04746 5.83333L4.28555 14.1667M4.99984 15.8333H14.9997M15.7141 14.1667L10.9522 5.83333M2.99984 17.5H3.6665C4.13321 17.5 4.36657 17.5 4.54483 17.4092C4.70163 17.3293 4.82911 17.2018 4.90901 17.045C4.99984 16.8667 4.99984 16.6334 4.99984 16.1667V15.5C4.99984 15.0333 4.99984 14.7999 4.90901 14.6217C4.82911 14.4649 4.70163 14.3374 4.54483 14.2575C4.36657 14.1667 4.13321 14.1667 3.6665 14.1667H2.99984C2.53313 14.1667 2.29977 14.1667 2.12151 14.2575C1.96471 14.3374 1.83723 14.4649 1.75733 14.6217C1.6665 14.7999 1.6665 15.0333 1.6665 15.5V16.1667C1.6665 16.6334 1.6665 16.8667 1.75733 17.045C1.83723 17.2018 1.96471 17.3293 2.12151 17.4092C2.29977 17.5 2.53313 17.5 2.99984 17.5ZM16.3332 17.5H16.9998C17.4665 17.5 17.6999 17.5 17.8782 17.4092C18.035 17.3293 18.1624 17.2018 18.2423 17.045C18.3332 16.8667 18.3332 16.6334 18.3332 16.1667V15.5C18.3332 15.0333 18.3332 14.7999 18.2423 14.6217C18.1624 14.4649 18.035 14.3374 17.8782 14.2575C17.6999 14.1667 17.4665 14.1667 16.9998 14.1667H16.3332C15.8665 14.1667 15.6331 14.1667 15.4548 14.2575C15.298 14.3374 15.1706 14.4649 15.0907 14.6217C14.9998 14.7999 14.9998 15.0333 14.9998 15.5V16.1667C14.9998 16.6334 14.9998 16.8667 15.0907 17.045C15.1706 17.2018 15.298 17.3293 15.4548 17.4092C15.6331 17.5 15.8665 17.5 16.3332 17.5ZM9.6665 5.83333H10.3332C10.7999 5.83333 11.0332 5.83333 11.2115 5.74251C11.3683 5.66261 11.4958 5.53513 11.5757 5.37833C11.6665 5.20007 11.6665 4.96671 11.6665 4.5V3.83333C11.6665 3.36662 11.6665 3.13327 11.5757 2.95501C11.4958 2.79821 11.3683 2.67072 11.2115 2.59083C11.0332 2.5 10.7999 2.5 10.3332 2.5H9.6665C9.19979 2.5 8.96644 2.5 8.78818 2.59083C8.63138 2.67072 8.50389 2.79821 8.424 2.95501C8.33317 3.13327 8.33317 3.36662 8.33317 3.83333V4.5C8.33317 4.96671 8.33317 5.20007 8.424 5.37833C8.50389 5.53513 8.63138 5.66261 8.78818 5.74251C8.96644 5.83333 9.19979 5.83333 9.6665 5.83333Z"/></svg>',
+  rectangle:
+    '<svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V6M6 4H14M6 16H14M16 14V6"/><path d="M2.6665 15.5003C2.6665 15.0336 2.6665 14.8003 2.75733 14.622C2.83723 14.4652 2.96471 14.3377 3.12151 14.2578C3.29977 14.167 3.53313 14.167 3.99984 14.167H4.6665C5.13321 14.167 5.36657 14.167 5.54483 14.2578C5.70163 14.3377 5.82911 14.4652 5.90901 14.622C5.99984 14.8003 5.99984 15.0336 5.99984 15.5003V16.167C5.99984 16.6337 5.99984 16.8671 5.90901 17.0453C5.82911 17.2021 5.70163 17.3296 5.54483 17.4095C5.36657 17.5003 5.13321 17.5003 4.6665 17.5003H3.99984C3.53313 17.5003 3.29977 17.5003 3.12151 17.4095C2.96471 17.3296 2.83723 17.2021 2.75733 17.0453C2.6665 16.8671 2.6665 16.6337 2.6665 16.167V15.5003Z"/><path d="M14 15.5003C14 15.0336 14 14.8003 14.0908 14.622C14.1707 14.4652 14.2982 14.3377 14.455 14.2578C14.6333 14.167 14.8666 14.167 15.3333 14.167H16C16.4667 14.167 16.7001 14.167 16.8783 14.2578C17.0351 14.3377 17.1626 14.4652 17.2425 14.622C17.3333 14.8003 17.3333 15.0336 17.3333 15.5003V16.167C17.3333 16.6337 17.3333 16.8671 17.2425 17.0453C17.1626 17.2021 17.0351 17.3296 16.8783 17.4095C16.7001 17.5003 16.4667 17.5003 16 17.5003H15.3333C14.8666 17.5003 14.6333 17.5003 14.455 17.4095C14.2982 17.3296 14.1707 17.2021 14.0908 17.0453C14 16.8671 14 16.6337 14 16.167V15.5003Z"/><path d="M14 3.50008C14 3.03337 14 2.80002 14.0908 2.62176C14.1707 2.46495 14.2982 2.33747 14.455 2.25758C14.6333 2.16675 14.8666 2.16675 15.3333 2.16675H16C16.4667 2.16675 16.7001 2.16675 16.8783 2.25758C17.0351 2.33747 17.1626 2.46495 17.2425 2.62176C17.3333 2.80002 17.3333 3.03337 17.3333 3.50008V4.16675C17.3333 4.63346 17.3333 4.86681 17.2425 5.04507C17.1626 5.20188 17.0351 5.32936 16.8783 5.40925C16.7001 5.50008 16.4667 5.50008 16 5.50008H15.3333C14.8666 5.50008 14.6333 5.50008 14.455 5.40925C14.2982 5.32936 14.1707 5.20188 14.0908 5.04507C14 4.86681 14 4.63346 14 4.16675V3.50008Z"/><path d="M2.6665 3.50008C2.6665 3.03337 2.6665 2.80002 2.75733 2.62176C2.83723 2.46495 2.96471 2.33747 3.12151 2.25758C3.29977 2.16675 3.53313 2.16675 3.99984 2.16675H4.6665C5.13321 2.16675 5.36657 2.16675 5.54483 2.25758C5.70163 2.33747 5.82911 2.46495 5.90901 2.62176C5.99984 2.80002 5.99984 3.03337 5.99984 3.50008V4.16675C5.99984 4.63346 5.99984 4.86681 5.90901 5.04507C5.82911 5.20188 5.70163 5.32936 5.54483 5.40925C5.36657 5.50008 5.13321 5.50008 4.6665 5.50008H3.99984C3.53313 5.50008 3.29977 5.50008 3.12151 5.40925C2.96471 5.32936 2.83723 5.20188 2.75733 5.04507C2.6665 4.86681 2.6665 4.63346 2.6665 4.16675V3.50008Z"/></svg>',
+  circle:
+    '<svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8.75"/><circle cx="10" cy="10" r="1.25" fill="currentColor" stroke="none"/></svg>',
+}
+const getShapeTypeIcon = (type) =>
+  SHAPE_TYPE_ICONS[type] || SHAPE_TYPE_ICONS.polygon
+
 const ALERT_PREVIEW_AREAS = {
   persian_gulf: {
     label: 'Persian Gulf',
@@ -2285,7 +2306,7 @@ const Map = forwardRef(function Map(
     // Mirrors the active shape's card. The pencil promotes the shape to the
     // active/editing card (reusing the full vertex-edit machinery); rename and
     // delete act on the saved shape directly; minimize is per-card.
-    const buildRichSavedCard = (shapeId) => {
+    const buildRichSavedCard = (shapeId, shapeType) => {
       const el = document.createElement('div')
       // See the pending card note: keep the Mapbox marker root position:absolute
       // (from .mapboxgl-marker) so its anchor transform positions the card above
@@ -2397,6 +2418,16 @@ const Map = forwardRef(function Map(
         input.select()
       }
 
+      // Click the name to rename it inline (the pencil was replaced by a shape
+      // icon for geometry editing, so the name is the clear rename affordance).
+      title.style.cursor = 'pointer'
+      title.title = 'Rename'
+      title.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        beginRename()
+      })
+
       const makeMenuItem = (label, onClick, variant) => {
         const item = document.createElement('button')
         item.type = 'button'
@@ -2449,8 +2480,7 @@ const Map = forwardRef(function Map(
       const editButton = document.createElement('button')
       editButton.setAttribute('aria-label', 'Edit shape')
       styleIconButton(editButton)
-      editButton.innerHTML =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.876 18.116c.046-.414.069-.62.131-.814a2 2 0 0 1 .234-.485c.111-.17.259-.317.553-.61L17 3a2.828 2.828 0 1 1 4 4L7.794 20.206c-.294.294-.442.442-.611.553a2 2 0 0 1-.485.233c-.193.063-.4.086-.814.132L2.5 21.5l.376-3.384Z"/></svg>'
+      editButton.innerHTML = getShapeTypeIcon(shapeType)
       editButton.addEventListener('click', (event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -2458,6 +2488,22 @@ const Map = forwardRef(function Map(
         setIsEditingShape(true)
       })
       actions.appendChild(editButton)
+
+      // In-card collapse toggle (Untitled UI minimize-01 / maximize-01), placed
+      // between the pencil and the ellipsis.
+      const minMaxButton = document.createElement('button')
+      minMaxButton.setAttribute('aria-label', 'Minimize shape')
+      styleIconButton(minMaxButton)
+      minMaxButton.innerHTML = SHAPE_MINIMIZE_ICON
+      minMaxButton.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        collapsed = !collapsed
+        if (collapsed) minimizedShapeIdsRef.current.add(shapeId)
+        else minimizedShapeIdsRef.current.delete(shapeId)
+        applyCollapsed()
+      })
+      actions.appendChild(minMaxButton)
 
       const menuButton = document.createElement('button')
       menuButton.setAttribute('aria-label', 'Shape options')
@@ -2471,20 +2517,17 @@ const Map = forwardRef(function Map(
       })
       actions.appendChild(menuButton)
 
-      // Minimize / Close live in the ellipsis menu (not as header buttons) to
-      // keep the card header compact. Minimized = just the name + the ellipsis,
-      // shrunk to content. Persisted per shape id so it survives switching the
-      // active shape (card flips pending⇄saved).
+      // Collapse state is persisted per shape id so it survives switching the
+      // active shape (card flips pending⇄saved). The toggle lives in the header
+      // (min/max button); the ellipsis menu only carries Close.
       let collapsed = minimizedShapeIdsRef.current.has(shapeId)
-      const minimizeItem = makeMenuItem('Minimize', () => {
-        collapsed = !collapsed
-        if (collapsed) minimizedShapeIdsRef.current.add(shapeId)
-        else minimizedShapeIdsRef.current.delete(shapeId)
-        applyCollapsed()
-      })
-      menu.appendChild(minimizeItem)
       // Close = hide this shape's card from the map. It stays in My Shapes and
-      // can be brought back from the list.
+      // can be brought back from the list. A divider sets it apart.
+      const savedCloseDivider = document.createElement('div')
+      savedCloseDivider.style.height = '1px'
+      savedCloseDivider.style.background = '#393C56'
+      savedCloseDivider.style.margin = '4px 6px'
+      menu.appendChild(savedCloseDivider)
       menu.appendChild(
         makeMenuItem('Close', () => hideShapeRef.current?.(shapeId))
       )
@@ -2492,7 +2535,6 @@ const Map = forwardRef(function Map(
       const applyCollapsed = () => {
         body.style.display = collapsed ? 'none' : ''
         editButton.style.display = collapsed ? 'none' : ''
-        // Keep the ellipsis visible while minimized so Expand stays reachable.
         if (collapsed) menu.style.display = 'none'
         el.style.minWidth = collapsed ? '0' : '180px'
         el.style.width = collapsed ? 'fit-content' : ''
@@ -2500,7 +2542,13 @@ const Map = forwardRef(function Map(
         header.style.gap = collapsed ? '6px' : '12px'
         title.style.fontSize = collapsed ? '11px' : '13px'
         title.style.fontWeight = collapsed ? '500' : '600'
-        minimizeItem.textContent = collapsed ? 'Expand' : 'Minimize'
+        minMaxButton.innerHTML = collapsed
+          ? SHAPE_MAXIMIZE_ICON
+          : SHAPE_MINIMIZE_ICON
+        minMaxButton.setAttribute(
+          'aria-label',
+          collapsed ? 'Expand shape' : 'Minimize shape'
+        )
       }
 
       header.appendChild(actions)
@@ -2536,7 +2584,7 @@ const Map = forwardRef(function Map(
       let marker = shapeMarkersRef.current[shape.id]
       if (!marker) {
         const el = shapesOnlyRef.current
-          ? buildRichSavedCard(shape.id)
+          ? buildRichSavedCard(shape.id, shape.type)
           : buildPlainLabel(shape.id)
         marker = new mapboxgl.Marker({
           element: el,
@@ -2568,7 +2616,10 @@ const Map = forwardRef(function Map(
       // card stays above the shape for polygons, rectangles and circles alike.
       const pendingPoint = getPolygonTopCenter(pendingFeature)
       if (pendingFeature && pendingPoint) {
-        const defaultName = `Shape ${(bookmarkedShapes || []).length + 1}`
+        // Neutral fallback used only if a shape is saved without a name. The
+        // card title shows a muted "Name this shape" hint (see below) rather
+        // than a generic numbered default, to encourage a meaningful name.
+        const defaultName = 'Untitled shape'
         const areaText = formatAreaKm2(getPolygonAreaKm2(pendingFeature))
         // On /my-shapes the active shape is auto-saved, so the CTA toggles
         // between Save/Remove based on whether it's currently in the saved list.
@@ -2731,8 +2782,7 @@ const Map = forwardRef(function Map(
           editButton.setAttribute('aria-label', 'Edit shape')
           editButton.dataset.shapeEditBtn = 'true'
           styleIconButton(editButton)
-          editButton.innerHTML =
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.876 18.116c.046-.414.069-.62.131-.814a2 2 0 0 1 .234-.485c.111-.17.259-.317.553-.61L17 3a2.828 2.828 0 1 1 4 4L7.794 20.206c-.294.294-.442.442-.611.553a2 2 0 0 1-.485.233c-.193.063-.4.086-.814.132L2.5 21.5l.376-3.384Z"/></svg>'
+          editButton.innerHTML = getShapeTypeIcon(pendingShape?.type)
           editButton.addEventListener('click', (event) => {
             event.preventDefault()
             event.stopPropagation()
@@ -2741,6 +2791,35 @@ const Map = forwardRef(function Map(
           })
           attachTooltip(editButton, 'Edit shape')
           actions.appendChild(editButton)
+
+          // In-card collapse toggle (Untitled UI minimize-01 / maximize-01),
+          // placed between the pencil and the ellipsis.
+          const minMaxButton = document.createElement('button')
+          minMaxButton.setAttribute('aria-label', 'Minimize shape')
+          minMaxButton.dataset.shapeMinBtn = 'true'
+          styleIconButton(minMaxButton)
+          // Icon lives in its own span so the tooltip child (appended by
+          // attachTooltip) survives icon swaps in the collapse effect.
+          const minMaxIcon = document.createElement('span')
+          minMaxIcon.dataset.shapeMinIcon = 'true'
+          minMaxIcon.style.display = 'inline-flex'
+          minMaxIcon.innerHTML = SHAPE_MINIMIZE_ICON
+          minMaxButton.appendChild(minMaxIcon)
+          minMaxButton.addEventListener('click', (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setIsShapeBoxMinimized((value) => {
+              const next = !value
+              const id = pendingShapeMenuCtxRef.current?.pendingShape?.id
+              if (id) {
+                if (next) minimizedShapeIdsRef.current.add(id)
+                else minimizedShapeIdsRef.current.delete(id)
+              }
+              return next
+            })
+          })
+          attachTooltip(minMaxButton, 'Minimize')
+          actions.appendChild(minMaxButton)
 
           const menuButton = document.createElement('button')
           menuButton.setAttribute('aria-label', 'Shape options')
@@ -2751,8 +2830,8 @@ const Map = forwardRef(function Map(
           attachTooltip(menuButton, 'More actions')
           actions.appendChild(menuButton)
 
-          // Minimize / Close live in the ellipsis menu (not as header buttons)
-          // to keep the active card header compact.
+          // Close lives in the ellipsis menu; the collapse toggle is the header
+          // min/max button above.
           header.appendChild(actions)
 
           el.appendChild(header)
@@ -2824,7 +2903,8 @@ const Map = forwardRef(function Map(
             const input = document.createElement('input')
             input.type = 'text'
             input.dataset.pendingShapeRename = 'true'
-            input.value = ctx.pendingShapeName || ctx.defaultName || ''
+            input.value = ctx.pendingShapeName || ''
+            input.placeholder = 'e.g. Strait of Hormuz'
             input.style.width = '120px'
             input.style.fontFamily = 'Inter, sans-serif'
             input.style.fontSize = '13px'
@@ -2857,9 +2937,9 @@ const Map = forwardRef(function Map(
               span.dataset.pendingShapeTitle = 'true'
               span.style.fontSize = '13px'
               span.style.fontWeight = '600'
-              span.style.color = '#FFFFFF'
-              span.textContent =
-                latest.pendingShapeName || latest.defaultName || ''
+              const trimmedName = (latest.pendingShapeName || '').trim()
+              span.style.color = trimmedName ? '#FFFFFF' : '#888F9E'
+              span.textContent = trimmedName || 'Name this shape'
               input.replaceWith(span)
             })
             titleEl.replaceWith(input)
@@ -2894,20 +2974,13 @@ const Map = forwardRef(function Map(
           saveItem.dataset.pendingShapeSave = 'true'
           menu.appendChild(saveItem)
 
-          // Minimize / Close moved into the menu to keep the header compact.
-          const minimizeItem = makeMenuItem('Minimize', () => {
-            setIsShapeBoxMinimized((value) => {
-              const next = !value
-              const id = pendingShapeMenuCtxRef.current?.pendingShape?.id
-              if (id) {
-                if (next) minimizedShapeIdsRef.current.add(id)
-                else minimizedShapeIdsRef.current.delete(id)
-              }
-              return next
-            })
-          })
-          minimizeItem.dataset.shapeMinItem = 'true'
-          menu.appendChild(minimizeItem)
+          // Close lives in the menu; the minimize/maximize toggle is the header
+          // min/max button. A divider sets Close apart.
+          const pendingCloseDivider = document.createElement('div')
+          pendingCloseDivider.style.height = '1px'
+          pendingCloseDivider.style.background = '#393C56'
+          pendingCloseDivider.style.margin = '4px 6px'
+          menu.appendChild(pendingCloseDivider)
           menu.appendChild(
             makeMenuItem('Close', () => {
               const ctx = pendingShapeMenuCtxRef.current || {}
@@ -2950,8 +3023,11 @@ const Map = forwardRef(function Map(
         const titleEl = pendingEl.querySelector('[data-pending-shape-title="true"]')
         // Skip while the user is actively typing in the title (editable focus)
         // so we don't reset the caret; two-way sync resumes on blur.
-        if (titleEl && document.activeElement !== titleEl)
-          titleEl.textContent = pendingShapeName || defaultName
+        if (titleEl && document.activeElement !== titleEl) {
+          const trimmedName = (pendingShapeName || '').trim()
+          titleEl.textContent = trimmedName || 'Name this shape'
+          titleEl.style.color = trimmedName ? '#FFFFFF' : '#888F9E'
+        }
         const areaEl = pendingEl.querySelector('[data-pending-shape-area="true"]')
         if (areaEl) areaEl.textContent = areaText ? `${areaText}: area` : ''
         const saveEl = pendingEl.querySelector('[data-pending-shape-save="true"]')
@@ -3691,15 +3767,23 @@ const Map = forwardRef(function Map(
     const meta = markerEl.querySelector('[data-pending-shape-area="true"]')
     const editBtn = markerEl.querySelector('[data-shape-edit-btn="true"]')
     const menu = markerEl.querySelector('[data-pending-shape-menu="true"]')
-    const minItem = markerEl.querySelector('[data-shape-min-item="true"]')
+    const minBtn = markerEl.querySelector('[data-shape-min-btn="true"]')
 
     if (meta) meta.style.display = minimized ? 'none' : ''
     if (editBtn) editBtn.style.display = minimized ? 'none' : ''
-    // Keep the ellipsis (menu) button visible while minimized so Expand stays
-    // reachable. Close the open dropdown when collapsing.
+    // Keep the min/max + ellipsis buttons visible while minimized so the card
+    // can be expanded again. Close the open dropdown when collapsing.
     if (minimized && menu) menu.style.display = 'none'
-    // Reflect state in the menu item label.
-    if (minItem) minItem.textContent = minimized ? 'Expand' : 'Minimize'
+    // Reflect state in the header min/max button (Untitled UI min-01/max-01).
+    if (minBtn) {
+      const minIcon = minBtn.querySelector('[data-shape-min-icon="true"]')
+      if (minIcon)
+        minIcon.innerHTML = minimized ? SHAPE_MAXIMIZE_ICON : SHAPE_MINIMIZE_ICON
+      minBtn.setAttribute(
+        'aria-label',
+        minimized ? 'Expand shape' : 'Minimize shape'
+      )
+    }
     // Block-level box stretches to its max width; shrink it to content when
     // collapsed so it's just the name + toggle.
     markerEl.style.minWidth = minimized ? '0' : '180px'
