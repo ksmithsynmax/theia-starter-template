@@ -388,6 +388,7 @@ function Myships() {
   const [copiedField, setCopiedField] = useState(null)
   const [hoveredCopyField, setHoveredCopyField] = useState(null)
   const [hoveredSatelliteCardId, setHoveredSatelliteCardId] = useState(null)
+  const [hoveredRosterId, setHoveredRosterId] = useState(null)
   const [selectedSatDetectionByTab, setSelectedSatDetectionByTab] = useState({})
   const [satSortByTab, setSatSortByTab] = useState({})
   const [timelineSortByTab, setTimelineSortByTab] = useState({})
@@ -1226,7 +1227,16 @@ function Myships() {
   // focused vessel's line highlighted. Computed here (we own the ship list +
   // selection) and drawn by Map via context.
   useEffect(() => {
-    if (stsVersion !== 'v9' || !isStsTab || !stsShipIds || stsShipIds.length < 2) {
+    if (
+      stsVersion !== 'v9' ||
+      !isStsTab ||
+      !stsShipIds ||
+      stsShipIds.length < 2 ||
+      // Only paint the map network while the user is actually on the transfer
+      // network view (in the event overview) — not the roster list.
+      !stsShowOverview ||
+      stsRosterView !== 'network'
+    ) {
       setStsConnectorData(null)
       return
     }
@@ -1309,6 +1319,8 @@ function Myships() {
     activeStsShipIndex,
     selectedDetectionId,
     allDetections,
+    stsShowOverview,
+    stsRosterView,
     setStsConnectorData,
   ])
 
@@ -3122,7 +3134,7 @@ function Myships() {
                         }}
                       >
                         <Tooltip
-                          label="Roster"
+                          label="Vessel list"
                           withArrow
                           color="#181926"
                           styles={{
@@ -3447,6 +3459,8 @@ function Myships() {
                         >
                           {list.map((sid, idx) => {
                             const m = shipMeta(sid)
+                            const isHovered =
+                              hoveredRosterId === `${sid}-${idx}`
                             return (
                               <Box
                                 key={`roster-${sid}-${idx}`}
@@ -3454,15 +3468,25 @@ function Myships() {
                                   setStsShowOverview(false)
                                   setActiveStsShip(idx)
                                 }}
+                                onMouseEnter={() =>
+                                  setHoveredRosterId(`${sid}-${idx}`)
+                                }
+                                onMouseLeave={() => setHoveredRosterId(null)}
                                 style={{
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: 10,
                                   padding: '10px 12px',
                                   borderRadius: 6,
-                                  border: '1px solid #393C56',
-                                  background: '#24263C',
+                                  border: `1px solid ${
+                                    isHovered ? '#006CD7' : '#393C56'
+                                  }`,
+                                  background: isHovered
+                                    ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                                    : '#24263C',
                                   cursor: 'pointer',
+                                  transition:
+                                    'background 140ms ease, border-color 140ms ease',
                                 }}
                               >
                                 <Box

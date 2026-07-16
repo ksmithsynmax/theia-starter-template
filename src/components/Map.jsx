@@ -2299,15 +2299,21 @@ const Map = forwardRef(function Map(
     )
     // Tag which markers belong to the focused event; the CSS class on the
     // container handles the dimming (with !important so nothing overrides it).
+    // The peeked detection (previewDetectionId) also stays lit so the marker the
+    // analyst is inspecting doesn't disappear under the overlay.
+    const previewId =
+      previewDetectionId == null ? null : String(previewDetectionId)
     Object.entries(markersRef.current).forEach(([id, marker]) => {
       const el = marker?.getElement?.()
       if (!el) return
-      if (active && keep.has(String(id))) el.classList.add('sts-keep')
+      const isKept =
+        active && (keep.has(String(id)) || String(id) === previewId)
+      if (isKept) el.classList.add('sts-keep')
       else el.classList.remove('sts-keep')
     })
     if (active) container.classList.add('sts-focus-dim')
     else container.classList.remove('sts-focus-dim')
-  }, [stsConnectorData, runtimeDetections, stsFocusOn])
+  }, [stsConnectorData, runtimeDetections, stsFocusOn, previewDetectionId])
 
   // Create the sources/layers used for user-drawn shapes (saved + in-progress draft).
   useEffect(() => {

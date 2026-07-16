@@ -12,6 +12,7 @@ import MapLayersPanel from './MapLayersPanel'
 import { useShipContext } from '../context/ShipContext'
 import SecondaryNav from './SecondaryNav'
 import ForYouSecondaryNav from './ForYouSecondaryNav'
+import StsPeekPanel from './StsPeekPanel'
 
 function Layout() {
   const TIMELINE_PANEL_HEIGHT = 172
@@ -87,8 +88,15 @@ function Layout() {
     closeAllTabs,
     addBookmarkedShape,
     showShape,
+    stsConnectorData,
+    setPreviewDetectionId,
   } =
     useShipContext()
+
+  // Secondary "peek" panel: a detection clicked on the map while in the STS
+  // transfer-network view opens here instead of switching the main panel, so the
+  // network stays put.
+  const [peekDetection, setPeekDetection] = useState(null)
 
   const getDetectionDateKey = useCallback((dateStr) => {
     const d = new Date(dateStr)
@@ -146,14 +154,40 @@ function Layout() {
         selectDetection(detection, { source: 'timeline-map', allowTabSwitch: false })
         return
       }
+      // In the STS transfer-network view, clicking a detection peeks at it in a
+      // secondary panel instead of switching the main panel away from the
+      // network. Focus mode stays on (we don't touch the active tab), and the
+      // left flyout + right panels close to keep the view clean.
+      if (stsConnectorData) {
+        setPeekDetection(detection)
+        setPreviewDetectionId(detection.id)
+        setSecondaryNavOpen(false)
+        setShipFiltersOpen(false)
+        setMapLayersOpen(false)
+        return
+      }
       selectDetection(detection, { source: 'map', allowTabSwitch: true })
       if (location.pathname !== '/myships' && location.pathname !== '/watchlist') {
         navigate('/myships')
       }
       setPanelOpen(true)
     },
-    [selectDetection, location.pathname, navigate]
+    [
+      selectDetection,
+      location.pathname,
+      navigate,
+      stsConnectorData,
+      setPreviewDetectionId,
+    ]
   )
+
+  // Clear the peek whenever we leave the transfer-network view.
+  useEffect(() => {
+    if (!stsConnectorData && peekDetection) {
+      setPeekDetection(null)
+      setPreviewDetectionId(null)
+    }
+  }, [stsConnectorData, peekDetection, setPreviewDetectionId])
 
   const handleNavClick = useCallback(
     (to) => {
@@ -436,6 +470,30 @@ function Layout() {
           }
           shapesOnly={location.pathname === '/my-shapes'}
         />
+        {peekDetection && (
+          <StsPeekPanel
+            detection={peekDetection}
+            topOffset={56}
+            onClose={() => {
+              setPeekDetection(null)
+              setPreviewDetectionId(null)
+            }}
+            onViewFull={(detection) => {
+              setPeekDetection(null)
+              selectDetection(detection, {
+                source: 'map',
+                allowTabSwitch: true,
+              })
+              if (
+                location.pathname !== '/myships' &&
+                location.pathname !== '/watchlist'
+              ) {
+                navigate('/myships')
+              }
+              setPanelOpen(true)
+            }}
+          />
+        )}
         {shipFiltersOpen && (
           <ShipFiltersPanel onClose={() => setShipFiltersOpen(false)} />
         )}
