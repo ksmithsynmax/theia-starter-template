@@ -288,7 +288,10 @@ function Myships() {
     setSelectedTerminal,
     selectedBerth,
     setSelectedBerth,
+    stsConnectorData,
     setStsConnectorData,
+    setStsPeekDetectionId,
+    stsSelectSignal,
   } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
@@ -1300,17 +1303,34 @@ function Myships() {
     // Only the detections belonging to THIS event stay lit under the focus
     // overlay (the event marker + each participant's approach position).
     const keepDetectionIds = [String(eventDet.id)]
+    let selectedDetId = null
+    let selectedShipId = null
     const lines = stsShipIds.map((sid, idx) => {
       const { coord, detId } = approachFor(sid, idx)
       if (detId != null) keepDetectionIds.push(String(detId))
+      const selected = idx === activeStsShipIndex
+      // Remember the detection the *selected* line points to so the map can put
+      // the "active" halo on that exact marker (keeping the halo and the blue
+      // connector line in agreement).
+      if (selected) {
+        selectedShipId = sid
+        if (detId != null) selectedDetId = String(detId)
+      }
       return {
         shipId: sid,
         coord,
-        selected: idx === activeStsShipIndex,
+        selected,
         name: ships[sid]?.name || 'Unattributed',
+        detId: detId != null ? String(detId) : null,
       }
     })
-    setStsConnectorData({ center, lines, keepDetectionIds })
+    setStsConnectorData({
+      center,
+      lines,
+      keepDetectionIds,
+      selectedDetId,
+      selectedShipId,
+    })
   }, [
     isStsTab,
     stsVersion,
@@ -1326,6 +1346,20 @@ function Myships() {
 
   // Clear connectors when leaving the STS view entirely.
   useEffect(() => () => setStsConnectorData(null), [setStsConnectorData])
+
+  // Map marker clicks (via Layout) request selecting a participant here so the
+  // transfer-network selection stays in sync with what's clicked on the map.
+  const handledStsSignalRef = useRef(null)
+  useEffect(() => {
+    if (!stsSelectSignal || stsSelectSignal.nonce === handledStsSignalRef.current)
+      return
+    handledStsSignalRef.current = stsSelectSignal.nonce
+    if (!isStsTab || !stsShipIds || stsShipIds.length < 2) return
+    const idx = stsShipIds.findIndex(
+      (sid) => String(sid) === String(stsSelectSignal.shipId)
+    )
+    if (idx >= 0) setActiveStsShip(idx)
+  }, [stsSelectSignal, isStsTab, stsShipKey])
 
   const activeShipId = isStsTab
     ? stsShipIds[activeStsShipIndex]
@@ -3015,6 +3049,12 @@ function Myships() {
                               width: 18,
                               height: 18,
                               flexShrink: 0,
+                              opacity:
+                                hoveredCopyField === 'eventId' ||
+                                copiedField === 'eventId'
+                                  ? 1
+                                  : 0,
+                              transition: 'opacity 120ms ease',
                             }}
                           >
                             <Copy02
@@ -3359,7 +3399,14 @@ function Myships() {
                                   return (
                                     <g
                                       key={`nd-${idx}`}
-                                      onClick={() => setActiveStsShip(idx)}
+                                      onClick={() => {
+                                        setActiveStsShip(idx)
+                                        const detId =
+                                          stsConnectorData?.lines?.[idx]
+                                            ?.detId ?? null
+                                        setStsPeekDetectionId(detId)
+                                        setPreviewDetectionId(detId)
+                                      }}
                                       style={{ cursor: 'pointer' }}
                                     >
                                       <title>

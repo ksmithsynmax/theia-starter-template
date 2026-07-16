@@ -90,13 +90,24 @@ function Layout() {
     showShape,
     stsConnectorData,
     setPreviewDetectionId,
+    stsPeekDetectionId,
+    setStsPeekDetectionId,
+    setStsSelectSignal,
   } =
     useShipContext()
 
-  // Secondary "peek" panel: a detection clicked on the map while in the STS
-  // transfer-network view opens here instead of switching the main panel, so the
-  // network stays put.
-  const [peekDetection, setPeekDetection] = useState(null)
+  // Secondary "peek" panel: shows the detection clicked on the map (or the vessel
+  // selected in the transfer network) without switching the main panel. Its id is
+  // shared via context so the map, the network selection, and this card stay in
+  // sync.
+  const peekDetection = useMemo(() => {
+    if (stsPeekDetectionId == null) return null
+    return (
+      runtimeDetections.find(
+        (d) => String(d.id) === String(stsPeekDetectionId)
+      ) || null
+    )
+  }, [stsPeekDetectionId, runtimeDetections])
 
   const getDetectionDateKey = useCallback((dateStr) => {
     const d = new Date(dateStr)
@@ -156,11 +167,22 @@ function Layout() {
       }
       // In the STS transfer-network view, clicking a detection peeks at it in a
       // secondary panel instead of switching the main panel away from the
-      // network. Focus mode stays on (we don't touch the active tab), and the
-      // left flyout + right panels close to keep the view clean.
+      // network. If the clicked detection belongs to a participating vessel, we
+      // also select that vessel in the network so the map halo/line, the network
+      // node, and this card all move together. Focus mode stays on; the left
+      // flyout + right panels close to keep the view clean.
       if (stsConnectorData) {
-        setPeekDetection(detection)
+        setStsPeekDetectionId(detection.id)
         setPreviewDetectionId(detection.id)
+        const isParticipant = (stsConnectorData.lines || []).some(
+          (l) => String(l.shipId) === String(detection.shipId)
+        )
+        if (isParticipant) {
+          setStsSelectSignal({
+            shipId: detection.shipId,
+            nonce: Date.now(),
+          })
+        }
         setSecondaryNavOpen(false)
         setShipFiltersOpen(false)
         setMapLayersOpen(false)
@@ -178,16 +200,23 @@ function Layout() {
       navigate,
       stsConnectorData,
       setPreviewDetectionId,
+      setStsPeekDetectionId,
+      setStsSelectSignal,
     ]
   )
 
   // Clear the peek whenever we leave the transfer-network view.
   useEffect(() => {
-    if (!stsConnectorData && peekDetection) {
-      setPeekDetection(null)
+    if (!stsConnectorData && stsPeekDetectionId != null) {
+      setStsPeekDetectionId(null)
       setPreviewDetectionId(null)
     }
-  }, [stsConnectorData, peekDetection, setPreviewDetectionId])
+  }, [
+    stsConnectorData,
+    stsPeekDetectionId,
+    setStsPeekDetectionId,
+    setPreviewDetectionId,
+  ])
 
   const handleNavClick = useCallback(
     (to) => {
@@ -475,11 +504,11 @@ function Layout() {
             detection={peekDetection}
             topOffset={56}
             onClose={() => {
-              setPeekDetection(null)
+              setStsPeekDetectionId(null)
               setPreviewDetectionId(null)
             }}
             onViewFull={(detection) => {
-              setPeekDetection(null)
+              setStsPeekDetectionId(null)
               selectDetection(detection, {
                 source: 'map',
                 allowTabSwitch: true,

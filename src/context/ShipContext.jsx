@@ -67,6 +67,11 @@ export function ShipProvider({ children }) {
   // Myships (which owns the STS ship list + selection) and consumed by Map.
   // Shape: { center: [lng, lat], lines: [{ shipId, coord, selected, name }] }
   const [stsConnectorData, setStsConnectorData] = useState(null)
+  // Detection currently shown in the STS transfer-network "peek" card (null = closed).
+  const [stsPeekDetectionId, setStsPeekDetectionId] = useState(null)
+  // Bridge for map marker clicks to request selecting a participant in the
+  // transfer network. Nonce-keyed so repeat clicks on the same ship re-fire.
+  const [stsSelectSignal, setStsSelectSignal] = useState(null)
 
   const dismissForYouItem = useCallback((itemId) => {
     if (!itemId) return
@@ -563,6 +568,10 @@ export function ShipProvider({ children }) {
       value={{
         stsConnectorData,
         setStsConnectorData,
+        stsPeekDetectionId,
+        setStsPeekDetectionId,
+        stsSelectSignal,
+        setStsSelectSignal,
         shipTabs,
         favoriteShipIds,
         favoritePorts,

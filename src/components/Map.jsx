@@ -2196,7 +2196,20 @@ const Map = forwardRef(function Map(
       activeDetectionId == null ? null : String(activeDetectionId)
     const previewId =
       previewDetectionId == null ? null : String(previewDetectionId)
-    const primaryFocusId = panelFocusId || activeId
+
+    // In the STS transfer-network focus mode the selection is driven by the
+    // connector data, not the panel's focused detection. Put the "active" halo on
+    // the marker the selected (blue) connector line points to so the halo and the
+    // line always agree, and don't fly the camera (the network view owns framing).
+    const focusMode =
+      stsFocusOn && Boolean(stsConnectorData?.lines?.length)
+    const connectorSelectedId =
+      focusMode && stsConnectorData?.selectedDetId != null
+        ? String(stsConnectorData.selectedDetId)
+        : null
+    const primaryFocusId = focusMode
+      ? connectorSelectedId
+      : panelFocusId || activeId
 
     // Clear all selection/preview highlights
     Object.values(markersRef.current).forEach((m) => {
@@ -2208,6 +2221,8 @@ const Map = forwardRef(function Map(
       const selectedMarker = markersRef.current[primaryFocusId]
       selectedMarker?.getElement().classList.add('active')
     }
+
+    if (focusMode) return
 
     if (previewId && !primaryFocusId) {
       const previewMarker = markersRef.current[previewId]
@@ -2247,6 +2262,8 @@ const Map = forwardRef(function Map(
     previewDetectionId,
     runtimeDetections,
     panelAwareFocusPadding,
+    stsFocusOn,
+    stsConnectorData,
   ])
 
   // Filter markers by date, but keep selected/preview detection visible
@@ -2306,8 +2323,8 @@ const Map = forwardRef(function Map(
     Object.entries(markersRef.current).forEach(([id, marker]) => {
       const el = marker?.getElement?.()
       if (!el) return
-      const isKept =
-        active && (keep.has(String(id)) || String(id) === previewId)
+      const sid = String(id)
+      const isKept = active && (keep.has(sid) || sid === previewId)
       if (isKept) el.classList.add('sts-keep')
       else el.classList.remove('sts-keep')
     })
