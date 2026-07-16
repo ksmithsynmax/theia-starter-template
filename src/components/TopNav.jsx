@@ -94,6 +94,10 @@ const TopNav = ({
   onMarkerModeChange,
   favoritesVersion = 'v1',
   onFavoritesVersionChange,
+  forYouVersion = 'v1',
+  onForYouVersionChange,
+  stsVersion = 'v1',
+  onStsVersionChange,
 }) => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -216,6 +220,55 @@ const TopNav = ({
             <option value="priority">Priority badges</option>
             <option value="ring">Custom ring</option>
           </Box>
+          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>For You</Text>
+          <Box
+            component="select"
+            value={forYouVersion}
+            onChange={(event) =>
+              onForYouVersionChange?.(event.currentTarget.value)
+            }
+            style={{
+              height: 32,
+              background: '#24263C',
+              border: '1px solid #393C56',
+              color: '#FFFFFF',
+              borderRadius: 4,
+              padding: '0 32px 0 10px',
+              minWidth: 150,
+              fontSize: 12,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="v1">For You</option>
+            <option value="v2">Maritime Briefing</option>
+          </Box>
+          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Ship-to-Ship</Text>
+          <Box
+            component="select"
+            value={stsVersion}
+            onChange={(event) => onStsVersionChange?.(event.currentTarget.value)}
+            style={{
+              height: 32,
+              background: '#24263C',
+              border: '1px solid #393C56',
+              color: '#FFFFFF',
+              borderRadius: 4,
+              padding: '0 32px 0 10px',
+              minWidth: 150,
+              fontSize: 12,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="v1">Ship-to-Ship v1</option>
+            <option value="v2">Ship-to-Ship v2</option>
+            <option value="v4">Ship-to-Ship v4</option>
+            <option value="v7">Ship-to-Ship v7</option>
+            <option value="v8">Ship-to-Ship v8</option>
+            <option value="v9">Ship-to-Ship v9</option>
+          </Box>
+          {/* Favorites dropdown hidden while focusing on the For You feature.
           <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Favorites</Text>
           <Box
             component="select"
@@ -239,6 +292,7 @@ const TopNav = ({
             <option value="v1">Favorites v1</option>
             <option value="v2">Favorites v2</option>
           </Box>
+          */}
         </Box>
         <Box component="button" type="button" className="topnav-icon-btn">
           <Bell02 color="white" size={20} />

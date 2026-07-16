@@ -62,6 +62,12 @@ export function ShipProvider({ children }) {
   // prototype). The only user control is reactive: dismiss/mute an item.
   const [dismissedForYouIds, setDismissedForYouIds] = useState([])
 
+  // STS convergence connectors: dashed lines the map draws from the event
+  // point to each participating vessel's approach position. Computed in
+  // Myships (which owns the STS ship list + selection) and consumed by Map.
+  // Shape: { center: [lng, lat], lines: [{ shipId, coord, selected, name }] }
+  const [stsConnectorData, setStsConnectorData] = useState(null)
+
   const dismissForYouItem = useCallback((itemId) => {
     if (!itemId) return
     setDismissedForYouIds((prev) =>
@@ -303,14 +309,32 @@ export function ShipProvider({ children }) {
   }, [])
 
   const openStsTab = useCallback(
-    (shipId, partnerShipId, detectionType = 'sts', detectionId = null) => {
+    (
+      shipId,
+      partnerShipId,
+      detectionType = 'sts',
+      detectionId = null,
+      participantShipIds = null
+    ) => {
       const ship = ships[shipId]
       const partner = ships[partnerShipId]
       if (!ship || !partner) return
 
+      // N-ship events carry the full participant list; fall back to the pair.
+      const shipIds =
+        Array.isArray(participantShipIds) && participantShipIds.length
+          ? participantShipIds.filter((id) => ships[id])
+          : [shipId, partnerShipId]
+
       // Ships and shapes are mutually exclusive on the map.
       setVisibleShapeIds([])
-      const stsTabId = `sts-${shipId}-${partnerShipId}`
+      // N-ship events get a per-event tab id so events sharing the same first
+      // pair (but different participant counts) don't collapse into one tab.
+      const isMultiShip = shipIds.length > 2
+      const stsTabId =
+        isMultiShip && detectionId
+          ? `sts-evt-${detectionId}`
+          : `sts-${shipId}-${partnerShipId}`
       setShipTabs((prev) => {
         if (prev.some((tab) => tab.id === stsTabId)) return prev
         // Add STS tab but keep existing ship tabs so user can switch back
@@ -321,7 +345,7 @@ export function ShipProvider({ children }) {
             name: 'Ship-to-Ship',
             type: 'sts',
             stsType: detectionType,
-            shipIds: [shipId, partnerShipId],
+            shipIds,
           },
         ]
       })
@@ -345,7 +369,8 @@ export function ShipProvider({ children }) {
             detection.shipId,
             detection.stsPartner,
             detection.type,
-            detection.id
+            detection.id,
+            detection.stsShips
           )
         } else {
           openShipTab(detection)
@@ -536,6 +561,8 @@ export function ShipProvider({ children }) {
   return (
     <ShipContext.Provider
       value={{
+        stsConnectorData,
+        setStsConnectorData,
         shipTabs,
         favoriteShipIds,
         favoritePorts,

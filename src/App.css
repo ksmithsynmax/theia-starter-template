@@ -311,6 +311,17 @@ textarea::placeholder {
   opacity: 1;
 }
 
+/* STS focus mode: dim every marker except the ones tagged as part of the
+   focused event. Applied via a class on the map container so it can't be
+   clobbered by marker re-renders. */
+.sts-focus-dim .map-marker {
+  opacity: 0.05 !important;
+  transition: opacity 0.25s ease;
+}
+.sts-focus-dim .map-marker.sts-keep {
+  opacity: 1 !important;
+}
+
 /* Hide Mapbox logo */
 .mapboxgl-ctrl-logo {
   display: none !important;

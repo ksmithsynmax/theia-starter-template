@@ -47,6 +47,15 @@ function Layout() {
   // will diverge in the Add Shapes experience. Switched via the top-nav
   // dropdown. Both are identical until the v2 Add Shapes work lands.
   const [favoritesVersion, setFavoritesVersion] = useState('v1')
+  // For You presentation version, switched via the top-nav dropdown:
+  // 'v1' is the curated feed list; 'v2' is the "Maritime Briefing" layout.
+  const [forYouVersion, setForYouVersion] = useState('v1')
+  // Ship-to-Ship experience version, switched via the top-nav dropdown. 'v1' is
+  // the current STS detail view; further versions branch off this.
+  const [stsVersion, setStsVersion] = useState('v1')
+  // Width the v7 floating network panel occludes on the right of the map, so the
+  // map can pad focused vessels clear of it.
+  const [stsNetworkInset, setStsNetworkInset] = useState(0)
   // Keeps the For You list panel visible after drilling into a ship/port detail
   // (which lives on the /myships route). Starts true since we land on For You.
   const [forYouContext, setForYouContext] = useState(true)
@@ -393,6 +402,10 @@ function Layout() {
         onMarkerModeChange={setForYouMarkerMode}
         favoritesVersion={favoritesVersion}
         onFavoritesVersionChange={setFavoritesVersion}
+        forYouVersion={forYouVersion}
+        onForYouVersionChange={setForYouVersion}
+        stsVersion={stsVersion}
+        onStsVersionChange={setStsVersion}
       />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
@@ -404,6 +417,8 @@ function Layout() {
           }}
           showPorts={portsLayerVisible}
           leftPanelInset={leftPanelInset}
+          rightPanelInset={stsNetworkInset}
+          stsVersion={stsVersion}
           portVisibilityBehavior={portVisibilityBehavior}
           forceHideSelectedPortContext={forceHideSelectedPortContext}
           portHoverCardEnabled={portHoverCardEnabled}
@@ -561,6 +576,7 @@ function Layout() {
                 currentPath={location.pathname}
                 active={showForYouNav}
                 prototype={forYouPrototype}
+                version={forYouVersion}
                 markerMode={forYouMarkerMode}
                 ringConfig={forYouRingConfig}
                 onRingConfigChange={setForYouRingConfig}
@@ -616,6 +632,8 @@ function Layout() {
                         onForceHideSelectedPortContextChange: setForceHideSelectedPortContext,
                         portShapeControlEnabled,
                         forYouPrototype,
+                        stsVersion,
+                        onStsNetworkPanelChange: setStsNetworkInset,
                       }}
                     />
                   </Box>

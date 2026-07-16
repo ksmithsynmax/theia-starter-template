@@ -50,17 +50,145 @@ const eventColorMap = {
   unattributed: '#F75349',
 }
 
-const buildStsSvg = (leftColor, rightColor) =>
-  `<svg width="16" height="16" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.75" y="0.75" width="9.5" height="19" fill="${leftColor}"/><rect x="10.25" y="0.75" width="9.5" height="19" fill="${rightColor}"/><rect x="0.75" y="0.75" width="19" height="19" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/><path d="M10.25 0.75L10.25 19.75" stroke="#111326" stroke-width="1.5" stroke-linecap="round"/></svg>`
+// STS marker: a fixed 17×17 chip split into two columns by a center divider,
+// matching the map legend. Each participating ship is a cell colored by its
+// most-recent detection type; the two columns subdivide independently so the
+// icon stays the same size for any count (2–5) and odd counts simply give the
+// left column one extra row. Production is capped at 2 ships today.
+const buildStsSvg = (colors) => {
+  const list = (Array.isArray(colors) ? colors : [colors]).filter(Boolean)
+  const n = Math.max(list.length, 1)
+  const x0 = 1
+  const y0 = 1
+  const colW = 7
+  const innerH = 15
+  const rightX = x0 + colW + 1 // 1px center gap carries the divider
+  const leftCount = Math.ceil(n / 2)
+  const rightCount = n - leftCount
+  const columnCells = (items, x) => {
+    const h = innerH / items.length
+    return items
+      .map(
+        (color, i) =>
+          `<rect x="${x}" y="${(y0 + i * h).toFixed(4)}" width="${colW}" height="${h.toFixed(4)}" fill="${color}"/>`
+      )
+      .join('')
+  }
+  // Thin inner dividers between stacked cells in a column (lighter than the
+  // 1.5 outer border / center divider) so same-color neighbors stay distinct.
+  const columnDividers = (count, x) => {
+    if (count < 2) return ''
+    const h = innerH / count
+    return Array.from({ length: count - 1 }, (_, i) => {
+      const y = (y0 + (i + 1) * h).toFixed(4)
+      return `<path d="M${x} ${y}H${x + colW}" stroke="#111326" stroke-width="1" stroke-linecap="butt"/>`
+    }).join('')
+  }
+  const left = columnCells(list.slice(0, leftCount), x0)
+  const right = rightCount ? columnCells(list.slice(leftCount), rightX) : ''
+  const innerDividers =
+    columnDividers(leftCount, x0) +
+    (rightCount ? columnDividers(rightCount, rightX) : '')
+  const divider = rightCount
+    ? '<path d="M8.5 1.0625V15.9375" stroke="#111326" stroke-width="1.5" stroke-linecap="round"/>'
+    : ''
+  return `<svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">${left}${right}${innerDividers}<rect x="0.75" y="0.75" width="15.5" height="15.5" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/>${divider}</svg>`
+}
 
-const getMarkerSvg = (detection) => {
+// Colors for an STS marker's segments. Prefer an explicit per-ship detection-type
+// list (N-ship events); otherwise fall back to the legacy 2-ship encoding.
+const getStsSegmentColors = (detection) => {
+  if (Array.isArray(detection.stsShipTypes) && detection.stsShipTypes.length) {
+    return detection.stsShipTypes
+      .slice(0, 5)
+      .map((type) => eventColorMap[type] || eventColorMap.unattributed)
+  }
+  const leftType = 'light'
+  const rightType = detection.type === 'sts' ? 'unattributed' : 'ais'
+  return [
+    eventColorMap[leftType] || eventColorMap.light,
+    eventColorMap[rightType] || eventColorMap.unattributed,
+  ]
+}
+
+// Number of vessels participating in an STS event (falls back to the legacy
+// 2-ship pair when a detection has no explicit participant list).
+const getStsShipCount = (detection) =>
+  Array.isArray(detection.stsShips) && detection.stsShips.length
+    ? detection.stsShips.length
+    : 2
+
+// v8 STS marker: a purpose-built ship-to-ship glyph (two hull silhouettes, in a
+// single neutral STS color so it implies no detection type) plus a count badge
+// carrying the actual vessel number. The two hulls are the STS *symbol*; the
+// badge is the data — so it reads "STS event + how many ships" for any N.
+const STS_HULL_PATH =
+  'M6.74999 20.9387L12.75 20.9387L12.75 16.18C12.75 5.45464 6.74998 0.93869 6.74998 0.93869C6.74998 0.93869 0.749988 5.45464 0.749994 16.18L0.749997 20.9387H6.74999Z'
+const STS_EVENT_COLOR = '#A78BFA'
+const buildStsCountSvg = (count, angle = 0) => {
+  const n = Math.max(Number(count) || 2, 2)
+  // Two full-size hulls (same 14×22 footprint as the AIS/dark markers), one
+  // bow-up and one bow-down, so the marker reads as two vessels meeting. The
+  // whole pair is rotated by `angle` (so events don't all point the same way),
+  // while the count badge stays upright/readable. The viewBox is padded so the
+  // rotated hulls never clip.
+  const hullUp = `<g transform="translate(1 2)"><path d="${STS_HULL_PATH}" fill="${STS_EVENT_COLOR}" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/></g>`
+  const hullDown = `<g transform="translate(12 2) rotate(180 6.75 10.94)"><path d="${STS_HULL_PATH}" fill="${STS_EVENT_COLOR}" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/></g>`
+  const hulls = `<g transform="rotate(${angle} 13.25 12.94)">${hullUp}${hullDown}</g>`
+  const badge =
+    `<circle cx="26" cy="7" r="6" fill="#111326" stroke="#FFFFFF" stroke-width="1.25"/>` +
+    `<text x="26" y="7" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="8.5" font-weight="700" fill="#FFFFFF">${n}</text>`
+  return `<svg width="36" height="32" viewBox="-3 -3 36 32" fill="none" xmlns="http://www.w3.org/2000/svg">${hulls}${badge}</svg>`
+}
+
+// Directional ship markers (teardrop hulls). Spoofing (diamond) and STS chips
+// have no meaningful heading, so they stay upright.
+const DIRECTIONAL_MARKER_TYPES = new Set([
+  'ais',
+  'light',
+  'dark',
+  'unattributed',
+])
+
+// Heading (degrees) a ship marker should point. Prefer real heading data;
+// otherwise derive a stable, varied angle from the detection id so the fleet
+// isn't all pointing the same way in the prototype.
+const getMarkerHeading = (detection) => {
+  const raw =
+    detection?.heading ??
+    detection?.aisInfo?.heading ??
+    detection?.synMaxInfo?.heading
+  if (raw != null && raw !== '' && !Number.isNaN(Number(raw))) {
+    return Number(raw)
+  }
+  const key = String(detection?.id ?? detection?.shipId ?? '')
+  let h = 0
+  for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) % 360
+  return h
+}
+
+// Rotate the marker's inner SVG in place (leaves sibling overlays like the
+// priority badge upright). Called wherever a marker's SVG is (re)rendered.
+const applyMarkerRotation = (el, detection) => {
+  const svgEl = el?.querySelector?.('svg')
+  if (!svgEl) return
+  if (DIRECTIONAL_MARKER_TYPES.has(detection?.type)) {
+    svgEl.style.transformOrigin = 'center'
+    svgEl.style.transform = `rotate(${getMarkerHeading(detection)}deg)`
+  } else {
+    svgEl.style.transform = ''
+  }
+}
+
+const getMarkerSvg = (detection, stsVersion) => {
   if (detection.type === 'sts' || detection.type === 'sts-ais') {
-    const leftType = 'light'
-    const rightType = detection.type === 'sts' ? 'unattributed' : 'ais'
-    return buildStsSvg(
-      eventColorMap[leftType] || eventColorMap.light,
-      eventColorMap[rightType] || eventColorMap.unattributed
-    )
+    if (stsVersion === 'v8') {
+      return buildStsCountSvg(
+        getStsShipCount(detection),
+        getMarkerHeading(detection),
+      )
+    }
+    return buildStsSvg(getStsSegmentColors(detection))
   }
   return svgByType[detection.type]
 }
@@ -446,6 +574,8 @@ const Map = forwardRef(function Map(
     onPortClick,
     showPorts = false,
     leftPanelInset = 0,
+    rightPanelInset = 0,
+    stsVersion = 'v1',
     portVisibilityBehavior = 'strict-layer-toggle',
     forceHideSelectedPortContext = false,
     portHoverCardEnabled = true,
@@ -506,6 +636,7 @@ const Map = forwardRef(function Map(
     setShapePendingDelete,
     closeShipTab,
     forYouItems,
+    stsConnectorData,
   } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -560,6 +691,10 @@ const Map = forwardRef(function Map(
   const forYouFittedRef = useRef(false)
   onForYouItemClickRef.current = onForYouItemClick
   const [mapReady, setMapReady] = useState(false)
+  // STS focus mode: dim the whole map (heavy dark overlay) so only the connected
+  // event stands out. On by default when an event exposes connectors; the map
+  // toggle turns both the overlay and the connector lines off.
+  const [stsFocusOn, setStsFocusOn] = useState(true)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
   const [mapDimensions, setMapDimensions] = useState({
@@ -583,7 +718,14 @@ const Map = forwardRef(function Map(
     }
 
     const inset = Math.max(0, Number(leftPanelInset) || 0)
-    const rightPadding = Math.max(110, Math.min(220, viewportWidth * 0.14))
+    const baseRightPadding = Math.max(110, Math.min(220, viewportWidth * 0.14))
+    // Keep the focused vessel clear of the floating network panel (v7) when it
+    // is docked on the right. Clamp so we never squeeze the visible area away.
+    const rightInset = Math.max(0, Number(rightPanelInset) || 0)
+    const rightPadding = Math.min(
+      Math.max(baseRightPadding, rightInset),
+      Math.max(baseRightPadding, viewportWidth * 0.6),
+    )
     const desiredLeftPadding = inset > 0 ? inset + 52 : 52
     const maxSafeLeftPadding = Math.max(52, viewportWidth - rightPadding - 220)
     const leftPadding = Math.min(desiredLeftPadding, maxSafeLeftPadding)
@@ -594,7 +736,7 @@ const Map = forwardRef(function Map(
       bottom: 80,
       left: leftPadding,
     }
-  }, [leftPanelInset, mapDimensions.width])
+  }, [leftPanelInset, rightPanelInset, mapDimensions.width])
 
   useEffect(() => {
     detectionByIdRef.current = new globalThis.Map(
@@ -1982,7 +2124,7 @@ const Map = forwardRef(function Map(
     runtimeDetections.forEach((detection) => {
       let marker = markersRef.current[detection.id]
       if (!marker) {
-        const svg = getMarkerSvg(detection)
+        const svg = getMarkerSvg(detection, stsVersion)
         if (!svg) return
         const el = document.createElement('div')
         el.className = 'map-marker'
@@ -2012,8 +2154,11 @@ const Map = forwardRef(function Map(
 
       marker.setLngLat([detection.lng, detection.lat])
       const el = marker.getElement()
-      const svg = getMarkerSvg(detection)
-      if (svg) el.innerHTML = svg
+      const svg = getMarkerSvg(detection, stsVersion)
+      if (svg) {
+        el.innerHTML = svg
+        applyMarkerRotation(el, detection)
+      }
       el.dataset.detectionId = detection.id
       el.dataset.shipId = detection.shipId
       el.dataset.detectionType = detection.type
@@ -2025,7 +2170,7 @@ const Map = forwardRef(function Map(
         el.style.display = 'none'
       }
     })
-  }, [runtimeDetections, mapDate, mapReady, enabledDetectionTypes])
+  }, [runtimeDetections, mapDate, mapReady, enabledDetectionTypes, stsVersion])
 
   // Refresh marker SVGs so STS colors stay in sync.
   useEffect(() => {
@@ -2033,10 +2178,13 @@ const Map = forwardRef(function Map(
       const marker = markersRef.current[det.id]
       if (!marker) return
       const el = marker.getElement()
-      const svg = getMarkerSvg(det)
-      if (svg) el.innerHTML = svg
+      const svg = getMarkerSvg(det, stsVersion)
+      if (svg) {
+        el.innerHTML = svg
+        applyMarkerRotation(el, det)
+      }
     })
-  }, [mapDate, shipTabs, activeDetectionId, runtimeDetections])
+  }, [mapDate, shipTabs, activeDetectionId, runtimeDetections, stsVersion])
 
   // When a detection is selected or previewed from timeline, highlight it and fly to it
   useEffect(() => {
@@ -2137,6 +2285,30 @@ const Map = forwardRef(function Map(
     runtimeDetections,
   ])
 
+  // Focus mode: when STS focus is on, push every marker that isn't part of THIS
+  // event down to near-invisible so only the connected event reads. The basemap
+  // veil is a canvas fill; markers are DOM and sit above it, so they're dimmed
+  // here to match.
+  useEffect(() => {
+    if (!map.current) return
+    const container = map.current.getContainer()
+    const active =
+      stsFocusOn && Boolean(stsConnectorData?.lines?.length)
+    const keep = new Set(
+      (stsConnectorData?.keepDetectionIds || []).map(String)
+    )
+    // Tag which markers belong to the focused event; the CSS class on the
+    // container handles the dimming (with !important so nothing overrides it).
+    Object.entries(markersRef.current).forEach(([id, marker]) => {
+      const el = marker?.getElement?.()
+      if (!el) return
+      if (active && keep.has(String(id))) el.classList.add('sts-keep')
+      else el.classList.remove('sts-keep')
+    })
+    if (active) container.classList.add('sts-focus-dim')
+    else container.classList.remove('sts-focus-dim')
+  }, [stsConnectorData, runtimeDetections, stsFocusOn])
+
   // Create the sources/layers used for user-drawn shapes (saved + in-progress draft).
   useEffect(() => {
     if (!map.current || !mapReady) return
@@ -2222,6 +2394,151 @@ const Map = forwardRef(function Map(
       })
     }
   }, [mapReady])
+
+  // STS convergence connectors: dashed lines from the event point out to each
+  // participating vessel's approach position. The focused vessel's line is
+  // brightened so it stays in lockstep with the network-graph selection.
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    const m = map.current
+
+    if (!m.getSource('sts-connectors')) {
+      m.addSource('sts-connectors', {
+        type: 'geojson',
+        data: EMPTY_FEATURE_COLLECTION,
+      })
+    }
+    // Spotlight veil: a world-covering dark fill that sits above the basemap
+    // (and ports/shapes) but BELOW the connector lines, so the event's dashed
+    // web stays bright while everything else recedes. Non-participant DOM
+    // markers are faded separately (they render above all canvas layers).
+    if (!m.getSource('focus-veil')) {
+      m.addSource('focus-veil', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [-180, -85],
+                [180, -85],
+                [180, 85],
+                [-180, 85],
+                [-180, -85],
+              ],
+            ],
+          },
+        },
+      })
+    }
+    if (!m.getLayer('focus-veil-fill')) {
+      const beforeId = m.getLayer('sts-connectors-line')
+        ? 'sts-connectors-line'
+        : undefined
+      m.addLayer(
+        {
+          id: 'focus-veil-fill',
+          type: 'fill',
+          source: 'focus-veil',
+          paint: {
+            'fill-color': '#0A0B12',
+            'fill-opacity': 0,
+            'fill-opacity-transition': { duration: 250 },
+          },
+        },
+        beforeId
+      )
+    }
+    if (!m.getLayer('sts-connectors-line')) {
+      m.addLayer({
+        id: 'sts-connectors-line',
+        type: 'line',
+        source: 'sts-connectors',
+        filter: [
+          'all',
+          ['==', ['geometry-type'], 'LineString'],
+          ['!=', ['get', 'selected'], true],
+        ],
+        paint: {
+          'line-color': '#6B7392',
+          'line-width': 1.5,
+          'line-opacity': 0.55,
+          'line-dasharray': [2, 1.5],
+        },
+      })
+    }
+    if (!m.getLayer('sts-connectors-line-selected')) {
+      m.addLayer({
+        id: 'sts-connectors-line-selected',
+        type: 'line',
+        source: 'sts-connectors',
+        filter: [
+          'all',
+          ['==', ['geometry-type'], 'LineString'],
+          ['==', ['get', 'selected'], true],
+        ],
+        paint: {
+          'line-color': '#0094FF',
+          'line-width': 2.5,
+          'line-opacity': 0.95,
+          'line-dasharray': [2, 1.5],
+        },
+      })
+    }
+    if (!m.getLayer('sts-connectors-endpoint')) {
+      m.addLayer({
+        id: 'sts-connectors-endpoint',
+        type: 'circle',
+        source: 'sts-connectors',
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: {
+          'circle-radius': 3.5,
+          'circle-color': [
+            'case',
+            ['==', ['get', 'selected'], true],
+            '#0094FF',
+            '#8B90A5',
+          ],
+          'circle-stroke-color': '#FFFFFF',
+          'circle-stroke-width': 1,
+        },
+      })
+    }
+
+    const source = m.getSource('sts-connectors')
+    if (!source) return
+
+    const active =
+      stsFocusOn &&
+      Boolean(stsConnectorData?.center && stsConnectorData?.lines?.length)
+    if (m.getLayer('focus-veil-fill')) {
+      m.setPaintProperty('focus-veil-fill', 'fill-opacity', active ? 0.85 : 0)
+    }
+
+    if (!active) {
+      source.setData(EMPTY_FEATURE_COLLECTION)
+      return
+    }
+
+    const { center, lines } = stsConnectorData
+    const features = []
+    lines.forEach((line) => {
+      if (!line?.coord) return
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: [center, line.coord] },
+        properties: { selected: Boolean(line.selected) },
+      })
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: line.coord },
+        properties: { selected: Boolean(line.selected) },
+      })
+    })
+    source.setData({ type: 'FeatureCollection', features })
+  }, [mapReady, stsConnectorData, stsFocusOn])
 
   // Keep visible saved shapes + the in-progress pending shape rendered, with a
   // small floating label/close control per visible saved shape.
@@ -3181,6 +3498,9 @@ const Map = forwardRef(function Map(
     const buildPriorityEl = (item) => {
       const el = document.createElement('div')
       el.style.cursor = 'pointer'
+      // Sit above the underlying detection marker (zIndex 1) so the priority
+      // number is always visible instead of being hidden by the ship glyph.
+      el.style.zIndex = '2'
       el.style.display = 'flex'
       el.style.alignItems = 'center'
       el.style.justifyContent = 'center'
@@ -4048,6 +4368,54 @@ const Map = forwardRef(function Map(
           outline: 'none',
         }}
       />
+      {Boolean(stsConnectorData?.lines?.length) && (
+        <Box
+          onClick={() => setStsFocusOn((v) => !v)}
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            zIndex: 30,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 12px',
+            borderRadius: 6,
+            cursor: 'pointer',
+            userSelect: 'none',
+            background: stsFocusOn ? '#006CD7' : '#181926',
+            border: `1px solid ${stsFocusOn ? '#006CD7' : '#393C56'}`,
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 600,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="3"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            />
+            {!stsFocusOn && (
+              <path
+                d="M4 4l16 16"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            )}
+          </svg>
+          {stsFocusOn ? 'Focus on' : 'Focus off'}
+        </Box>
+      )}
       <Box
         style={{
           position: 'absolute',

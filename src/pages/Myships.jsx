@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
   Box,
@@ -46,6 +47,9 @@ import satImageA from '../assets/HAfSz3HbAAA34GM.jpeg'
 import satImageB from '../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
 import satImageC from '../assets/b7305b3c008782765e2f14920270f2e7834f0f17.jpg'
 import satImageD from '../assets/e92d7378215156c8a7c8c4c73d773963c71bd6b1-1920x1080.avif'
+import satRaft3 from '../assets/sts_raft_3.png'
+import satRaft4 from '../assets/sts_raft_4.png'
+import satRaft5 from '../assets/sts_raft_5.png'
 import sanctionedTitle from '../assets/SanctionedTitle.svg'
 
 const baseDetailTabs = [
@@ -88,6 +92,30 @@ const STS_PREFERRED_SAT_TIMELINE_DETECTION_TYPES = ['light', 'dark', 'spoofing']
 const getSatTimelineDataSource = (detectionType) =>
   detectionType === 'dark' ? 'sar' : 'optical'
 const normalizeDetectionId = (id) => String(id)
+
+// Deterministic mock UUID for prototype STS events: stable per seed (the event's
+// tab id) so the "Event ID" stays constant across re-renders. Stands in for the
+// backend's real bunkering-event UUID.
+const seededEventUuid = (seed) => {
+  const str = String(seed || 'sts-event')
+  let x = 2166136261 >>> 0
+  for (let i = 0; i < str.length; i++) {
+    x ^= str.charCodeAt(i)
+    x = Math.imul(x, 16777619) >>> 0
+  }
+  const next = () => {
+    x ^= x << 13
+    x >>>= 0
+    x ^= x >>> 17
+    x ^= x << 5
+    x >>>= 0
+    return x >>> 0
+  }
+  let hex = ''
+  while (hex.length < 32) hex += next().toString(16).padStart(8, '0')
+  hex = hex.slice(0, 32)
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
+}
 const formatPrototypeDetectionDate = (date) => {
   const d = date instanceof Date ? date : new Date(date)
   return `${d.toLocaleDateString('en-US', {
@@ -260,10 +288,93 @@ function Myships() {
     setSelectedTerminal,
     selectedBerth,
     setSelectedBerth,
+    setStsConnectorData,
   } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
   const [activeStsShip, setActiveStsShip] = useState(0)
+  // v4: whether the user has drilled from the transfer summary into a vessel.
+  const [stsListDrilledIn, setStsListDrilledIn] = useState(false)
+  // v2/v8: whether the STS event opens on the event overview (annotated
+  // image + roster) rather than a single ship's detail.
+  const [stsShowOverview, setStsShowOverview] = useState(true)
+  // v9 overview: toggle the "Vessels in event" section between the roster list
+  // and an inline transfer-network graph.
+  const [stsRosterView, setStsRosterView] = useState('list')
+  // v7: the floating network panel — open state, anchor rect for the map area,
+  // and its (draggable) position / (resizable) size.
+  const [stsNetworkOpen, setStsNetworkOpen] = useState(true)
+  const [stsNetworkRect, setStsNetworkRect] = useState(null)
+  const [stsNetworkPos, setStsNetworkPos] = useState(null)
+  const [stsNetworkSize, setStsNetworkSize] = useState({
+    width: 560,
+    height: 520,
+  })
+  const startNetworkDrag = useCallback(
+    (e) => {
+      e.preventDefault()
+      const startX = e.clientX
+      const startY = e.clientY
+      const origin = stsNetworkPos ||
+        (stsNetworkRect
+          ? {
+              x: Math.max(
+                stsNetworkRect.left + 16,
+                window.innerWidth - stsNetworkSize.width - 16,
+              ),
+              y: stsNetworkRect.top + 16,
+            }
+          : { x: 100, y: 100 })
+      const onMove = (ev) => {
+        setStsNetworkPos({
+          x: origin.x + (ev.clientX - startX),
+          y: origin.y + (ev.clientY - startY),
+        })
+      }
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    },
+    [stsNetworkPos, stsNetworkRect],
+  )
+  const startNetworkResize = useCallback(
+    (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const startX = e.clientX
+      const startY = e.clientY
+      const orig = stsNetworkSize
+      const onMove = (ev) => {
+        setStsNetworkSize({
+          width: Math.max(340, orig.width + (ev.clientX - startX)),
+          height: Math.max(280, orig.height + (ev.clientY - startY)),
+        })
+      }
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    },
+    [stsNetworkSize],
+  )
+  // v2 & v8: edge fades that appear only when the tab strip can scroll that way.
+  const stsStripScrollRef = useRef(null)
+  const activeStsTabRef = useRef(null)
+  const [stsStripFade, setStsStripFade] = useState({ left: false, right: false })
+  const updateStsStripFade = useCallback(() => {
+    const el = stsStripScrollRef.current
+    if (!el) return
+    const { scrollLeft, scrollWidth, clientWidth } = el
+    setStsStripFade({
+      left: scrollLeft > 1,
+      right: scrollLeft + clientWidth < scrollWidth - 1,
+    })
+  }, [])
   const [loading, setLoading] = useState(false)
   const [overflowLeft, setOverflowLeft] = useState(false)
   const [overflowRight, setOverflowRight] = useState(false)
@@ -293,6 +404,8 @@ function Myships() {
   const [portTabOverflowRight, setPortTabOverflowRight] = useState(false)
   const portTabScrollRef = useRef(null)
 
+  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange, portShapeControlEnabled = true, forYouPrototype = 'proto1', stsVersion = 'v1', onStsNetworkPanelChange } = useOutletContext() || {}
+
   const activeTab = shipTabs.find((t) => t.id === activeShipTab)
   const isStsTab = activeTab?.type === 'sts'
   const isPortTab = activeTab?.type === 'port'
@@ -302,6 +415,127 @@ function Myships() {
         activeTab.stsType === 'sts' ? 'unknown' : activeTab.shipIds[1],
       ]
     : null
+  // The event's actual participant list, carried on the tab from the clicked
+  // detection (2–5 ships for N-ship events).
+  const eventShipIds = isStsTab
+    ? (activeTab.shipIds || []).filter(Boolean)
+    : null
+  // Version-aware ship list driving the STS header tabs. v1 keeps the two-ship
+  // pair (production behavior). Every other version renders the event's real
+  // participant list exactly — a 3-ship event shows 3, a 4-ship event shows 4,
+  // etc. — instead of padding to a fixed count.
+  const stsShipIds = !isStsTab
+    ? null
+    : stsVersion === 'v1'
+      ? displayStsShipIds
+      : eventShipIds.length
+        ? eventShipIds
+        : displayStsShipIds
+
+  // Display label for an STS tab.
+  const stsTabLabel = (sid) => ships[sid]?.name || 'Vessel'
+
+  // The strip-based versions land on an event overview (annotated image + roster)
+  // before drilling into a single ship.
+  const stsUsesOverview =
+    isStsTab &&
+    (stsVersion === 'v2' || stsVersion === 'v8' || stsVersion === 'v9')
+  const stsOverviewActive = stsUsesOverview && stsShowOverview
+
+  // Demo transfer times for the prototype: deterministic, most-recent first so
+  // the ordering reads as a sequence of transfers within the event.
+  const stsTransferLabel = (idx) => {
+    const base = new Date('2026-07-13T18:40:00Z')
+    const d = new Date(base.getTime() - idx * 41 * 60 * 1000)
+    return `${d.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    })} UTC`
+  }
+
+  // Reset the selected STS vessel when the version changes so the index never
+  // points past the (differently sized) v1/v2 ship lists.
+  useEffect(() => {
+    setActiveStsShip(0)
+    setStsListDrilledIn(false)
+    setStsShowOverview(true)
+    setStsRosterView('list')
+    setStsNetworkOpen(true)
+    setStsNetworkPos(null)
+  }, [stsVersion])
+
+  // v4: return to the transfer summary whenever the active STS tab changes.
+  // Also start on the first ship so a stale index from a larger event (e.g.
+  // switching from a 5-ship to a 3-ship event) never carries over.
+  useEffect(() => {
+    setActiveStsShip(0)
+    setStsListDrilledIn(false)
+    setStsShowOverview(true)
+    setStsRosterView('list')
+    setStsNetworkOpen(true)
+    setStsNetworkPos(null)
+  }, [activeShipTab])
+
+  const stsShipKey = stsShipIds ? stsShipIds.join('|') : ''
+
+  // v2/v8/v9: keep the edge fades in sync with the scroll position and width.
+  useLayoutEffect(() => {
+    if (
+      !isStsTab ||
+      (stsVersion !== 'v2' && stsVersion !== 'v8' && stsVersion !== 'v9')
+    )
+      return
+    const el = stsStripScrollRef.current
+    if (!el) return
+    updateStsStripFade()
+    const ro = new ResizeObserver(updateStsStripFade)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isStsTab, stsVersion, stsShipKey, updateStsStripFade])
+
+  // v7: anchor the expanded network canvas to the area right of the ship panel
+  // (and below the top nav) by tracking the panel's on-screen rect.
+  useLayoutEffect(() => {
+    if (!isStsTab || stsVersion !== 'v7') return
+    const measure = () => {
+      const el = panelContainerRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      setStsNetworkRect({
+        top: rect.top,
+        left: rect.right,
+        width: Math.max(window.innerWidth - rect.right, 0),
+        height: rect.height,
+      })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (panelContainerRef.current) ro.observe(panelContainerRef.current)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [isStsTab, stsVersion, stsShipKey, stsNetworkOpen, loading])
+
+  // Tell the map how much of its right side the v7 network panel occludes, so it
+  // can pad focused vessels clear of it. Keyed off width (not drag position) to
+  // avoid re-centering the map on every drag frame.
+  useEffect(() => {
+    if (!onStsNetworkPanelChange) return
+    const active = isStsTab && stsVersion === 'v7' && stsNetworkOpen
+    onStsNetworkPanelChange(active ? stsNetworkSize.width + 32 : 0)
+    return () => onStsNetworkPanelChange(0)
+  }, [
+    isStsTab,
+    stsVersion,
+    stsNetworkOpen,
+    stsNetworkSize.width,
+    onStsNetworkPanelChange,
+  ])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -367,7 +601,6 @@ function Myships() {
     }, 0) + 1000
   )
   const allDetections = useMemo(() => runtimeDetections, [runtimeDetections])
-  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange, portShapeControlEnabled = true, forYouPrototype = 'proto1' } = useOutletContext() || {}
   const isBookmarkVersion =
     watchlistVersion === 'version4' ||
     watchlistVersion === 'version5' ||
@@ -965,8 +1198,125 @@ function Myships() {
     setIsTopSummaryCollapsed(true)
   }
 
+  const activeStsShipIndex =
+    isStsTab && stsShipIds
+      ? Math.min(activeStsShip, stsShipIds.length - 1)
+      : activeStsShip
+
+  // v2/v8/v9: keep the selected vessel tab scrolled into view after picking one.
+  useEffect(() => {
+    if (
+      !isStsTab ||
+      (stsVersion !== 'v2' && stsVersion !== 'v8' && stsVersion !== 'v9')
+    )
+      return
+    // While the overview/network is showing, selecting a vessel updates the map
+    // (not the tab strip), so don't yank the sticky tab row around.
+    if (stsShowOverview) return
+    const el = activeStsTabRef.current
+    if (!el) return
+    el.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      behavior: 'smooth',
+    })
+  }, [isStsTab, stsVersion, stsShipKey, activeStsShipIndex, stsShowOverview])
+  // STS convergence connectors for the map: dashed lines from the event point
+  // out to each participating vessel's approach position, with the currently
+  // focused vessel's line highlighted. Computed here (we own the ship list +
+  // selection) and drawn by Map via context.
+  useEffect(() => {
+    if (stsVersion !== 'v9' || !isStsTab || !stsShipIds || stsShipIds.length < 2) {
+      setStsConnectorData(null)
+      return
+    }
+    // Resolve the event point robustly: N-ship tabs encode the detection id
+    // (sts-evt-<id>); otherwise fall back to the current selection, then to an
+    // STS detection whose participant list matches this tab. This keeps the
+    // connectors present even when arriving on an already-open tab (no click).
+    const tabEventId =
+      typeof activeTab?.id === 'string' && activeTab.id.startsWith('sts-evt-')
+        ? activeTab.id.slice('sts-evt-'.length)
+        : null
+    const shipKey = stsShipIds.join('|')
+    const eventDet =
+      allDetections.find((d) => String(d.id) === String(tabEventId)) ||
+      allDetections.find((d) => String(d.id) === String(selectedDetectionId)) ||
+      allDetections.find(
+        (d) =>
+          (d.type === 'sts' || d.type === 'sts-ais') &&
+          Array.isArray(d.stsShips) &&
+          d.stsShips.join('|') === shipKey
+      )
+    if (
+      !eventDet ||
+      !Number.isFinite(eventDet.lng) ||
+      !Number.isFinite(eventDet.lat)
+    ) {
+      setStsConnectorData(null)
+      return
+    }
+    const center = [eventDet.lng, eventDet.lat]
+    const approachFor = (sid, idx) => {
+      // Prefer the vessel's most recent non-STS detection (its real approach).
+      const latest = allDetections
+        .filter(
+          (d) =>
+            String(d.shipId) === String(sid) &&
+            d.type !== 'sts' &&
+            d.type !== 'sts-ais' &&
+            Number.isFinite(d.lng) &&
+            Number.isFinite(d.lat)
+        )
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+      if (
+        latest &&
+        Math.hypot(latest.lng - center[0], latest.lat - center[1]) > 0.4
+      ) {
+        return { coord: [latest.lng, latest.lat], detId: latest.id }
+      }
+      // Fallback: fan out on a deterministic ring so the line stays legible
+      // even when a participant has no separate approach track (co-located).
+      const ang = (idx / stsShipIds.length) * Math.PI * 2 - Math.PI / 2
+      const rad = 1.6
+      return {
+        coord: [
+          center[0] + rad * Math.cos(ang),
+          center[1] + rad * Math.sin(ang),
+        ],
+        detId: null,
+      }
+    }
+    // Only the detections belonging to THIS event stay lit under the focus
+    // overlay (the event marker + each participant's approach position).
+    const keepDetectionIds = [String(eventDet.id)]
+    const lines = stsShipIds.map((sid, idx) => {
+      const { coord, detId } = approachFor(sid, idx)
+      if (detId != null) keepDetectionIds.push(String(detId))
+      return {
+        shipId: sid,
+        coord,
+        selected: idx === activeStsShipIndex,
+        name: ships[sid]?.name || 'Unattributed',
+      }
+    })
+    setStsConnectorData({ center, lines, keepDetectionIds })
+  }, [
+    isStsTab,
+    stsVersion,
+    stsShipKey,
+    activeShipTab,
+    activeStsShipIndex,
+    selectedDetectionId,
+    allDetections,
+    setStsConnectorData,
+  ])
+
+  // Clear connectors when leaving the STS view entirely.
+  useEffect(() => () => setStsConnectorData(null), [setStsConnectorData])
+
   const activeShipId = isStsTab
-    ? displayStsShipIds[activeStsShip]
+    ? stsShipIds[activeStsShipIndex]
     : isPortTab
       ? null
       : activeShipTab
@@ -981,7 +1331,9 @@ function Myships() {
   const showSanctionedTitle = activeShip?.id === 'tiffani' && isTiffaniShipTab
   const detailTabs = isTiffaniShipTab ? tiffaniDetailTabs : baseDetailTabs
   const stsPartnerShipId = isStsTab
-    ? activeTab.shipIds[activeStsShip === 0 ? 1 : 0]
+    ? stsVersion !== 'v1'
+      ? stsShipIds.find((_, i) => i !== activeStsShipIndex) || null
+      : activeTab.shipIds[activeStsShip === 0 ? 1 : 0]
     : null
   const activeShipDetections = activeShipId
     ? allDetections
@@ -2086,14 +2438,148 @@ function Myships() {
       {activeShip && !loading && !isPortTab && (
         <Box
           ref={panelContainerRef}
+          className="no-scrollbar"
           style={{
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
-            overflow: 'hidden',
+            overflowY: 'auto',
+            overflowX: 'hidden',
           }}
         >
           {isStsTab &&
+            (stsVersion === 'v2' ||
+              stsVersion === 'v8' ||
+              stsVersion === 'v9') &&
+            (() => {
+              const list = stsShipIds || []
+              if (list.length === 0) return null
+              return (
+                <Box
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 5,
+                    background: '#181926',
+                    paddingBottom: 12,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box
+                    ref={stsStripScrollRef}
+                    onScroll={updateStsStripFade}
+                    className="no-scrollbar"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '16px 20px 0px 20px',
+                      overflowX: 'auto',
+                      flexWrap: 'nowrap',
+                    }}
+                  >
+                    <Box
+                      key="overview"
+                      onClick={() => setStsShowOverview(true)}
+                      style={{
+                        flex: '0 0 auto',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '8px 16px',
+                        borderRadius: 4,
+                        border: stsShowOverview
+                          ? '2px solid #006CD7'
+                          : '1px solid #393C56',
+                        background: stsShowOverview
+                          ? 'rgba(0, 108, 215, 0.1)'
+                          : '#24263C',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <Text
+                        style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}
+                      >
+                        Overview
+                      </Text>
+                    </Box>
+                    {list.map((sid, idx) => {
+                      const s = ships[sid]
+                      if (!s) return null
+                      const isActive =
+                        !stsShowOverview && activeStsShipIndex === idx
+                      return (
+                        <Box
+                          key={`${sid}-${idx}`}
+                          ref={isActive ? activeStsTabRef : undefined}
+                          onClick={() => {
+                            setStsShowOverview(false)
+                            setActiveStsShip(idx)
+                          }}
+                          style={{
+                            flex: '0 0 auto',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '8px 16px',
+                            borderRadius: 4,
+                            border: isActive
+                              ? '2px solid #006CD7'
+                              : '1px solid #393C56',
+                            background: isActive
+                              ? 'rgba(0, 108, 215, 0.1)'
+                              : '#24263C',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 14,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {s.name}
+                          </Text>
+                        </Box>
+                      )
+                    })}
+                  </Box>
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      top: 16,
+                      bottom: 0,
+                      left: 0,
+                      width: 32,
+                      pointerEvents: 'none',
+                      background:
+                        'linear-gradient(to right, #181926 0%, rgba(24,25,38,0) 100%)',
+                      opacity: stsStripFade.left ? 1 : 0,
+                      transition: 'opacity 0.15s ease',
+                    }}
+                  />
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      top: 16,
+                      bottom: 0,
+                      right: 0,
+                      width: 40,
+                      pointerEvents: 'none',
+                      background:
+                        'linear-gradient(to left, #181926 0%, rgba(24,25,38,0) 100%)',
+                      opacity: stsStripFade.right ? 1 : 0,
+                      transition: 'opacity 0.15s ease',
+                    }}
+                  />
+                </Box>
+              )
+            })()}
+          {isStsTab &&
+            stsVersion === 'v1' &&
             (() => {
               const [sid1, sid2] = displayStsShipIds
               const s1 = ships[sid1]
@@ -2114,10 +2600,10 @@ function Myships() {
                       padding: '12px 16px',
                       borderRadius: 4,
                       border: isActive
-                        ? '2px solid #0094FF'
+                        ? '2px solid #006CD7'
                         : '1px solid #393C56',
                       background: isActive
-                        ? 'rgba(0, 148, 255, 0.1)'
+                        ? 'rgba(0, 108, 215, 0.1)'
                         : '#24263C',
                       cursor: 'pointer',
                     }}
@@ -2161,6 +2647,923 @@ function Myships() {
                 </Box>
               )
             })()}
+          {isStsTab &&
+            stsVersion === 'v4' &&
+            !stsListDrilledIn &&
+            (() => {
+              const list = stsShipIds || []
+              if (list.length === 0) return null
+              const subjectId = list[0]
+              const subject = ships[subjectId]
+              if (!subject) return null
+              const partners = list.slice(1)
+              return (
+                <Box
+                  className="no-scrollbar"
+                  style={{
+                    padding: '16px 20px 20px 20px',
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {/* Event summary */}
+                  <Box style={{ marginBottom: 12 }}>
+                    <Text
+                      style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}
+                    >
+                      Ship-to-Ship event
+                    </Text>
+                    <Text style={{ color: '#8B90A5', fontSize: 12 }}>
+                      {list.length} vessels · {stsTransferLabel(list.length - 1)}
+                      {' – '}
+                      {stsTransferLabel(0)}
+                    </Text>
+                  </Box>
+
+                  {/* Vessel of interest */}
+                  <Box
+                    onClick={() => {
+                      setActiveStsShip(0)
+                      setStsListDrilledIn(true)
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '12px 14px',
+                      borderRadius: 6,
+                      border:
+                        activeStsShipIndex === 0
+                          ? '2px solid #006CD7'
+                          : '1px solid #393C56',
+                      background:
+                        activeStsShipIndex === 0
+                          ? 'rgba(0, 108, 215, 0.1)'
+                          : '#24263C',
+                      cursor: 'pointer',
+                      marginBottom: 16,
+                    }}
+                  >
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        style={{
+                          color: '#8B90A5',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.4,
+                        }}
+                      >
+                        Vessel of interest
+                      </Text>
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          marginTop: 2,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#fff',
+                            fontSize: 15,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {subject.name}
+                        </Text>
+                        {subject.flag && (
+                          <Text style={{ fontSize: 16 }}>{subject.flag}</Text>
+                        )}
+                      </Box>
+                    </Box>
+                    <Text style={{ color: '#8B90A5', fontSize: 12 }}>
+                      {partners.length} transfers
+                    </Text>
+                  </Box>
+
+                  {/* Transfers timeline */}
+                  <Text
+                    style={{
+                      color: '#8B90A5',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.4,
+                      marginBottom: 10,
+                    }}
+                  >
+                    Transfers
+                  </Text>
+                  <Box
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      marginLeft: 6,
+                      paddingLeft: 18,
+                      borderLeft: '2px solid #393C56',
+                    }}
+                  >
+                    {partners.map((sid, i) => {
+                      const idx = i + 1
+                      const s = ships[sid]
+                      if (!s) return null
+                      const isActive = activeStsShipIndex === idx
+                      return (
+                        <Box
+                          key={`${sid}-${idx}`}
+                          onClick={() => {
+                            setActiveStsShip(idx)
+                            setStsListDrilledIn(true)
+                          }}
+                          style={{ position: 'relative', cursor: 'pointer' }}
+                        >
+                          <Box
+                            style={{
+                              position: 'absolute',
+                              left: -24,
+                              top: 14,
+                              width: 10,
+                              height: 10,
+                              borderRadius: '50%',
+                              background: isActive ? '#006CD7' : '#4C5070',
+                              border: '2px solid #181926',
+                            }}
+                          />
+                          <Box
+                            style={{
+                              padding: '10px 12px',
+                              borderRadius: 6,
+                              border: isActive
+                                ? '2px solid #006CD7'
+                                : '1px solid #393C56',
+                              background: isActive
+                                ? 'rgba(0, 108, 215, 0.1)'
+                                : '#24263C',
+                            }}
+                          >
+                            <Box
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  flex: 1,
+                                  color: '#fff',
+                                  fontSize: 14,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {s.name}
+                              </Text>
+                              {s.flag && (
+                                <Text style={{ fontSize: 15 }}>{s.flag}</Text>
+                              )}
+                            </Box>
+                            <Box
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                marginTop: 3,
+                              }}
+                            >
+                              <Text style={{ color: '#8B90A5', fontSize: 11 }}>
+                                {subject.name} ↔ {s.name}
+                              </Text>
+                              <Text style={{ color: '#5A5F73', fontSize: 11 }}>
+                                ·
+                              </Text>
+                              <Text style={{ color: '#8B90A5', fontSize: 11 }}>
+                                {stsTransferLabel(idx)}
+                              </Text>
+                            </Box>
+                          </Box>
+                        </Box>
+                      )
+                    })}
+                  </Box>
+                </Box>
+              )
+            })()}
+          {stsOverviewActive &&
+            (() => {
+              const list = stsShipIds || []
+              if (list.length === 0) return null
+              const shipMeta = (sid) => {
+                const s = ships[sid]
+                return {
+                  name: s?.name || 'Unattributed',
+                  flag: s?.flag || '',
+                  attributed: Boolean(s) && sid !== 'unknown',
+                }
+              }
+              // Hero imagery + pin layout are chosen by participant count so the
+              // numbered pins land on actual hulls. The 2-ship shot is real Planet
+              // imagery; 3–5 are stand-in rafting renders until licensed multi-ship
+              // Planet frames are dropped in (just swap the src per count).
+              const heroByCount = {
+                2: satImageA,
+                3: satRaft3,
+                4: satRaft4,
+                5: satRaft5,
+              }
+              const pinPosByCount = {
+                2: [
+                  { top: '34%', left: '46%' },
+                  { top: '56%', left: '60%' },
+                ],
+                3: [
+                  { top: '30%', left: '42%' },
+                  { top: '62%', left: '50%' },
+                  { top: '30%', left: '59%' },
+                ],
+                4: [
+                  { top: '30%', left: '36%' },
+                  { top: '62%', left: '45%' },
+                  { top: '30%', left: '55%' },
+                  { top: '62%', left: '64%' },
+                ],
+                5: [
+                  { top: '28%', left: '37%' },
+                  { top: '60%', left: '44%' },
+                  { top: '28%', left: '50%' },
+                  { top: '60%', left: '56%' },
+                  { top: '28%', left: '62%' },
+                ],
+              }
+              const heroImage = heroByCount[list.length] || satRaft5
+              const pinPos = pinPosByCount[list.length] || pinPosByCount[5]
+              const evtDate = selectedDetection?.date
+              const evtLat = selectedDetection?.lat
+              const evtLng = selectedDetection?.lng
+              const eventId = seededEventUuid(activeTab?.id)
+              return (
+                <Box
+                  className="no-scrollbar"
+                  style={{
+                    padding: '0px 20px 20px 20px',
+                  }}
+                >
+                  <Box style={{ marginBottom: 12 }}>
+                    <Text
+                      style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}
+                    >
+                      Ship-to-Ship event
+                    </Text>
+                    <Text style={{ color: '#8B90A5', fontSize: 12 }}>
+                      {list.length} vessels
+                      {evtDate ? ` · ${evtDate} UTC` : ''}
+                    </Text>
+                  </Box>
+
+                  {/* Location + event-level ID (ID last; stands in for the
+                      backend bunkering UUID) */}
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 16,
+                      marginBottom: 16,
+                    }}
+                  >
+                    {evtLat != null && evtLng != null && (
+                      <>
+                        <Box style={{ flex: 1, minWidth: 0 }}>
+                          <KeyValuePair
+                            keyName="Latitude"
+                            value={`${evtLat}°`}
+                          />
+                        </Box>
+                        <Box style={{ flex: 1, minWidth: 0 }}>
+                          <KeyValuePair
+                            keyName="Longitude"
+                            value={`${evtLng}°`}
+                          />
+                        </Box>
+                      </>
+                    )}
+                    <Box
+                      onMouseEnter={() => setHoveredCopyField('eventId')}
+                      onMouseLeave={() => setHoveredCopyField(null)}
+                      style={{ flexShrink: 0 }}
+                    >
+                      <Text style={{ color: '#888F9E', fontSize: 10 }}>
+                        SynMax Event ID
+                      </Text>
+                      <Box
+                        onClick={() => handleCopyToClipboard(eventId, 'eventId')}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#fff',
+                            fontSize: 11,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {eventId}
+                        </Text>
+                        <Tooltip
+                          label={
+                            copiedField === 'eventId'
+                              ? 'Copied!'
+                              : 'Copy SynMax Event ID'
+                          }
+                          withArrow
+                          color="#393C56"
+                          opened={
+                            hoveredCopyField === 'eventId' ||
+                            copiedField === 'eventId'
+                          }
+                          styles={{
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            },
+                          }}
+                        >
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 18,
+                              height: 18,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Copy02
+                              style={{
+                                width: 14,
+                                height: 14,
+                                color:
+                                  copiedField === 'eventId' ? '#fff' : '#0094ff',
+                              }}
+                            />
+                          </Box>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {/* Annotated event image: each vessel labeled by name */}
+                  <Box
+                    style={{
+                      position: 'relative',
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      border: '1px solid #393C56',
+                      marginBottom: 16,
+                    }}
+                  >
+                    <img
+                      src={heroImage}
+                      alt="Ship-to-ship event"
+                      style={{
+                        width: '100%',
+                        height: 260,
+                        objectFit: 'cover',
+                        display: 'block',
+                      }}
+                    />
+                    {list.map((sid, idx) => {
+                      const pos = pinPos[idx] || pinPos[pinPos.length - 1]
+                      const m = shipMeta(sid)
+                      // Numbered marker only — name chips would collide on
+                      // tightly-rafted hulls. Names live in the roster key below
+                      // (same numbers) and in the hover tooltip.
+                      return (
+                        <Tooltip
+                          key={`pin-${sid}-${idx}`}
+                          label={`${idx + 1}. ${m.name}`}
+                          withArrow
+                          color="#181926"
+                          styles={{
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            },
+                          }}
+                        >
+                          <Box
+                            onClick={() => {
+                              setStsShowOverview(false)
+                              setActiveStsShip(idx)
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: pos.top,
+                              left: pos.left,
+                              transform: 'translate(-50%, -50%)',
+                              width: 24,
+                              height: 24,
+                              borderRadius: '50%',
+                              background: m.attributed ? '#006CD7' : '#F75349',
+                              border: '2px solid #fff',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {idx + 1}
+                          </Box>
+                        </Tooltip>
+                      )
+                    })}
+                  </Box>
+
+                  {/* Roster header — v9 gets a small list/network toggle on the
+                      right so analysts can flip between "who's here" and "who
+                      transferred with whom" without leaving the overview. */}
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#8B90A5',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.4,
+                      }}
+                    >
+                      Vessels in event
+                    </Text>
+                    {stsVersion === 'v9' && (
+                      <Box
+                        style={{
+                          display: 'flex',
+                          gap: 4,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Tooltip
+                          label="Roster"
+                          withArrow
+                          color="#181926"
+                          styles={{
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 11,
+                              fontWeight: 600,
+                            },
+                          }}
+                        >
+                          <Box
+                            onClick={() => setStsRosterView('list')}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 30,
+                              height: 24,
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              background:
+                                stsRosterView === 'list'
+                                  ? '#006CD7'
+                                  : 'transparent',
+                              color:
+                                stsRosterView === 'list' ? '#fff' : '#8B90A5',
+                            }}
+                          >
+                            <List style={{ width: 15, height: 15 }} />
+                          </Box>
+                        </Tooltip>
+                        <Tooltip
+                          label="Transfer network"
+                          withArrow
+                          color="#181926"
+                          styles={{
+                            tooltip: {
+                              color: '#fff',
+                              fontSize: 11,
+                              fontWeight: 600,
+                            },
+                          }}
+                        >
+                          <Box
+                            onClick={() => setStsRosterView('network')}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 30,
+                              height: 24,
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              background:
+                                stsRosterView === 'network'
+                                  ? '#006CD7'
+                                  : 'transparent',
+                              color:
+                                stsRosterView === 'network' ? '#fff' : '#8B90A5',
+                            }}
+                          >
+                            <svg
+                              width="15"
+                              height="15"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M8.95103 11.6598C8.95103 9.61233 10.6109 7.95249 12.6584 7.95249C14.7059 7.95249 16.3657 9.61233 16.3657 11.6598C16.3657 13.7074 14.7059 15.3672 12.6584 15.3672C10.6109 15.3672 8.95103 13.7074 8.95103 11.6598Z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M16.207 6.30664C16.207 5.34014 16.9905 4.55664 17.957 4.55664C18.9235 4.55664 19.707 5.34014 19.707 6.30664C19.707 7.27314 18.9235 8.05664 17.957 8.05664C16.9905 8.05664 16.207 7.27314 16.207 6.30664Z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M9.65992 19.2924C9.65992 18.5245 10.2824 17.9021 11.0502 17.9021C11.818 17.9021 12.4404 18.5245 12.4404 19.2924C12.4404 20.0602 11.818 20.6826 11.0502 20.6826C10.2824 20.6826 9.65992 20.0602 9.65992 19.2924Z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M11.2388 17.8935L11.8478 15.3281"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M3.00021 14.6573C3.00021 13.7615 3.72639 13.0354 4.62218 13.0354C5.51796 13.0354 6.24414 13.7615 6.24414 14.6573C6.24414 15.5531 5.51796 16.2793 4.62218 16.2793C3.72639 16.2793 3.00021 15.5531 3.00021 14.6573Z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M4.31699 5.63555C4.31699 4.35585 5.35439 3.31845 6.63408 3.31845C7.91377 3.31845 8.95117 4.35585 8.95117 5.63555C8.95117 6.91524 7.91377 7.95264 6.63408 7.95264C5.35439 7.95264 4.31699 6.91524 4.31699 5.63555Z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M17.2927 15.367C17.2927 14.3433 18.1226 13.5134 19.1463 13.5134C20.1701 13.5134 21 14.3433 21 15.367C21 16.3908 20.1701 17.2207 19.1463 17.2207C18.1226 17.2207 17.2927 16.3908 17.2927 15.367Z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M9.98242 8.9834L8.30715 7.30813"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M15.3351 8.9834L16.7373 7.58119"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M17.5262 14.46L15.9097 13.4941"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M9.19844 13.0327L6.15674 14.107"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </Box>
+                        </Tooltip>
+                      </Box>
+                    )}
+                  </Box>
+                  {stsVersion === 'v9' && stsRosterView === 'network'
+                    ? (() => {
+                        // Inline ego-network: subject at center, partners on a
+                        // ring. Spoke thickness encodes transfer count. Tapping a
+                        // node drills into that vessel (same as a roster row).
+                        const n = list.length
+                        const W = 320
+                        const H = 300
+                        const cx = W / 2
+                        const cy = H / 2
+                        const R = Math.min(W, H) / 2 - 62
+                        const partnerCount = Math.max(n - 1, 1)
+                        const transferCount = (idx) => ((idx * 7) % 3) + 1
+                        const pos = (idx) => {
+                          if (idx === 0) return { x: cx, y: cy }
+                          const k = idx - 1
+                          const theta =
+                            (k / partnerCount) * Math.PI * 2 - Math.PI / 2
+                          return {
+                            x: cx + R * Math.cos(theta),
+                            y: cy + R * Math.sin(theta),
+                          }
+                        }
+                        const nodeR = (idx) =>
+                          idx === 0 ? 22 : 13 + transferCount(idx) * 2
+                        // Selecting a node highlights it here and pans/focuses
+                        // that vessel on the map — but keeps us in the overview
+                        // (stsShowOverview stays true). Explicit drill-in lives
+                        // in the footer "View timeline" affordance.
+                        const sel = activeStsShipIndex
+                        const focusedMeta = shipMeta(list[sel] || list[0])
+                        return (
+                          <Box>
+                            <Box
+                              style={{
+                                border: '1px solid #393C56',
+                                borderRadius: 8,
+                                background: '#12131F',
+                                padding: 8,
+                              }}
+                            >
+                              <svg
+                                viewBox={`0 0 ${W} ${H}`}
+                                width="100%"
+                                height={H}
+                                preserveAspectRatio="xMidYMid meet"
+                              >
+                                {list.map((sid, idx) => {
+                                  if (idx === 0) return null
+                                  const p = pos(idx)
+                                  const isSel = sel === idx
+                                  // Trim the spoke so it stops at each circle's
+                                  // edge instead of running under the nodes.
+                                  const dx = p.x - cx
+                                  const dy = p.y - cy
+                                  const len = Math.hypot(dx, dy) || 1
+                                  const ux = dx / len
+                                  const uy = dy / len
+                                  const r0 = nodeR(0)
+                                  const r1 = nodeR(idx)
+                                  return (
+                                    <line
+                                      key={`sp-${idx}`}
+                                      x1={cx + ux * r0}
+                                      y1={cy + uy * r0}
+                                      x2={p.x - ux * r1}
+                                      y2={p.y - uy * r1}
+                                      stroke={isSel ? '#006CD7' : '#3A3F5C'}
+                                      strokeWidth={1 + transferCount(idx)}
+                                      strokeOpacity={isSel ? 0.9 : 0.6}
+                                    >
+                                      <title>{`${ships[list[0]]?.name} ↔ ${ships[sid]?.name} · ${transferCount(idx)} transfer(s)`}</title>
+                                    </line>
+                                  )
+                                })}
+                                {list.map((sid, idx) => {
+                                  const s = shipMeta(sid)
+                                  const p = pos(idx)
+                                  const r = nodeR(idx)
+                                  const isSubject = idx === 0
+                                  const isSel = sel === idx
+                                  return (
+                                    <g
+                                      key={`nd-${idx}`}
+                                      onClick={() => setActiveStsShip(idx)}
+                                      style={{ cursor: 'pointer' }}
+                                    >
+                                      <title>
+                                        {`${s.name}${
+                                          isSubject
+                                            ? ' · vessel of interest'
+                                            : ` · transferred ${stsTransferLabel(idx)}`
+                                        }`}
+                                      </title>
+                                      <circle
+                                        cx={p.x}
+                                        cy={p.y}
+                                        r={r}
+                                        fill={
+                                          isSubject
+                                            ? '#006CD7'
+                                            : isSel
+                                              ? 'rgba(0,108,215,0.18)'
+                                              : '#24263C'
+                                        }
+                                        stroke={
+                                          isSubject || isSel
+                                            ? '#006CD7'
+                                            : '#393C56'
+                                        }
+                                        strokeWidth={isSel ? 3 : 2}
+                                      />
+                                      <text
+                                        x={p.x}
+                                        y={p.y + r * 0.32}
+                                        textAnchor="middle"
+                                        fontSize={r * 0.9}
+                                        style={{ pointerEvents: 'none' }}
+                                      >
+                                        {s.flag || '🚢'}
+                                      </text>
+                                      <text
+                                        x={p.x}
+                                        y={p.y + r + 14}
+                                        textAnchor="middle"
+                                        fontSize={11}
+                                        fontWeight={
+                                          isSubject || isSel ? 700 : 500
+                                        }
+                                        fill={
+                                          isSubject || isSel
+                                            ? '#fff'
+                                            : '#C7CCDD'
+                                        }
+                                        style={{ pointerEvents: 'none' }}
+                                      >
+                                        {s.name}
+                                      </text>
+                                    </g>
+                                  )
+                                })}
+                              </svg>
+                            </Box>
+                            <Box
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 12,
+                                marginTop: 8,
+                              }}
+                            >
+                              <Text
+                                style={{ color: '#5A5F73', fontSize: 11 }}
+                              >
+                                Tap a vessel to focus it on the map
+                              </Text>
+                              <Box
+                                onClick={() => setStsShowOverview(false)}
+                                style={{
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                View {focusedMeta.name} timeline →
+                              </Box>
+                            </Box>
+                          </Box>
+                        )
+                      })()
+                    : (
+                        <Box
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8,
+                          }}
+                        >
+                          {list.map((sid, idx) => {
+                            const m = shipMeta(sid)
+                            return (
+                              <Box
+                                key={`roster-${sid}-${idx}`}
+                                onClick={() => {
+                                  setStsShowOverview(false)
+                                  setActiveStsShip(idx)
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 10,
+                                  padding: '10px 12px',
+                                  borderRadius: 6,
+                                  border: '1px solid #393C56',
+                                  background: '#24263C',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <Box
+                                  style={{
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: '50%',
+                                    background: m.attributed
+                                      ? '#006CD7'
+                                      : '#F75349',
+                                    color: '#fff',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {idx + 1}
+                                </Box>
+                                <Box style={{ flex: 1, minWidth: 0 }}>
+                                  <Box
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        color: '#fff',
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      {m.name}
+                                    </Text>
+                                    {m.flag && (
+                                      <Text style={{ fontSize: 15 }}>
+                                        {m.flag}
+                                      </Text>
+                                    )}
+                                  </Box>
+                                  <Text
+                                    style={{ color: '#8B90A5', fontSize: 11 }}
+                                  >
+                                    {stsVersion === 'v9'
+                                      ? idx === 0
+                                        ? 'Vessel of interest'
+                                        : `${ships[list[0]]?.name || 'Vessel'} ↔ ${m.name} · ${stsTransferLabel(idx)}`
+                                      : m.attributed
+                                        ? idx === 0
+                                          ? 'Vessel of interest'
+                                          : 'Attributed'
+                                        : 'Unattributed'}
+                                  </Text>
+                                </Box>
+                                <Text
+                                  style={{
+                                    color: '#fff',
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  View →
+                                </Text>
+                              </Box>
+                            )
+                          })}
+                        </Box>
+                      )}
+                </Box>
+              )
+            })()}
+          {(stsVersion !== 'v4' || stsListDrilledIn) && !stsOverviewActive && (
+            <>
+          {stsVersion === 'v4' && stsListDrilledIn && (
+            <Box
+              onClick={() => setStsListDrilledIn(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '12px 20px 0 20px',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <Text
+                style={{ color: '#0094FF', fontSize: 16, fontWeight: 600 }}
+              >
+                ←
+              </Text>
+              <Text
+                style={{ color: '#0094FF', fontSize: 13, fontWeight: 600 }}
+              >
+                Back to transfer summary
+              </Text>
+            </Box>
+          )}
           <Box
             ref={topSectionRef}
             style={{
@@ -4133,8 +5536,286 @@ function Myships() {
               </Box>
             </>
           )}
+            </>
+          )}
         </Box>
       )}
+      {isStsTab &&
+        stsVersion === 'v7' &&
+        activeShip &&
+        stsNetworkRect &&
+        stsNetworkOpen &&
+        createPortal(
+          (() => {
+            const list = stsShipIds || []
+            const n = list.length
+            if (n === 0) return null
+            const W = 1000
+            const H = 800
+            const cx = W / 2
+            const cy = H / 2
+            const R = Math.min(W, H) / 2 - 150
+            const partnerCount = Math.max(n - 1, 1)
+            const transferCount = (idx) => ((idx * 7) % 3) + 1
+            const pos = (idx) => {
+              if (idx === 0) return { x: cx, y: cy }
+              const k = idx - 1
+              const theta = (k / partnerCount) * Math.PI * 2 - Math.PI / 2
+              return {
+                x: cx + R * Math.cos(theta),
+                y: cy + R * Math.sin(theta),
+              }
+            }
+            const nodeR = (idx) =>
+              idx === 0 ? 46 : 24 + transferCount(idx) * 5
+            const secondaryTargets = (idx) => {
+              if (idx === 0 || n <= 2) return []
+              const a = ((idx * 2) % (n - 1)) + 1
+              const b = ((idx * 3 + 1) % (n - 1)) + 1
+              return [...new Set([a, b])].filter(
+                (t) => t !== idx && t !== 0 && t < n,
+              )
+            }
+            const sel = activeStsShipIndex
+            const selSecondary = new Set(secondaryTargets(sel))
+            const panelPos = stsNetworkPos || {
+              x: Math.max(
+                stsNetworkRect.left + 16,
+                window.innerWidth - stsNetworkSize.width - 16,
+              ),
+              y: stsNetworkRect.top + 16,
+            }
+            return (
+              <Box
+                style={{
+                  position: 'fixed',
+                  top: panelPos.y,
+                  left: panelPos.x,
+                  width: stsNetworkSize.width,
+                  height: stsNetworkSize.height,
+                  background: '#12131F',
+                  border: '1px solid #393C56',
+                  borderRadius: 10,
+                  boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+                  zIndex: 45,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <Box
+                  onMouseDown={startNetworkDrag}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid #393C56',
+                    flexShrink: 0,
+                    cursor: 'move',
+                    userSelect: 'none',
+                  }}
+                >
+                  <Box>
+                    <Text
+                      style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}
+                    >
+                      Transfer network
+                    </Text>
+                    <Text style={{ color: '#8B90A5', fontSize: 12 }}>
+                      {n} vessels · click a node to focus
+                    </Text>
+                  </Box>
+                  <Box
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => setStsNetworkOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 12px',
+                      borderRadius: 4,
+                      border: '1px solid #393C56',
+                      background: '#24263C',
+                      color: '#fff',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Collapse
+                  </Box>
+                </Box>
+                <Box style={{ flex: 1, minHeight: 0 }}>
+                  <svg
+                    viewBox={`0 0 ${W} ${H}`}
+                    width="100%"
+                    height="100%"
+                    preserveAspectRatio="xMidYMid meet"
+                  >
+                    {/* Spoke edges: subject <-> each partner */}
+                    {list.map((sid, idx) => {
+                      if (idx === 0) return null
+                      const p = pos(idx)
+                      const isSel = sel === idx
+                      return (
+                        <line
+                          key={`spoke-${idx}`}
+                          x1={cx}
+                          y1={cy}
+                          x2={p.x}
+                          y2={p.y}
+                          stroke={isSel ? '#0094FF' : '#3A3F5C'}
+                          strokeWidth={1.5 + transferCount(idx)}
+                          strokeOpacity={isSel ? 0.9 : 0.5}
+                        >
+                          <title>
+                            {`${ships[list[0]]?.name} ↔ ${ships[sid]?.name} · ${transferCount(
+                              idx,
+                            )} transfer(s)`}
+                          </title>
+                        </line>
+                      )
+                    })}
+                    {/* Secondary edges revealed for the selected partner */}
+                    {[...selSecondary].map((t) => {
+                      const a = pos(sel)
+                      const b = pos(t)
+                      return (
+                        <line
+                          key={`sec-${sel}-${t}`}
+                          x1={a.x}
+                          y1={a.y}
+                          x2={b.x}
+                          y2={b.y}
+                          stroke="#0094FF"
+                          strokeWidth={2}
+                          strokeOpacity={0.7}
+                          strokeDasharray="6 6"
+                        >
+                          <title>
+                            {`${ships[list[sel]]?.name} ↔ ${ships[list[t]]?.name}`}
+                          </title>
+                        </line>
+                      )
+                    })}
+                    {/* Nodes */}
+                    {list.map((sid, idx) => {
+                      const s = ships[sid]
+                      if (!s) return null
+                      const p = pos(idx)
+                      const r = nodeR(idx)
+                      const isSel = sel === idx
+                      const isSubject = idx === 0
+                      return (
+                        <g
+                          key={`node-${idx}`}
+                          onClick={() => setActiveStsShip(idx)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <title>
+                            {`${s.name}${isSubject ? ' · vessel of interest' : ` · transferred ${stsTransferLabel(idx)}`}`}
+                          </title>
+                          <circle
+                            cx={p.x}
+                            cy={p.y}
+                            r={r}
+                            fill={
+                              isSubject
+                                ? '#0094FF'
+                                : isSel
+                                  ? 'rgba(0,148,255,0.18)'
+                                  : '#24263C'
+                            }
+                            stroke={
+                              isSel || isSubject ? '#0094FF' : '#393C56'
+                            }
+                            strokeWidth={isSel ? 4 : 2}
+                          />
+                          <text
+                            x={p.x}
+                            y={p.y + 9}
+                            textAnchor="middle"
+                            fontSize={r * 0.85}
+                          >
+                            {s.flag || '🚢'}
+                          </text>
+                          <text
+                            x={p.x}
+                            y={p.y + r + 26}
+                            textAnchor="middle"
+                            fontSize={22}
+                            fontWeight={isSel || isSubject ? 700 : 500}
+                            fill={isSel || isSubject ? '#fff' : '#C7CCDD'}
+                          >
+                            {s.name}
+                          </text>
+                          {isSubject && (
+                            <text
+                              x={p.x}
+                              y={p.y + r + 48}
+                              textAnchor="middle"
+                              fontSize={16}
+                              fill="#8B90A5"
+                            >
+                              Vessel of interest
+                            </text>
+                          )}
+                        </g>
+                      )
+                    })}
+                  </svg>
+                </Box>
+                <Box
+                  onMouseDown={startNetworkResize}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: 0,
+                    width: 18,
+                    height: 18,
+                    cursor: 'nwse-resize',
+                    background:
+                      'linear-gradient(135deg, transparent 50%, #4C5070 50%)',
+                    borderBottomRightRadius: 10,
+                  }}
+                />
+              </Box>
+            )
+          })(),
+          document.body,
+        )}
+      {isStsTab &&
+        stsVersion === 'v7' &&
+        activeShip &&
+        stsNetworkRect &&
+        !stsNetworkOpen &&
+        createPortal(
+          <Box
+            onClick={() => setStsNetworkOpen(true)}
+            style={{
+              position: 'fixed',
+              top: stsNetworkRect.top + 12,
+              left: stsNetworkRect.left + 12,
+              zIndex: 45,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 14px',
+              borderRadius: 4,
+              border: '1px solid #393C56',
+              background: '#24263C',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
+            }}
+          >
+            Show network
+          </Box>,
+          document.body,
+        )}
       {isPortTab && !loading && (
         <Box
           style={{
