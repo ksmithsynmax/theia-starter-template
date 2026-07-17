@@ -204,6 +204,8 @@ function ForYouSecondaryNav({
   onRingConfigChange,
   markersVisible = true,
   onMarkersVisibleChange,
+  pulseEnabled = true,
+  onPulseEnabledChange,
   visibleIds = [],
   onVisibleIdsChange,
   onShipSelect,
@@ -655,6 +657,11 @@ function ForYouSecondaryNav({
             allBriefingMarkersOn,
             toggleAllBriefingMarkers,
             'All markers'
+          )}
+          {renderCheckRow(
+            pulseEnabled,
+            () => onPulseEnabledChange?.(!pulseEnabled),
+            'Pulse animation'
           )}
         </Box>
       )

@@ -388,7 +388,7 @@ export const detections = [
   { id: 1, shipId: 'invictus', type: 'ais', lng: 63.0, lat: 18.0, date: ago(0, 9, 53) },
   { id: 2, shipId: 'invictus', type: 'light', lng: 60.5, lat: 13.0, date: ago(1, 7, 43) },
   { id: 3, shipId: 'invictus', type: 'dark', lng: 62.0, lat: 8.5, date: ago(2, 14, 21) },
-  { id: 4, shipId: 'invictus', type: 'spoofing', lng: 61.0, lat: 21.0, date: ago(2, 10, 5) },
+  { id: 4, shipId: 'invictus', type: 'spoofing', lng: 59.5, lat: 17.2, date: ago(2, 10, 5) },
   { id: 5, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', lng: 59.0, lat: 10.0, date: ago(3, 7, 43) },
   { id: 6, shipId: 'invictus', type: 'dark', lng: 57.0, lat: 12.0, date: ago(4, 8, 12) },
   { id: 32, shipId: 'invictus', type: 'dark', lng: 61.8, lat: 16.2, date: ago(0, 10, 40) },
@@ -416,26 +416,30 @@ export const detections = [
   { id: 37, shipId: 'celestine', type: 'spoofing', lng: 71.2, lat: 11.3, date: ago(0, 16, 35) },
 
   // --- Meridian Star (7 detections) ---
+  // id 39 (below) is the latest and anchors the briefing pulse; nearby siblings
+  // (21, 38) and the STS demo marker 201 were spread out so they don't crowd it.
   { id: 20, shipId: 'meridian-star', type: 'ais', lng: 54.0, lat: 15.0, date: ago(0, 7, 10) },
-  { id: 21, shipId: 'meridian-star', type: 'spoofing', lng: 55.0, lat: 14.0, date: ago(1, 19, 25) },
+  { id: 21, shipId: 'meridian-star', type: 'spoofing', lng: 57.8, lat: 11.2, date: ago(1, 19, 25) },
   { id: 23, shipId: 'meridian-star', type: 'sts', stsPartner: 'invictus', lng: 53.0, lat: 7.0, date: ago(3, 20, 40) },
   { id: 24, shipId: 'meridian-star', type: 'sts-ais', stsPartner: 'wisdom-star', lng: 54.2, lat: 10.4, date: ago(4, 5, 55) },
   { id: 25, shipId: 'meridian-star', type: 'dark', lng: 64.0, lat: 20.5, date: ago(5, 10, 10) },
-  { id: 38, shipId: 'meridian-star', type: 'dark', lng: 55.1, lat: 16.5, date: ago(0, 11, 55) },
+  { id: 38, shipId: 'meridian-star', type: 'dark', lng: 53.6, lat: 18.6, date: ago(0, 11, 55) },
   { id: 39, shipId: 'meridian-star', type: 'spoofing', lng: 56.2, lat: 15.3, date: ago(0, 17, 15) },
 
   // --- Wisdom Star (7 detections) ---
-  { id: 27, shipId: 'wisdom-star', type: 'light', lng: 61.5, lat: 23.5, date: ago(0, 6, 45) },
-  { id: 28, shipId: 'wisdom-star', type: 'ais', lng: 61.0, lat: 22.0, date: ago(1, 14, 20) },
+  // id 41 (below) is the latest and anchors the briefing pulse; nearby siblings
+  // (27, 28, 40) were spread out so they don't crowd it.
+  { id: 27, shipId: 'wisdom-star', type: 'light', lng: 66.8, lat: 23.2, date: ago(0, 6, 45) },
+  { id: 28, shipId: 'wisdom-star', type: 'ais', lng: 58.8, lat: 18.5, date: ago(1, 14, 20) },
   { id: 29, shipId: 'wisdom-star', type: 'dark', lng: 60.0, lat: 20.5, date: ago(2, 9, 30) },
   { id: 30, shipId: 'wisdom-star', type: 'sts-ais', stsPartner: 'meridian-star', lng: 57.2, lat: 12.1, date: ago(4, 5, 55) },
   { id: 31, shipId: 'wisdom-star', type: 'ais', lng: 60.5, lat: 24.5, date: ago(5, 11, 15) },
-  { id: 40, shipId: 'wisdom-star', type: 'dark', lng: 61.4, lat: 20.9, date: ago(0, 8, 50) },
+  { id: 40, shipId: 'wisdom-star', type: 'dark', lng: 65.8, lat: 18.8, date: ago(0, 8, 50) },
   { id: 41, shipId: 'wisdom-star', type: 'spoofing', lng: 62.6, lat: 22.0, date: ago(0, 14, 45) },
 
   // --- Unknown (2 detections) ---
-  { id: 26, shipId: 'unknown', type: 'unattributed', lng: 60.0, lat: 24.1, date: ago(0, 9, 3) },
-  { id: 42, shipId: 'unknown', type: 'spoofing', lng: 59.8, lat: 21.3, date: ago(0, 13, 30) },
+  { id: 26, shipId: 'unknown', type: 'unattributed', lng: 64.2, lat: 24.3, date: ago(0, 9, 3) },
+  { id: 42, shipId: 'unknown', type: 'spoofing', lng: 63.5, lat: 16.2, date: ago(0, 13, 30) },
 
   // --- N-ship STS marker examples (prototype) ---
   // A demo row just south of the main cluster (~6°N, 56–68°E) showing how the
@@ -443,7 +447,7 @@ export const detections = [
   // the full participant list (drives how many ships the panel shows) and
   // `stsShipTypes` is each ship's most-recent detection type (drives the marker's
   // colored segments). The two lists are index-aligned.
-  { id: 201, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star'], stsShipTypes: ['light', 'unattributed'], lng: 57.4, lat: 14.6, date: ago(0, 12, 0) },
+  { id: 201, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star'], stsShipTypes: ['light', 'unattributed'], lng: 60.2, lat: 12.0, date: ago(0, 12, 0) },
   { id: 202, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star', 'meridian-star'], stsShipTypes: ['light', 'ais', 'unattributed'], lng: 66.2, lat: 11.3, date: ago(0, 12, 0) },
   { id: 203, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star', 'meridian-star', 'celestine'], stsShipTypes: ['light', 'dark', 'ais', 'unattributed'], lng: 60.7, lat: 8.4, date: ago(0, 12, 0) },
   { id: 204, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star', 'meridian-star', 'celestine', 'tiffani'], stsShipTypes: ['light', 'dark', 'spoofing', 'ais', 'unattributed'], lng: 68.6, lat: 16.4, date: ago(0, 12, 0) },

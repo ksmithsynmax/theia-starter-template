@@ -24,6 +24,9 @@ function Layout() {
   const [forYouMarkerMode, setForYouMarkerMode] = useState('ring')
   // Master on/off for all "For You" map markers (defaults to visible).
   const [forYouMarkersVisible, setForYouMarkersVisible] = useState(true)
+  // Whether the pulse animation plays on pulse-style markers (icons stay either
+  // way). Toggled from the Maritime Briefing Overview filter.
+  const [forYouPulseEnabled, setForYouPulseEnabled] = useState(true)
   // When the master toggle is off, these item ids are shown individually.
   const [forYouVisibleIds, setForYouVisibleIds] = useState([])
   // Explicit "fly to this item" request. The built-in port/shape focus logic
@@ -493,6 +496,7 @@ function Layout() {
           forYouActive={showForYouNav}
           forYouMarkerMode={forYouMarkerMode}
           forYouRingConfig={forYouRingConfig}
+          forYouPulseEnabled={forYouPulseEnabled}
           forYouMarkersVisible={forYouMarkersVisible}
           forYouVisibleIds={forYouVisibleIds}
           forYouFocus={forYouFocus}
@@ -691,6 +695,8 @@ function Layout() {
                 onRingConfigChange={setForYouRingConfig}
                 markersVisible={forYouMarkersVisible}
                 onMarkersVisibleChange={setForYouMarkersVisible}
+                pulseEnabled={forYouPulseEnabled}
+                onPulseEnabledChange={setForYouPulseEnabled}
                 visibleIds={forYouVisibleIds}
                 onVisibleIdsChange={setForYouVisibleIds}
                 onShipSelect={handleForYouShipSelect}

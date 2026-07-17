@@ -590,6 +590,7 @@ const Map = forwardRef(function Map(
       size: 36,
     },
     forYouMarkersVisible = true,
+    forYouPulseEnabled = true,
     forYouVisibleIds = null,
     forYouFocus = null,
     onForYouItemClick,
@@ -3451,6 +3452,11 @@ const Map = forwardRef(function Map(
     Object.values(forYouMarkersRef.current).forEach((marker) => marker.remove())
     forYouMarkersRef.current = {}
 
+    // Restore any detection markers we previously hid beneath a pulse.
+    Object.values(markersRef.current || {}).forEach((mk) => {
+      mk.getElement()?.classList.remove('for-you-covered')
+    })
+
     if (!forYouActive || !Array.isArray(forYouItems) || forYouItems.length === 0) {
       // Note: intentionally do NOT reset forYouFittedRef here. Resetting on every
       // navigation away made the feed re-fit to ALL items when returning to For
@@ -3491,17 +3497,20 @@ const Map = forwardRef(function Map(
       el.style.width = '16px'
       el.style.height = '16px'
 
-      const ring = document.createElement('div')
-      ring.className = 'for-you-pulse-ring'
-      ring.style.position = 'absolute'
-      ring.style.left = '50%'
-      ring.style.top = '50%'
-      ring.style.width = '16px'
-      ring.style.height = '16px'
-      ring.style.marginLeft = '-8px'
-      ring.style.marginTop = '-8px'
-      ring.style.borderRadius = '50%'
-      ring.style.background = item.color
+      if (forYouPulseEnabled) {
+        const ring = document.createElement('div')
+        ring.className = 'for-you-pulse-ring'
+        ring.style.position = 'absolute'
+        ring.style.left = '50%'
+        ring.style.top = '50%'
+        ring.style.width = '16px'
+        ring.style.height = '16px'
+        ring.style.marginLeft = '-8px'
+        ring.style.marginTop = '-8px'
+        ring.style.borderRadius = '50%'
+        ring.style.background = item.color
+        el.appendChild(ring)
+      }
 
       const dot = document.createElement('div')
       dot.style.position = 'absolute'
@@ -3515,7 +3524,6 @@ const Map = forwardRef(function Map(
       dot.style.background = item.color
       dot.style.border = '2px solid #111326'
 
-      el.appendChild(ring)
       el.appendChild(dot)
       return { el, anchor: 'center' }
     }
@@ -3707,19 +3715,21 @@ const Map = forwardRef(function Map(
         ? Math.min(64, Math.max(24, rawSize))
         : 36
 
-      const pulse = document.createElement('div')
-      pulse.className = 'for-you-pulse-ring'
-      pulse.style.position = 'absolute'
-      pulse.style.left = '50%'
-      pulse.style.top = '50%'
-      pulse.style.width = `${ringDiameter}px`
-      pulse.style.height = `${ringDiameter}px`
-      pulse.style.marginLeft = `${-ringDiameter / 2}px`
-      pulse.style.marginTop = `${-ringDiameter / 2}px`
-      pulse.style.borderRadius = '50%'
-      pulse.style.background = color
-      pulse.style.pointerEvents = 'none'
-      container.appendChild(pulse)
+      if (forYouPulseEnabled) {
+        const pulse = document.createElement('div')
+        pulse.className = 'for-you-pulse-icon-ring'
+        pulse.style.position = 'absolute'
+        pulse.style.left = '50%'
+        pulse.style.top = '50%'
+        pulse.style.width = `${ringDiameter}px`
+        pulse.style.height = `${ringDiameter}px`
+        pulse.style.marginLeft = `${-ringDiameter / 2}px`
+        pulse.style.marginTop = `${-ringDiameter / 2}px`
+        pulse.style.borderRadius = '50%'
+        pulse.style.background = color
+        pulse.style.pointerEvents = 'none'
+        container.appendChild(pulse)
+      }
 
       ringEl.style.position = 'relative'
       container.appendChild(ringEl)
@@ -3747,58 +3757,45 @@ const Map = forwardRef(function Map(
     // "Pulsing button" mode (Sasha Tran's CSS Pulsing Button): a solid colored
     // puck with a white glyph and a soft halo that scales gently outward and
     // fades. Self-contained, so it works in briefing mode too.
-    const buildPulseButtonEl = (item) => {
-      const container = document.createElement('div')
-      container.style.position = 'relative'
-      container.style.cursor = 'pointer'
-      container.style.display = 'inline-flex'
-      container.style.alignItems = 'center'
-      container.style.justifyContent = 'center'
-      container.style.lineHeight = '0'
-
+    // Shared bits for the "pulse button" family of markers (single + double).
+    const getPulseButtonMeta = (item) => {
       const rawSize = Number(forYouRingConfig?.size)
       const DIAM = Number.isFinite(rawSize)
         ? Math.min(64, Math.max(24, rawSize))
         : 36
-
       // Ships show their real detection icon (chips/diamond/triangle) overlaid on
       // the puck; ports/shapes keep their own white glyph.
       const det = item.kind === 'ship' ? getItemLatestDetection(item) : null
-      // The pulse color follows the detection type actually shown (so a spoofing
-      // ship pulses pink, not its feed color). Ports/shapes use their feed color.
-      const color =
-        (det && eventColorMap[det.type]) ||
-        item.color ||
-        forYouRingConfig?.color ||
-        '#FFFFFF'
+      // Accent color drives the pulse, the translucent overlay, and the border.
+      // Ships follow the detection type actually shown (spoofing = pink, etc.);
+      // ports use the primary blue; shapes fall back to their feed color.
+      const PRIMARY_BLUE = '#006CD7'
+      const accent =
+        item.kind === 'port'
+          ? PRIMARY_BLUE
+          : (det && eventColorMap[det.type]) ||
+            item.color ||
+            forYouRingConfig?.color ||
+            '#FFFFFF'
+      return { DIAM, det, accent }
+    }
 
-      const halo = document.createElement('div')
-      halo.className = 'for-you-pulse-soft'
-      halo.style.position = 'absolute'
-      halo.style.left = '50%'
-      halo.style.top = '50%'
-      halo.style.width = `${DIAM}px`
-      halo.style.height = `${DIAM}px`
-      halo.style.marginLeft = `${-DIAM / 2}px`
-      halo.style.marginTop = `${-DIAM / 2}px`
-      halo.style.borderRadius = '50%'
-      halo.style.background = color
-      halo.style.pointerEvents = 'none'
-      container.appendChild(halo)
-
+    // The solid puck (dark base + translucent accent overlay + accent border and
+    // icon) shared by both pulse-button variants.
+    const buildPulseButtonPuck = (item, det, accent, DIAM) => {
       const puck = document.createElement('div')
       puck.style.position = 'relative'
       puck.style.lineHeight = '0'
 
-      // Uniform neutral puck: same dark background + white border for every item;
-      // the icon inside carries the color.
       const BG = '#181926'
+      const OVERLAY_OPACITY = 0.35
       const BORDER = 1.5
       const cx = DIAM / 2
       const puckRadius = DIAM / 2 - BORDER / 2
       const puckBase =
         `<circle cx="${cx}" cy="${cx}" r="${puckRadius}" fill="${BG}"/>` +
-        `<circle cx="${cx}" cy="${cx}" r="${puckRadius}" fill="none" stroke="#FFFFFF" stroke-width="${BORDER}"/>`
+        `<circle cx="${cx}" cy="${cx}" r="${puckRadius}" fill="${accent}" fill-opacity="${OVERLAY_OPACITY}"/>` +
+        `<circle cx="${cx}" cy="${cx}" r="${puckRadius}" fill="none" stroke="${accent}" stroke-width="${BORDER}"/>`
 
       if (det) {
         puck.innerHTML =
@@ -3830,8 +3827,61 @@ const Map = forwardRef(function Map(
           `<g transform="translate(${off},${off}) scale(${scale})">${ringInnerIconPaths(glyphKind, '#FFFFFF')}</g>` +
           `</svg>`
       }
-      container.appendChild(puck)
+      return puck
+    }
 
+    const makePulseButtonContainer = () => {
+      const container = document.createElement('div')
+      container.style.position = 'relative'
+      container.style.cursor = 'pointer'
+      container.style.display = 'inline-flex'
+      container.style.alignItems = 'center'
+      container.style.justifyContent = 'center'
+      container.style.lineHeight = '0'
+      return container
+    }
+
+    const makePulseHalo = (accent, DIAM, className, delay) => {
+      const halo = document.createElement('div')
+      halo.className = className
+      halo.style.position = 'absolute'
+      halo.style.left = '50%'
+      halo.style.top = '50%'
+      halo.style.width = `${DIAM}px`
+      halo.style.height = `${DIAM}px`
+      halo.style.marginLeft = `${-DIAM / 2}px`
+      halo.style.marginTop = `${-DIAM / 2}px`
+      halo.style.borderRadius = '50%'
+      halo.style.background = accent
+      halo.style.pointerEvents = 'none'
+      if (delay) halo.style.animationDelay = delay
+      return halo
+    }
+
+    const buildPulseButtonEl = (item) => {
+      const container = makePulseButtonContainer()
+      const { DIAM, det, accent } = getPulseButtonMeta(item)
+      if (forYouPulseEnabled) {
+        container.appendChild(makePulseHalo(accent, DIAM, 'for-you-pulse-soft'))
+      }
+      container.appendChild(buildPulseButtonPuck(item, det, accent, DIAM))
+      return { el: container, anchor: 'center' }
+    }
+
+    // "Pulsing button (double)": same puck/colors as the single version, but two
+    // concentric soft rings emanating on a staggered delay (beacon-style).
+    const buildPulseButtonDoubleEl = (item) => {
+      const container = makePulseButtonContainer()
+      const { DIAM, det, accent } = getPulseButtonMeta(item)
+      if (forYouPulseEnabled) {
+        container.appendChild(
+          makePulseHalo(accent, DIAM, 'for-you-pulse-double')
+        )
+        container.appendChild(
+          makePulseHalo(accent, DIAM, 'for-you-pulse-double', '1s')
+        )
+      }
+      container.appendChild(buildPulseButtonPuck(item, det, accent, DIAM))
       return { el: container, anchor: 'center' }
     }
 
@@ -3840,6 +3890,7 @@ const Map = forwardRef(function Map(
       pulse: buildPulseEl,
       'pulse-icon': buildPulseIconEl,
       'pulse-button': buildPulseButtonEl,
+      'pulse-button-double': buildPulseButtonDoubleEl,
       ring: buildRingEl,
     }
     const build = builders[forYouMarkerMode] || buildPinEl
@@ -3887,6 +3938,32 @@ const Map = forwardRef(function Map(
       forYouMarkersRef.current[item.id] = marker
     })
 
+    // In pulse modes the pulse already draws the ship's detection icon, so hide
+    // the underlying real detection marker it sits on. Otherwise selecting the
+    // ship shows the app's white "active" halo as a second marker beside the
+    // pulse (the reported doubling bug).
+    const PULSE_MODES = new Set([
+      'pulse',
+      'pulse-icon',
+      'pulse-button',
+      'pulse-button-double',
+    ])
+    if (PULSE_MODES.has(forYouMarkerMode)) {
+      visibleForYouItems.forEach((item) => {
+        if (item.kind !== 'ship' || !item.shipId) return
+        const dets = runtimeDetections.filter(
+          (d) => String(d.shipId) === String(item.shipId)
+        )
+        if (dets.length === 0) return
+        const latest = [...dets].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        )[0]
+        markersRef.current[latest.id]
+          ?.getElement()
+          ?.classList.add('for-you-covered')
+      })
+    }
+
     // Fit the map to the curated set once when the feed first becomes active.
     if (!forYouFittedRef.current) {
       const coords = visibleForYouItems
@@ -3910,6 +3987,7 @@ const Map = forwardRef(function Map(
     forYouActive,
     forYouMarkerMode,
     forYouRingConfig,
+    forYouPulseEnabled,
     forYouMarkersVisible,
     forYouVisibleIds,
     forYouItems,

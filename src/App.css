@@ -39,6 +39,41 @@
   pointer-events: none;
 }
 
+/* Concentric "double pulse" (Google-Maps-style beacon): two soft rings
+   emanating on a staggered delay so ripples appear continuous. */
+@keyframes for-you-pulse-double {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.for-you-pulse-double {
+  animation: for-you-pulse-double 2s ease-out infinite;
+  pointer-events: none;
+}
+
+/* "Pulsing icons" ring: smaller emanating pulse behind the custom-ring icon. */
+@keyframes for-you-pulse-icon {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.for-you-pulse-icon-ring {
+  animation: for-you-pulse-icon 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
 /* ===== Scrollbar ===== */
 * {
   scrollbar-width: thin;
@@ -284,6 +319,13 @@ textarea::placeholder {
 /* Map markers — use the Mapbox wrapper which already has position:absolute */
 .map-marker {
   line-height: 0;
+}
+
+/* In For You / briefing pulse modes the pulse marker already draws the ship's
+   detection icon, so hide the underlying real detection marker it sits on to
+   avoid a doubled marker (and a stray white "active" halo on select). */
+.map-marker.for-you-covered {
+  display: none !important;
 }
 
 .mapboxgl-marker::before {
