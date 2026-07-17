@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Box, Slider, Text, Tooltip } from '@mantine/core'
 import {
   Bookmark,
@@ -10,6 +10,10 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
+  LinkExternal01,
+  BarChartSquare02,
+  List,
+  Grid01,
 } from '@untitledui/icons'
 import { useShipContext } from '../context/ShipContext'
 import CollapseButton from '../custom-icons/CollapseButton'
@@ -17,8 +21,13 @@ import ExpandButton from '../custom-icons/ExpandButton'
 import ShipIcon from '../custom-icons/ShipIcon'
 import PolygonIcon from '../custom-icons/PolygonIcon'
 import STSDefaultIcon from '../custom-icons/STSDefaultIcon'
+import AnchorIcon from '../custom-icons/AnchorIcon.svg'
+import { ships } from '../data/mockData'
+import { DataTable, BookmarkCardList } from './BookmarkDataViews'
 
 const NAV_WIDTH = 386
+const NAV_MIN_WIDTH = 386
+const NAV_MAX_WIDTH = 760
 
 const TOOLTIP_PROPS = {
   withArrow: true,
@@ -153,6 +162,35 @@ const BRIEFING_OVERVIEW_METRICS = [
   { key: 'unattributed', label: 'Unattributed' },
 ]
 
+// Country lookup for the briefing Ports table. Prototype data — swap for a real
+// port master when the backend exists.
+const BRIEFING_PORT_COUNTRY = {
+  'port-dubai': 'UAE',
+  'port-muscat': 'Oman',
+  'port-fujairah': 'UAE',
+  'port-mumbai': 'India',
+}
+
+// Curated dashboards we surface in the Maritime Briefing. Each opens in a new
+// tab. Prototype data — swap for a real feed when the backend exists.
+const BRIEFING_DASHBOARDS = [
+  {
+    id: 'dash-yoruks',
+    name: 'Yörük Straits Activity',
+    description: 'Dark activity & STS clustering in the strait',
+    url: 'https://synmax-yoruksdashboard.netlify.app/',
+    updated: 'Updated today',
+    topics: ['dark', 'sts'],
+  },
+]
+
+// Topic options that back the Dashboards filter popover.
+const BRIEFING_DASHBOARD_TOPICS = [
+  { key: 'dark', label: 'Dark activity' },
+  { key: 'sts', label: 'STS transfers' },
+  { key: 'ports', label: 'Ports' },
+]
+
 function ForYouSecondaryNav({
   isOpen,
   onOpen,
@@ -195,6 +233,13 @@ function ForYouSecondaryNav({
   const [showRingSettings, setShowRingSettings] = useState(false)
   // Maritime Briefing (version 2) time window for the Overview stats.
   const [briefingRange, setBriefingRange] = useState('yesterday')
+  // Ships/Ports presentation in the briefing: 'table' (default) or 'cards'.
+  const [briefingViewMode, setBriefingViewMode] = useState('table')
+  // Let analysts widen the panel to see more table data.
+  const [navWidth, setNavWidth] = useState(NAV_WIDTH)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartXRef = useRef(0)
+  const resizeStartWidthRef = useRef(NAV_WIDTH)
   // Which section's filter popover is open ('ships' | 'ports' | null) and the
   // per-section criteria that decide what surfaces in each list.
   const [openFilter, setOpenFilter] = useState(null)
@@ -218,6 +263,19 @@ function ForYouSecondaryNav({
     vesselsOfInterest: true,
     onlyFollowed: false,
   })
+  const [dashboardFilters, setDashboardFilters] = useState({
+    dark: true,
+    sts: true,
+    ports: true,
+  })
+  // Map-marker visibility for the briefing, controlled from the Overview filter.
+  // When a kind is off, its rows expose a per-row eye toggle (ids kept here).
+  const [briefingMarkerKinds, setBriefingMarkerKinds] = useState({
+    ship: true,
+    port: true,
+    shape: true,
+  })
+  const [briefingMarkerItemIds, setBriefingMarkerItemIds] = useState([])
 
   // Close the filter popover on any outside click. Clicks inside the popover or
   // on its trigger stop propagation, so this only fires for outside clicks.
@@ -228,16 +286,97 @@ function ForYouSecondaryNav({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openFilter])
 
+  // Drag-to-resize the panel width.
+  useEffect(() => {
+    if (!isResizing) return undefined
+    const handleMouseMove = (event) => {
+      const deltaX = event.clientX - resizeStartXRef.current
+      const nextWidth = Math.max(
+        NAV_MIN_WIDTH,
+        Math.min(NAV_MAX_WIDTH, resizeStartWidthRef.current + deltaX)
+      )
+      setNavWidth(nextWidth)
+    }
+    const handleMouseUp = () => setIsResizing(false)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
+
   const toggleOverviewMetric = (key) =>
     setOverviewMetrics((prev) => ({ ...prev, [key]: !prev[key] }))
   const toggleShipFilter = (key) =>
     setShipFilters((prev) => ({ ...prev, [key]: !prev[key] }))
   const togglePortFilter = (key) =>
     setPortFilters((prev) => ({ ...prev, [key]: !prev[key] }))
+  const toggleDashboardFilter = (key) =>
+    setDashboardFilters((prev) => ({ ...prev, [key]: !prev[key] }))
+  const toggleBriefingMarkerKind = (key) =>
+    setBriefingMarkerKinds((prev) => ({ ...prev, [key]: !prev[key] }))
+  const allBriefingMarkersOn =
+    briefingMarkerKinds.ship &&
+    briefingMarkerKinds.port &&
+    briefingMarkerKinds.shape
+  const toggleAllBriefingMarkers = () => {
+    const next = !allBriefingMarkersOn
+    setBriefingMarkerKinds({ ship: next, port: next, shape: next })
+  }
+  const toggleBriefingMarkerItem = (itemId) =>
+    setBriefingMarkerItemIds((prev) =>
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId)
+        : [...prev, itemId]
+    )
 
   const isForYouView = currentPath === '/for-you' || active
   const isBriefing = version === 'v2'
   const saveVariant = SAVE_VARIANTS[prototype] || SAVE_VARIANTS.proto1
+
+  // Which briefing items should render a map marker: a whole kind can be toggled
+  // off in the Overview filter, after which only individually re-enabled items
+  // (via the per-row eye) show. Shapes aren't kind-gated, so they always show.
+  const briefingMarkerVisibleIds = useMemo(
+    () =>
+      (forYouItems || [])
+        .filter((item) => {
+          if (item.kind === 'ship')
+            return (
+              briefingMarkerKinds.ship ||
+              briefingMarkerItemIds.includes(item.id)
+            )
+          if (item.kind === 'port')
+            return (
+              briefingMarkerKinds.port ||
+              briefingMarkerItemIds.includes(item.id)
+            )
+          // Shapes are hidden in the briefing for now.
+          // if (item.kind === 'shape')
+          //   return (
+          //     briefingMarkerKinds.shape ||
+          //     briefingMarkerItemIds.includes(item.id)
+          //   )
+          if (item.kind === 'shape') return false
+          return true
+        })
+        .map((item) => item.id),
+    [forYouItems, briefingMarkerKinds, briefingMarkerItemIds]
+  )
+
+  // Drive the shared map marker layer from the briefing's kind toggles. The map
+  // supports "all" or "allowlist" only, so we run it in allowlist mode while the
+  // briefing is active and hand it the computed set. Leaving the briefing
+  // restores the classic For You "show all" default.
+  useEffect(() => {
+    if (!isBriefing) {
+      onMarkersVisibleChange?.(true)
+      return
+    }
+    onMarkersVisibleChange?.(false)
+    onVisibleIdsChange?.(briefingMarkerVisibleIds)
+  }, [isBriefing, briefingMarkerVisibleIds])
   const SaveIcon = saveVariant.Icon
 
   const ring = ringConfig || RING_DEFAULTS
@@ -314,6 +453,8 @@ function ForYouSecondaryNav({
   // Maritime Briefing groups the curated feed into Ships and Ports sections.
   const briefingShips = forYouItems.filter((item) => item.kind === 'ship')
   const briefingPorts = forYouItems.filter((item) => item.kind === 'port')
+  // Shapes are hidden in the briefing for now (product hasn't decided on them).
+  // const briefingShapes = forYouItems.filter((item) => item.kind === 'shape')
   const briefingStats = (
     BRIEFING_OVERVIEW_STATS[briefingRange] || BRIEFING_OVERVIEW_STATS.yesterday
   ).filter((stat) => overviewMetrics[stat.key])
@@ -349,6 +490,43 @@ function ForYouSecondaryNav({
         favoritePorts.some((port) => port.id === item.portId))
     )
   })
+
+  // Reshape the curated feed items into the row shape the shared table/card
+  // views expect. `id` matches the active-tab id so a row can highlight, while
+  // `itemId` keeps the original feed id used for dismissal.
+  const briefingShipRows = visibleBriefingShips.map((item) => {
+    const ship = ships[item.shipId]
+    return {
+      ...item,
+      id: item.shipId,
+      itemId: item.id,
+      name: item.name,
+      flag: ship?.flag || item.flag || '',
+      type: ship?.shipType || item.subtitle || 'No info',
+      port: ship?.aisInfo?.destination || 'No info',
+    }
+  })
+  // Dashboards surface only when one of their topics is still enabled.
+  const visibleBriefingDashboards = BRIEFING_DASHBOARDS.filter((dash) =>
+    (dash.topics || []).some((topic) => dashboardFilters[topic])
+  )
+
+  const briefingPortRows = visibleBriefingPorts.map((item) => ({
+    ...item,
+    id: item.portId,
+    itemId: item.id,
+    name: item.name,
+    country: BRIEFING_PORT_COUNTRY[item.portId] || 'No info',
+    activity: 'No info',
+    risk: 'Monitoring',
+    updatedAt: 'Just now',
+  }))
+  // const briefingShapeRows = briefingShapes.map((item) => ({
+  //   ...item,
+  //   id: item.id,
+  //   itemId: item.id,
+  //   name: item.name,
+  // }))
 
   // Sliders affordance next to each section header. When an onToggle is given,
   // it opens/closes that section's filter popover.
@@ -471,6 +649,78 @@ function ForYouSecondaryNav({
               metric.label
             )
           )}
+          <Box style={{ height: 1, background: '#2D3047', margin: '8px 0' }} />
+          <Text style={groupLabelStyle}>Map markers</Text>
+          {renderCheckRow(
+            allBriefingMarkersOn,
+            toggleAllBriefingMarkers,
+            'All markers'
+          )}
+        </Box>
+      )
+    }
+    if (sectionKey === 'dashboards') {
+      return (
+        <Box
+          onMouseDown={(event) => event.stopPropagation()}
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            right: 0,
+            width: 250,
+            background: '#1E2033',
+            border: '1px solid #393C56',
+            borderRadius: 8,
+            padding: 12,
+            zIndex: 30,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 600 }}>
+            Dashboard topics
+          </Text>
+          <Text style={{ color: '#888F9E', fontSize: 11, marginBottom: 6 }}>
+            Choose which dashboards surface here.
+          </Text>
+          {BRIEFING_DASHBOARD_TOPICS.map((topic) =>
+            renderCheckRow(
+              dashboardFilters[topic.key],
+              () => toggleDashboardFilter(topic.key),
+              topic.label
+            )
+          )}
+        </Box>
+      )
+    }
+    if (sectionKey === 'shapes') {
+      return (
+        <Box
+          onMouseDown={(event) => event.stopPropagation()}
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            right: 0,
+            width: 250,
+            background: '#1E2033',
+            border: '1px solid #393C56',
+            borderRadius: 8,
+            padding: 12,
+            zIndex: 30,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 600 }}>
+            Area criteria
+          </Text>
+          <Text style={{ color: '#888F9E', fontSize: 11, marginBottom: 6 }}>
+            Choose what surfaces areas in this section.
+          </Text>
+          <Text style={groupLabelStyle}>Map markers</Text>
+          {renderCheckRow(
+            briefingMarkerKinds.shape,
+            () => toggleBriefingMarkerKind('shape'),
+            'Show area markers'
+          )}
         </Box>
       )
     }
@@ -542,69 +792,180 @@ function ForYouSecondaryNav({
               () => togglePortFilter('onlyFollowed'),
               'Only ports I follow'
             )}
+        <Box style={{ height: 1, background: '#2D3047', margin: '8px 0' }} />
+        <Text style={groupLabelStyle}>Map markers</Text>
+        {isShips
+          ? renderCheckRow(
+              briefingMarkerKinds.ship,
+              () => toggleBriefingMarkerKind('ship'),
+              'Show ship markers'
+            )
+          : renderCheckRow(
+              briefingMarkerKinds.port,
+              () => toggleBriefingMarkerKind('port'),
+              'Show port markers'
+            )}
       </Box>
     )
   }
 
-  const renderBriefingRow = (item) => {
-    const isActive =
-      (item.kind === 'ship' && activeShipTab === item.shipId) ||
-      (item.kind === 'port' && activeShipTab === item.portId)
-    const isHovered = hoveredItemId === item.id
-    const label = `${item.name}${item.flag ? ` ${item.flag}` : ''}`
+  const renderDashboardRow = (dash) => {
+    const isHovered = hoveredItemId === dash.id
     return (
       <Box
-        key={item.id}
-        onClick={() => handleRowClick(item)}
-        onMouseEnter={() => setHoveredItemId(item.id)}
+        key={dash.id}
+        onClick={() =>
+          window.open(dash.url, '_blank', 'noopener,noreferrer')
+        }
+        onMouseEnter={() => setHoveredItemId(dash.id)}
         onMouseLeave={() => setHoveredItemId(null)}
         style={{
           display: 'flex',
-          alignItems: 'baseline',
-          gap: 10,
-          padding: '8px 6px',
+          alignItems: 'center',
+          gap: 8,
+          padding: 8,
+          borderRadius: 4,
+          border: `1px solid ${isHovered ? '#006CD7' : '#393C56'}`,
+          background: isHovered
+            ? 'linear-gradient(0deg, rgba(0,108,215,0.16), rgba(0,108,215,0.16)), #24263C'
+            : '#24263C',
           cursor: 'pointer',
-          background: isActive
-            ? 'linear-gradient(0deg, rgba(0,108,215,0.16), rgba(0,108,215,0.16)), transparent'
-            : isHovered
-              ? 'rgba(255,255,255,0.04)'
-              : 'transparent',
-          borderBottom: '1px solid #23263B',
+          transition: 'background 140ms ease, border-color 140ms ease',
         }}
       >
-        <Text
+        <Box
           style={{
-            color: '#FFFFFF',
-            fontSize: 13,
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
+            width: 40,
+            height: 40,
             flexShrink: 0,
+            borderRadius: 4,
+            background: '#181926',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {label}
-        </Text>
-        <Text
-          style={{
-            flex: 1,
-            minWidth: 0,
-            color: '#A4ABBE',
-            fontSize: 12,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {item.reason}
-        </Text>
+          <BarChartSquare02 width={18} height={18} color="#FFFFFF" />
+        </Box>
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            style={{
+              color: '#FFFFFF',
+              fontSize: 13,
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {dash.name}
+          </Text>
+          <Text
+            style={{
+              color: '#A4ABBE',
+              fontSize: 12,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {dash.description}
+          </Text>
+        </Box>
+        <LinkExternal01
+          width={15}
+          height={15}
+          color={isHovered ? '#FFFFFF' : '#6C7392'}
+          style={{ flexShrink: 0 }}
+        />
       </Box>
     )
   }
 
-  const renderBriefingSection = (sectionKey, title, rows, totalCount) => {
+  // Compact segmented control that lives next to the Maritime Briefing title.
+  const renderBriefingViewToggle = () => (
+    <Box
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        flexShrink: 0,
+      }}
+    >
+      {[
+        { id: 'cards', label: 'Card view', Icon: Grid01 },
+        { id: 'table', label: 'Table view', Icon: List },
+      ].map(({ id, label, Icon }) => {
+        const isActive = briefingViewMode === id
+        return (
+          <Tooltip key={id} label={label} {...TOOLTIP_PROPS}>
+            <Box
+              component="button"
+              type="button"
+              aria-label={label}
+              aria-pressed={isActive}
+              onClick={() => setBriefingViewMode(id)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 26,
+                height: 26,
+                border: 'none',
+                borderRadius: 4,
+                background: isActive ? '#006CD7' : 'transparent',
+                color: isActive ? '#FFFFFF' : '#A4ABBE',
+                cursor: 'pointer',
+                padding: 0,
+                transition: 'background 120ms ease, color 120ms ease',
+              }}
+            >
+              <Icon size={14} color="currentColor" />
+            </Box>
+          </Tooltip>
+        )
+      })}
+    </Box>
+  )
+
+  const renderBriefingSection = (sectionKey, title, rows, totalCount, kind) => {
     const emptyLabel =
       totalCount > 0
         ? `No ${title.toLowerCase()} match these filters.`
         : `No ${title.toLowerCase()} need attention.`
+    // When this kind's markers are toggled off, each row exposes an eye control
+    // to re-enable individual markers on the map.
+    const markerKindOff =
+      kind === 'port'
+        ? !briefingMarkerKinds.port
+        : kind === 'shape'
+          ? !briefingMarkerKinds.shape
+          : !briefingMarkerKinds.ship
+    // Briefing tables lead with identity, then the "why surfaced" description.
+    const columns =
+      kind === 'port'
+        ? [
+            { key: 'name', label: 'Port', width: 'minmax(0, 1fr)' },
+            { key: 'reason', label: 'Why flagged', width: 'minmax(0, 1.8fr)' },
+          ]
+        : kind === 'shape'
+          ? [
+              { key: 'name', label: 'Shape', width: 'minmax(0, 1fr)' },
+              {
+                key: 'reason',
+                label: 'Why flagged',
+                width: 'minmax(0, 1.8fr)',
+              },
+            ]
+          : [
+              { key: 'name', label: 'Name', width: 'minmax(0, 1fr)' },
+              { key: 'flag', label: 'Flag', width: '52px', align: 'left' },
+              {
+                key: 'reason',
+                label: 'Why flagged',
+                width: 'minmax(0, 1.8fr)',
+              },
+            ]
     return (
       <Box style={{ marginTop: 24 }}>
         <Box
@@ -617,9 +978,23 @@ function ForYouSecondaryNav({
             marginBottom: 8,
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 700 }}>
-            {title}
-          </Text>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {kind === 'port' ? (
+              <Box
+                component="img"
+                src={AnchorIcon}
+                alt=""
+                style={{ width: 16, height: 16, display: 'block' }}
+              />
+            ) : kind === 'shape' ? (
+              <PolygonIcon style={{ width: 16, height: 16 }} />
+            ) : (
+              <ShipIcon style={{ width: 16, height: 16 }} />
+            )}
+            <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 700 }}>
+              {title}: {rows.length}
+            </Text>
+          </Box>
           {renderCustomizeButton(
             title,
             () =>
@@ -630,10 +1005,47 @@ function ForYouSecondaryNav({
           )}
           {renderFilterPopover(sectionKey)}
         </Box>
-        {rows.length === 0 ? (
-          <Text style={{ color: '#888F9E', fontSize: 12 }}>{emptyLabel}</Text>
+        {briefingViewMode === 'cards' ? (
+          <BookmarkCardList
+            rows={rows}
+            kind={kind}
+            emptyMessage={emptyLabel}
+            onRowClick={handleRowClick}
+            activeRowId={activeShipTab}
+            secondaryText={(row) => row.reason}
+            isFavorite={(row) => isBookmarked(row)}
+            onToggleFavorite={(row) => handleBookmarkToggle(row)}
+            isMarkerOn={
+              markerKindOff
+                ? (row) => briefingMarkerItemIds.includes(row.itemId)
+                : undefined
+            }
+            onToggleMarker={
+              markerKindOff
+                ? (row) => toggleBriefingMarkerItem(row.itemId)
+                : undefined
+            }
+          />
         ) : (
-          rows.map((item) => renderBriefingRow(item))
+          <DataTable
+            rows={rows}
+            columns={columns}
+            emptyMessage={emptyLabel}
+            onRowClick={handleRowClick}
+            activeRowId={activeShipTab}
+            isFavorite={(row) => isBookmarked(row)}
+            onToggleFavorite={(row) => handleBookmarkToggle(row)}
+            isMarkerOn={
+              markerKindOff
+                ? (row) => briefingMarkerItemIds.includes(row.itemId)
+                : undefined
+            }
+            onToggleMarker={
+              markerKindOff
+                ? (row) => toggleBriefingMarkerItem(row.itemId)
+                : undefined
+            }
+          />
         )}
       </Box>
     )
@@ -644,9 +1056,19 @@ function ForYouSecondaryNav({
       className="no-scrollbar"
       style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px' }}
     >
-      <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 700 }}>
-        Maritime Briefing
-      </Text>
+      <Box
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 700 }}>
+          Maritime Briefing
+        </Text>
+        {renderBriefingViewToggle()}
+      </Box>
       <Text
         style={{
           color: '#888F9E',
@@ -667,7 +1089,7 @@ function ForYouSecondaryNav({
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 8,
-            marginBottom: 12,
+            marginBottom: 8,
           }}
         >
           <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 700 }}>
@@ -813,15 +1235,92 @@ function ForYouSecondaryNav({
       {renderBriefingSection(
         'ships',
         'Ships',
-        visibleBriefingShips,
-        briefingShips.length
+        briefingShipRows,
+        briefingShips.length,
+        'ship'
       )}
       {renderBriefingSection(
         'ports',
         'Ports',
-        visibleBriefingPorts,
-        briefingPorts.length
+        briefingPortRows,
+        briefingPorts.length,
+        'port'
       )}
+      {/* Shapes section hidden for now — product hasn't decided on it.
+      {renderBriefingSection(
+        'shapes',
+        'Shapes',
+        briefingShapeRows,
+        briefingShapes.length,
+        'shape'
+      )} */}
+
+      <Box style={{ marginTop: 24 }}>
+        <Box
+          style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <BarChartSquare02 width={16} height={16} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 700 }}>
+              Dashboards: {visibleBriefingDashboards.length}
+            </Text>
+          </Box>
+          {renderCustomizeButton(
+            'Dashboards',
+            () =>
+              setOpenFilter((prev) =>
+                prev === 'dashboards' ? null : 'dashboards'
+              ),
+            openFilter === 'dashboards'
+          )}
+          {renderFilterPopover('dashboards')}
+        </Box>
+        {briefingViewMode === 'cards' ? (
+          visibleBriefingDashboards.length === 0 ? (
+            <Text style={{ color: '#888F9E', fontSize: 12 }}>
+              {BRIEFING_DASHBOARDS.length === 0
+                ? 'No dashboards available.'
+                : 'No dashboards match these filters.'}
+            </Text>
+          ) : (
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {visibleBriefingDashboards.map((dash) =>
+                renderDashboardRow(dash)
+              )}
+            </Box>
+          )
+        ) : (
+          <DataTable
+            rows={visibleBriefingDashboards.map((dash) => ({
+              id: dash.id,
+              name: dash.name,
+              description: dash.description,
+              updated: dash.updated,
+              url: dash.url,
+            }))}
+            columns={[
+              { key: 'name', label: 'Dashboard', width: 'minmax(0, 1fr)' },
+              { key: 'description', label: 'About', width: 'minmax(0, 1.6fr)' },
+              { key: 'updated', label: 'Updated', width: 'minmax(0, 0.8fr)' },
+            ]}
+            emptyMessage={
+              BRIEFING_DASHBOARDS.length === 0
+                ? 'No dashboards available.'
+                : 'No dashboards match these filters.'
+            }
+            onRowClick={(row) =>
+              window.open(row.url, '_blank', 'noopener,noreferrer')
+            }
+          />
+        )}
+      </Box>
     </Box>
   )
 
@@ -829,10 +1328,10 @@ function ForYouSecondaryNav({
     <Box
       style={{
         height: '100%',
-        width: isOpen && isForYouView ? NAV_WIDTH : isForYouView ? 32 : 0,
+        width: isOpen && isForYouView ? navWidth : isForYouView ? 32 : 0,
         overflow: 'hidden',
         backgroundColor: '#181926',
-        transition: 'width 0.3s ease',
+        transition: isResizing ? 'none' : 'width 0.3s ease',
         display: 'flex',
         flexDirection: 'column',
         borderRight: isForYouView ? '1px solid #393c56' : 'none',
@@ -882,8 +1381,8 @@ function ForYouSecondaryNav({
 
       <Box
         style={{
-          width: NAV_WIDTH,
-          minWidth: NAV_WIDTH,
+          width: navWidth,
+          minWidth: navWidth,
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -1566,6 +2065,26 @@ function ForYouSecondaryNav({
           </>
         )}
       </Box>
+
+      {isOpen && isForYouView && (
+        <Box
+          onMouseDown={(event) => {
+            if (event.button !== 0) return
+            resizeStartXRef.current = event.clientX
+            resizeStartWidthRef.current = navWidth
+            setIsResizing(true)
+          }}
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: 8,
+            height: '100%',
+            cursor: 'ew-resize',
+            zIndex: 9,
+          }}
+        />
+      )}
     </Box>
   )
 }

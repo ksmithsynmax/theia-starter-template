@@ -1348,7 +1348,9 @@ function Myships() {
   useEffect(() => () => setStsConnectorData(null), [setStsConnectorData])
 
   // Map marker clicks (via Layout) request selecting a participant here so the
-  // transfer-network selection stays in sync with what's clicked on the map.
+  // transfer-network selection stays in sync with what's clicked on the map. A
+  // `drillIn` request additionally opens that vessel's full timeline inside the
+  // event (the peek card's "View full details"), keeping the event flow.
   const handledStsSignalRef = useRef(null)
   useEffect(() => {
     if (!stsSelectSignal || stsSelectSignal.nonce === handledStsSignalRef.current)
@@ -1358,7 +1360,10 @@ function Myships() {
     const idx = stsShipIds.findIndex(
       (sid) => String(sid) === String(stsSelectSignal.shipId)
     )
-    if (idx >= 0) setActiveStsShip(idx)
+    if (idx >= 0) {
+      setActiveStsShip(idx)
+      if (stsSelectSignal.drillIn) setStsShowOverview(false)
+    }
   }, [stsSelectSignal, isStsTab, stsShipKey])
 
   const activeShipId = isStsTab
@@ -3632,6 +3637,32 @@ function Myships() {
                 style={{ color: '#0094FF', fontSize: 13, fontWeight: 600 }}
               >
                 Back to transfer summary
+              </Text>
+            </Box>
+          )}
+          {stsVersion === 'v9' && stsUsesOverview && !stsShowOverview && (
+            <Box
+              onClick={() => setStsShowOverview(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '12px 20px 0 20px',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <Text
+                style={{ color: '#0094FF', fontSize: 16, fontWeight: 600 }}
+              >
+                ←
+              </Text>
+              <Text
+                style={{ color: '#0094FF', fontSize: 13, fontWeight: 600 }}
+              >
+                {stsRosterView === 'network'
+                  ? 'Back to transfer network'
+                  : 'Back to vessels in event'}
               </Text>
             </Box>
           )}

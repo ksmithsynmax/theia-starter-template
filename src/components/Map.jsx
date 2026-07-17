@@ -167,8 +167,8 @@ const getMarkerHeading = (detection) => {
   return h
 }
 
-// Rotate the marker's inner SVG in place (leaves sibling overlays like the
-// priority badge upright). Called wherever a marker's SVG is (re)rendered.
+// Rotate the marker's inner SVG in place (leaves any sibling overlays upright).
+// Called wherever a marker's SVG is (re)rendered.
 const applyMarkerRotation = (el, detection) => {
   const svgEl = el?.querySelector?.('svg')
   if (!svgEl) return
@@ -3436,11 +3436,13 @@ const Map = forwardRef(function Map(
     shapesOnly,
   ])
 
-  // "For You" curated items rendered on the map. We support three marker
+  // "For You" curated items rendered on the map. We support a couple of marker
   // approaches so we can compare them, toggled via the top-nav dropdown:
-  //   - 'pin':      classic teardrop pin per item
-  //   - 'pulse':    dot with an animated pulsing ring
-  //   - 'priority': numbered badge ranked by the item's priority
+  //   - 'pulse':      dot with an animated pulsing ring
+  //   - 'pulse-icon': animated pulse behind the real glyph (port/shape icon, or
+  //                   the ship's detection marker showing through the center)
+  //   - 'ring':       custom, user-styled ring
+  //   - 'pin':        classic teardrop pin per item (legacy fallback)
   useEffect(() => {
     if (!map.current || !mapReady) return
     const m = map.current
@@ -3518,28 +3520,6 @@ const Map = forwardRef(function Map(
       return { el, anchor: 'center' }
     }
 
-    const buildPriorityEl = (item) => {
-      const el = document.createElement('div')
-      el.style.cursor = 'pointer'
-      // Sit above the underlying detection marker (zIndex 1) so the priority
-      // number is always visible instead of being hidden by the ship glyph.
-      el.style.zIndex = '2'
-      el.style.display = 'flex'
-      el.style.alignItems = 'center'
-      el.style.justifyContent = 'center'
-      el.style.width = '22px'
-      el.style.height = '22px'
-      el.style.borderRadius = '50%'
-      el.style.background = item.color
-      el.style.border = '2px solid #111326'
-      el.style.color = '#111326'
-      el.style.fontFamily = 'Inter, sans-serif'
-      el.style.fontSize = '12px'
-      el.style.fontWeight = '700'
-      el.textContent = String(item.priority ?? '')
-      return { el, anchor: 'center' }
-    }
-
     const ringInnerIconPaths = (kind, color) => {
       if (kind === 'port') {
         return `<path d="M9.99984 6.66675C11.3805 6.66675 12.4998 5.54746 12.4998 4.16675C12.4998 2.78604 11.3805 1.66675 9.99984 1.66675C8.61913 1.66675 7.49984 2.78604 7.49984 4.16675C7.49984 5.54746 8.61913 6.66675 9.99984 6.66675ZM9.99984 6.66675V18.3334M9.99984 18.3334C7.7897 18.3334 5.67008 17.4554 4.10728 15.8926C2.54448 14.3298 1.6665 12.2102 1.6665 10.0001H4.1665M9.99984 18.3334C12.21 18.3334 14.3296 17.4554 15.8924 15.8926C17.4552 14.3298 18.3332 12.2102 18.3332 10.0001H15.8332" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
@@ -3570,7 +3550,7 @@ const Map = forwardRef(function Map(
       return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
     }
 
-    const buildRingEl = (item) => {
+    const buildRingEl = (item, opts = {}) => {
       const el = document.createElement('div')
       el.style.cursor = 'pointer'
       // Kill the inline-SVG descender gap so the ring centers on the geo point
@@ -3595,7 +3575,13 @@ const Map = forwardRef(function Map(
       // detection marker stays on top via a higher z-index (set where the
       // detection markers are created) so the ring fill never hides it.
       const innerKind =
-        item.kind === 'port' ? 'port' : item.kind === 'shape' ? 'shape' : null
+        item.kind === 'port'
+          ? 'port'
+          : item.kind === 'shape'
+            ? 'shape'
+            : opts.forceShipGlyph
+              ? 'ship'
+              : null
       // Ports/shapes draw their own white "active" halo onto the For You ring
       // (ships get it from the detection marker). The ring now sits on an opaque
       // backing, so we can no longer rely on the underlying white port-icon
@@ -3678,10 +3664,182 @@ const Map = forwardRef(function Map(
       return { el, anchor: 'center' }
     }
 
+    // Resolve a ship item's latest detection so we can draw its real detection
+    // icon (diamond/triangle/STS/etc.) inside the ring rather than a generic
+    // ship glyph — matching how Custom-ring mode wraps the detection marker.
+    const getItemLatestDetection = (item) => {
+      if (
+        item.kind === 'ship' &&
+        item.shipId &&
+        Array.isArray(runtimeDetections)
+      ) {
+        const dets = runtimeDetections.filter(
+          (d) => String(d.shipId) === String(item.shipId)
+        )
+        if (dets.length > 0) {
+          return [...dets].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )[0]
+        }
+      }
+      return null
+    }
+
+    // "Pulsing icons" mode: reuse the exact Custom-ring visuals (same ring
+    // styling the user configured) and add an emanating pulse behind it. Ships
+    // get their actual detection icon overlaid in the center so the marker is
+    // self-contained (never an empty ring in briefing mode) and looks identical
+    // to the Custom-ring wrap. Ports/shapes keep their own glyph from the ring.
+    const buildPulseIconEl = (item) => {
+      const { el: ringEl } = buildRingEl(item)
+
+      const container = document.createElement('div')
+      container.style.position = 'relative'
+      container.style.cursor = 'pointer'
+      container.style.display = 'inline-flex'
+      container.style.alignItems = 'center'
+      container.style.justifyContent = 'center'
+      container.style.lineHeight = '0'
+
+      const color = forYouRingConfig?.color || '#FFFFFF'
+      const rawSize = Number(forYouRingConfig?.size)
+      const ringDiameter = Number.isFinite(rawSize)
+        ? Math.min(64, Math.max(24, rawSize))
+        : 36
+
+      const pulse = document.createElement('div')
+      pulse.className = 'for-you-pulse-ring'
+      pulse.style.position = 'absolute'
+      pulse.style.left = '50%'
+      pulse.style.top = '50%'
+      pulse.style.width = `${ringDiameter}px`
+      pulse.style.height = `${ringDiameter}px`
+      pulse.style.marginLeft = `${-ringDiameter / 2}px`
+      pulse.style.marginTop = `${-ringDiameter / 2}px`
+      pulse.style.borderRadius = '50%'
+      pulse.style.background = color
+      pulse.style.pointerEvents = 'none'
+      container.appendChild(pulse)
+
+      ringEl.style.position = 'relative'
+      container.appendChild(ringEl)
+
+      // Overlay the ship's real detection icon centered in the ring.
+      const det = getItemLatestDetection(item)
+      if (det) {
+        const iconWrap = document.createElement('div')
+        iconWrap.style.position = 'absolute'
+        iconWrap.style.left = '50%'
+        iconWrap.style.top = '50%'
+        iconWrap.style.transform = 'translate(-50%, -50%)'
+        iconWrap.style.lineHeight = '0'
+        iconWrap.style.pointerEvents = 'none'
+        // Use the detection's own icon (segmented STS chips, diamond, triangle,
+        // etc.) rather than the v8 STS count/ship-hull glyph, so ships show the
+        // detection instead of a generic ship icon.
+        iconWrap.innerHTML = getMarkerSvg(det)
+        container.appendChild(iconWrap)
+      }
+
+      return { el: container, anchor: 'center' }
+    }
+
+    // "Pulsing button" mode (Sasha Tran's CSS Pulsing Button): a solid colored
+    // puck with a white glyph and a soft halo that scales gently outward and
+    // fades. Self-contained, so it works in briefing mode too.
+    const buildPulseButtonEl = (item) => {
+      const container = document.createElement('div')
+      container.style.position = 'relative'
+      container.style.cursor = 'pointer'
+      container.style.display = 'inline-flex'
+      container.style.alignItems = 'center'
+      container.style.justifyContent = 'center'
+      container.style.lineHeight = '0'
+
+      const rawSize = Number(forYouRingConfig?.size)
+      const DIAM = Number.isFinite(rawSize)
+        ? Math.min(64, Math.max(24, rawSize))
+        : 36
+
+      // Ships show their real detection icon (chips/diamond/triangle) overlaid on
+      // the puck; ports/shapes keep their own white glyph.
+      const det = item.kind === 'ship' ? getItemLatestDetection(item) : null
+      // The pulse color follows the detection type actually shown (so a spoofing
+      // ship pulses pink, not its feed color). Ports/shapes use their feed color.
+      const color =
+        (det && eventColorMap[det.type]) ||
+        item.color ||
+        forYouRingConfig?.color ||
+        '#FFFFFF'
+
+      const halo = document.createElement('div')
+      halo.className = 'for-you-pulse-soft'
+      halo.style.position = 'absolute'
+      halo.style.left = '50%'
+      halo.style.top = '50%'
+      halo.style.width = `${DIAM}px`
+      halo.style.height = `${DIAM}px`
+      halo.style.marginLeft = `${-DIAM / 2}px`
+      halo.style.marginTop = `${-DIAM / 2}px`
+      halo.style.borderRadius = '50%'
+      halo.style.background = color
+      halo.style.pointerEvents = 'none'
+      container.appendChild(halo)
+
+      const puck = document.createElement('div')
+      puck.style.position = 'relative'
+      puck.style.lineHeight = '0'
+
+      // Uniform neutral puck: same dark background + white border for every item;
+      // the icon inside carries the color.
+      const BG = '#181926'
+      const BORDER = 1.5
+      const cx = DIAM / 2
+      const puckRadius = DIAM / 2 - BORDER / 2
+      const puckBase =
+        `<circle cx="${cx}" cy="${cx}" r="${puckRadius}" fill="${BG}"/>` +
+        `<circle cx="${cx}" cy="${cx}" r="${puckRadius}" fill="none" stroke="#FFFFFF" stroke-width="${BORDER}"/>`
+
+      if (det) {
+        puck.innerHTML =
+          `<svg width="${DIAM}" height="${DIAM}" viewBox="0 0 ${DIAM} ${DIAM}" fill="none" xmlns="http://www.w3.org/2000/svg">` +
+          puckBase +
+          `</svg>`
+        const iconWrap = document.createElement('div')
+        iconWrap.style.position = 'absolute'
+        iconWrap.style.left = '50%'
+        iconWrap.style.top = '50%'
+        iconWrap.style.transform = 'translate(-50%, -50%)'
+        iconWrap.style.lineHeight = '0'
+        iconWrap.style.pointerEvents = 'none'
+        iconWrap.innerHTML = getMarkerSvg(det)
+        puck.appendChild(iconWrap)
+      } else {
+        const glyphKind =
+          item.kind === 'port'
+            ? 'port'
+            : item.kind === 'shape'
+              ? 'shape'
+              : 'ship'
+        const ICON = Math.round(DIAM * 0.5)
+        const off = (DIAM - ICON) / 2
+        const scale = ICON / 20
+        puck.innerHTML =
+          `<svg width="${DIAM}" height="${DIAM}" viewBox="0 0 ${DIAM} ${DIAM}" fill="none" xmlns="http://www.w3.org/2000/svg">` +
+          puckBase +
+          `<g transform="translate(${off},${off}) scale(${scale})">${ringInnerIconPaths(glyphKind, '#FFFFFF')}</g>` +
+          `</svg>`
+      }
+      container.appendChild(puck)
+
+      return { el: container, anchor: 'center' }
+    }
+
     const builders = {
       pin: buildPinEl,
       pulse: buildPulseEl,
-      priority: buildPriorityEl,
+      'pulse-icon': buildPulseIconEl,
+      'pulse-button': buildPulseButtonEl,
       ring: buildRingEl,
     }
     const build = builders[forYouMarkerMode] || buildPinEl

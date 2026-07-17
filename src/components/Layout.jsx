@@ -20,7 +20,7 @@ function Layout() {
   const [portVisibilityBehavior] = useState('strict-layer-toggle-v2')
   // "For You" map marker rendering approach. Surfaced through the repurposed
   // top-nav dropdown so we can compare approaches:
-  // 'pin' | 'pulse' | 'priority' | 'ring'.
+  // 'pin' | 'pulse' | 'pulse-icon' | 'pulse-button' | 'ring'.
   const [forYouMarkerMode, setForYouMarkerMode] = useState('ring')
   // Master on/off for all "For You" map markers (defaults to visible).
   const [forYouMarkersVisible, setForYouMarkersVisible] = useState(true)
@@ -50,7 +50,7 @@ function Layout() {
   const [favoritesVersion, setFavoritesVersion] = useState('v1')
   // For You presentation version, switched via the top-nav dropdown:
   // 'v1' is the curated feed list; 'v2' is the "Maritime Briefing" layout.
-  const [forYouVersion, setForYouVersion] = useState('v1')
+  const [forYouVersion, setForYouVersion] = useState('v2')
   // Ship-to-Ship experience version, switched via the top-nav dropdown. 'v1' is
   // the current STS detail view; further versions branch off this.
   const [stsVersion, setStsVersion] = useState('v1')
@@ -108,6 +108,11 @@ function Layout() {
       ) || null
     )
   }, [stsPeekDetectionId, runtimeDetections])
+
+  // The "Priority badges" marker style was retired; coerce any lingering value.
+  useEffect(() => {
+    if (forYouMarkerMode === 'priority') setForYouMarkerMode('ring')
+  }, [forYouMarkerMode])
 
   const getDetectionDateKey = useCallback((dateStr) => {
     const d = new Date(dateStr)
@@ -509,6 +514,23 @@ function Layout() {
             }}
             onViewFull={(detection) => {
               setStsPeekDetectionId(null)
+              setPreviewDetectionId(null)
+              const isParticipant = (stsConnectorData?.lines || []).some(
+                (l) => String(l.shipId) === String(detection.shipId)
+              )
+              // Participant → drill into its timeline INSIDE the STS event tab so
+              // the analyst keeps the transfer-network flow (with a "Back to
+              // transfer network" breadcrumb). Non-participant neighbor → open a
+              // standalone tab, since it's a separate investigation.
+              if (isParticipant) {
+                setStsSelectSignal({
+                  shipId: detection.shipId,
+                  nonce: Date.now(),
+                  drillIn: true,
+                })
+                setPanelOpen(true)
+                return
+              }
               selectDetection(detection, {
                 source: 'map',
                 allowTabSwitch: true,

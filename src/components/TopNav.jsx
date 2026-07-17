@@ -217,7 +217,8 @@ const TopNav = ({
             }}
           >
             <option value="pulse">Pulsing rings</option>
-            <option value="priority">Priority badges</option>
+            <option value="pulse-icon">Pulsing icons</option>
+            <option value="pulse-button">Pulsing button</option>
             <option value="ring">Custom ring</option>
           </Box>
           <Text style={{ color: '#A7AEC2', fontSize: 12 }}>For You</Text>
@@ -240,8 +241,8 @@ const TopNav = ({
               cursor: 'pointer',
             }}
           >
-            <option value="v1">For You</option>
             <option value="v2">Maritime Briefing</option>
+            <option value="v1">For You</option>
           </Box>
           <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Ship-to-Ship</Text>
           <Box
