@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
@@ -323,12 +330,13 @@ function Myships() {
       e.preventDefault()
       const startX = e.clientX
       const startY = e.clientY
-      const origin = stsNetworkPos ||
+      const origin =
+        stsNetworkPos ||
         (stsNetworkRect
           ? {
               x: Math.max(
                 stsNetworkRect.left + 16,
-                window.innerWidth - stsNetworkSize.width - 16,
+                window.innerWidth - stsNetworkSize.width - 16
               ),
               y: stsNetworkRect.top + 16,
             }
@@ -346,7 +354,7 @@ function Myships() {
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     },
-    [stsNetworkPos, stsNetworkRect],
+    [stsNetworkPos, stsNetworkRect]
   )
   const startNetworkResize = useCallback(
     (e) => {
@@ -368,12 +376,15 @@ function Myships() {
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     },
-    [stsNetworkSize],
+    [stsNetworkSize]
   )
   // v2 & v8: edge fades that appear only when the tab strip can scroll that way.
   const stsStripScrollRef = useRef(null)
   const activeStsTabRef = useRef(null)
-  const [stsStripFade, setStsStripFade] = useState({ left: false, right: false })
+  const [stsStripFade, setStsStripFade] = useState({
+    left: false,
+    right: false,
+  })
   const updateStsStripFade = useCallback(() => {
     const el = stsStripScrollRef.current
     if (!el) return
@@ -413,7 +424,19 @@ function Myships() {
   const [portTabOverflowRight, setPortTabOverflowRight] = useState(false)
   const portTabScrollRef = useRef(null)
 
-  const { collapsePanel, watchlistVersion, portsLayerVisible, onPortsLayerVisibleChange, portVisibilityBehavior, forceHideSelectedPortContext, onForceHideSelectedPortContextChange, portShapeControlEnabled = true, forYouPrototype = 'proto1', stsVersion = 'v1', onStsNetworkPanelChange } = useOutletContext() || {}
+  const {
+    collapsePanel,
+    watchlistVersion,
+    portsLayerVisible,
+    onPortsLayerVisibleChange,
+    portVisibilityBehavior,
+    forceHideSelectedPortContext,
+    onForceHideSelectedPortContextChange,
+    portShapeControlEnabled = true,
+    forYouPrototype = 'proto1',
+    stsVersion = 'v1',
+    onStsNetworkPanelChange,
+  } = useOutletContext() || {}
 
   const activeTab = shipTabs.find((t) => t.id === activeShipTab)
   const isStsTab = activeTab?.type === 'sts'
@@ -1386,7 +1409,10 @@ function Myships() {
   // event (the peek card's "View full details"), keeping the event flow.
   const handledStsSignalRef = useRef(null)
   useEffect(() => {
-    if (!stsSelectSignal || stsSelectSignal.nonce === handledStsSignalRef.current)
+    if (
+      !stsSelectSignal ||
+      stsSelectSignal.nonce === handledStsSignalRef.current
+    )
       return
     handledStsSignalRef.current = stsSelectSignal.nonce
     if (!isStsTab || !stsShipIds || stsShipIds.length < 2) return
@@ -2047,6 +2073,50 @@ function Myships() {
               },
             ],
           },
+          5: {
+            hulls: [
+              {
+                d: 'M25.7061 632.504L63.7061 634.504C87.3061 604.504 100.873 540.67 104.706 512.503L135.706 121.504C136.506 25.9035 109.04 2.67019 95.2062 3.00352C60.8062 3.00352 42.5395 76.0035 37.7062 112.504L3.70612 505.004C-0.693882 569.004 16.5395 616.67 25.7061 632.504Z',
+                tx: 508.6,
+                ty: 192.1,
+                sx: 0.7987,
+                sy: 0.9819,
+                tb: [3, 3, 135.7, 634.5],
+              },
+              {
+                d: 'M148.706 647.003H185.206C205.206 615.803 217.873 555.337 221.706 529.003L236.706 115.003C229.106 51.8034 204.206 30.0034 192.706 27.0034C162.706 28.6034 147.206 83.6701 143.206 111.003L122.706 520.003C119.906 582.403 138.873 630.67 148.706 647.003Z',
+                tx: 503.4,
+                ty: 178.1,
+                sx: 0.9276,
+                sy: 0.9952,
+                tb: [122.4, 27, 236.7, 647],
+              },
+              {
+                d: 'M250.706 144.503L230.706 522.503C227.616 580.903 245.419 631.837 254.706 650.003H287.206C307.606 616.403 320.039 558.337 323.706 533.503L343.706 149.003C344.506 65.0034 316.373 41.3368 302.206 40.0034C266.606 40.4034 253.039 109.837 250.706 144.503Z',
+                tx: 507.6,
+                ty: 179.7,
+                sx: 0.935,
+                sy: 1.0082,
+                tb: [230.4, 40, 343.7, 650],
+              },
+              {
+                d: 'M354.206 151.003L327.706 545.503C326.506 606.303 341.54 652.17 349.206 667.503L392.206 669.003C403.006 652.203 421.04 588.337 428.706 558.503L454.706 158.003C455.906 70.4034 425.873 45.5034 410.706 44.0034C377.106 44.8034 359.04 115.67 354.206 151.003Z',
+                tx: 555.8,
+                ty: 191.8,
+                sx: 0.834,
+                sy: 0.9809,
+                tb: [327.6, 44, 454.7, 669],
+              },
+              {
+                d: 'M462.206 198.503L469.706 600.003C476.106 642.803 492.706 675.17 500.206 686.003H539.706C547.306 672.003 558.54 622.837 563.206 600.003L553.206 198.503C546.806 103.703 516.873 80.67 502.706 81.0033C467.906 85.4033 461.206 161.17 462.206 198.503Z',
+                tx: 450.3,
+                ty: 177.4,
+                sx: 1.0488,
+                sy: 0.995,
+                tb: [462.1, 81, 563.2, 686],
+              },
+            ],
+          },
         }
         const outlineSet = hullOutlinesByCount[list.length] || null
         // Derive each hull's spotlight aperture (image px) from its trace bbox +
@@ -2270,7 +2340,9 @@ function Myships() {
                 SEGMENT FOCUS
               </Text>
             </Box>
-            {/* Mini clip card for the focused hull (CONF / LENGTH / HEADING). */}
+            {/* Mini clip card for the focused hull (CONF / LENGTH / HEADING).
+                The "SHIP N" eyebrow + vessel name identify the card, so the old
+                "SEGMENTED MINI-CLIP" label was dropped to save space. */}
             {hasFocus && (
               <Box
                 style={{
@@ -2278,51 +2350,32 @@ function Myships() {
                   bottom: 10,
                   left: cardOnLeft ? 10 : undefined,
                   right: cardOnLeft ? undefined : 10,
-                  width: 150,
-                  padding: 10,
+                  // width: 150,
+                  padding: 8,
                   borderRadius: 8,
                   background: 'rgba(12, 15, 26, 0.92)',
-                  border: `1px solid ${activeEdge}`,
+                  border: `1px solid #006cd7`,
                   boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
                   pointerEvents: 'none',
                   zIndex: 5,
                 }}
               >
-                <Box
+                <Text
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 8,
-                    gap: 8,
+                    color: activeText,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 0.6,
+                    marginBottom: 0,
                   }}
                 >
-                  <Text
-                    style={{
-                      color: '#8B90A5',
-                      fontSize: 9,
-                      fontWeight: 700,
-                      letterSpacing: 0.6,
-                    }}
-                  >
-                    SEGMENTED MINI-CLIP
-                  </Text>
-                  <Text
-                    style={{
-                      color: activeText,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {`SHIP ${focusIdx + 1}`}
-                  </Text>
-                </Box>
+                  {`SHIP ${focusIdx + 1}`}
+                </Text>
                 <Text
                   style={{
                     color: '#fff',
                     fontSize: 12,
-                    fontWeight: 600,
+                    fontWeight: 700,
                     marginBottom: 8,
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -2331,36 +2384,16 @@ function Myships() {
                 >
                   {focusName}
                 </Text>
-                <Box style={{ display: 'flex', gap: 10 }}>
-                  {[
-                    { label: 'CONF', value: `${focusConf}%` },
-                    {
-                      label: 'LENGTH',
-                      value: focusLength ? `${focusLength}m` : '—',
-                    },
-                    {
-                      label: 'HEADING',
-                      value: focusHeading ? `${focusHeading}°` : '—',
-                    },
-                  ].map((stat) => (
-                    <Box key={stat.label}>
-                      <Text
-                        style={{
-                          color: '#6C7392',
-                          fontSize: 8,
-                          fontWeight: 700,
-                          letterSpacing: 0.4,
-                        }}
-                      >
-                        {stat.label}
-                      </Text>
-                      <Text
-                        style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}
-                      >
-                        {stat.value}
-                      </Text>
-                    </Box>
-                  ))}
+                <Box style={{ display: 'flex', gap: 12 }}>
+                  <KeyValuePair keyName="CONF" value={`${focusConf}%`} />
+                  <KeyValuePair
+                    keyName="LENGTH"
+                    value={focusLength ? `${focusLength}m` : '—'}
+                  />
+                  <KeyValuePair
+                    keyName="HEADING"
+                    value={focusHeading ? `${focusHeading}°` : '—'}
+                  />
                 </Box>
               </Box>
             )}
@@ -2407,9 +2440,7 @@ function Myships() {
                 }}
               >
                 <Box
-                  onClick={
-                    onPinClick ? () => onPinClick(idx) : undefined
-                  }
+                  onClick={onPinClick ? () => onPinClick(idx) : undefined}
                   style={{
                     position: 'absolute',
                     top: pos.top,
@@ -3166,8 +3197,7 @@ function Myships() {
               const vesselButtons = list.map((sid, idx) => {
                 const s = ships[sid]
                 if (!s) return null
-                const isActive =
-                  !stsShowOverview && activeStsShipIndex === idx
+                const isActive = !stsShowOverview && activeStsShipIndex === idx
                 return (
                   <Box
                     key={`${sid}-${idx}`}
@@ -3604,7 +3634,8 @@ function Myships() {
                       Ship-to-Ship event
                     </Text>
                     <Text style={{ color: '#8B90A5', fontSize: 12 }}>
-                      {list.length} vessels · {stsTransferLabel(list.length - 1)}
+                      {list.length} vessels ·{' '}
+                      {stsTransferLabel(list.length - 1)}
                       {' – '}
                       {stsTransferLabel(0)}
                     </Text>
@@ -3851,7 +3882,9 @@ function Myships() {
                         SynMax Event ID
                       </Text>
                       <Box
-                        onClick={() => handleCopyToClipboard(eventId, 'eventId')}
+                        onClick={() =>
+                          handleCopyToClipboard(eventId, 'eventId')
+                        }
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -3909,7 +3942,9 @@ function Myships() {
                                 width: 14,
                                 height: 14,
                                 color:
-                                  copiedField === 'eventId' ? '#fff' : '#0094ff',
+                                  copiedField === 'eventId'
+                                    ? '#fff'
+                                    : '#0094ff',
                               }}
                             />
                           </Box>
@@ -4020,7 +4055,9 @@ function Myships() {
                                   ? '#006CD7'
                                   : 'transparent',
                               color:
-                                stsRosterView === 'network' ? '#fff' : '#8B90A5',
+                                stsRosterView === 'network'
+                                  ? '#fff'
+                                  : '#8B90A5',
                             }}
                           >
                             <svg
@@ -4106,556 +4143,555 @@ function Myships() {
                     stsVersion === 'v10' ||
                     stsVersion === 'v11' ||
                     stsVersion === 'v12') &&
-                  stsRosterView === 'network'
-                    ? (() => {
-                        // Inline ego-network: subject at center, partners on a
-                        // ring. Spoke thickness encodes transfer count. Tapping a
-                        // node drills into that vessel (same as a roster row).
-                        const n = list.length
-                        const W = 320
-                        const H = 300
-                        const cx = W / 2
-                        const cy = H / 2
-                        const R = Math.min(W, H) / 2 - 62
-                        const partnerCount = Math.max(n - 1, 1)
-                        const transferCount = (idx) => ((idx * 7) % 3) + 1
-                        const pos = (idx) => {
-                          if (idx === 0) return { x: cx, y: cy }
-                          const k = idx - 1
-                          const theta =
-                            (k / partnerCount) * Math.PI * 2 - Math.PI / 2
-                          return {
-                            x: cx + R * Math.cos(theta),
-                            y: cy + R * Math.sin(theta),
-                          }
+                  stsRosterView === 'network' ? (
+                    (() => {
+                      // Inline ego-network: subject at center, partners on a
+                      // ring. Spoke thickness encodes transfer count. Tapping a
+                      // node drills into that vessel (same as a roster row).
+                      const n = list.length
+                      const W = 320
+                      const H = 300
+                      const cx = W / 2
+                      const cy = H / 2
+                      const R = Math.min(W, H) / 2 - 62
+                      const partnerCount = Math.max(n - 1, 1)
+                      const transferCount = (idx) => ((idx * 7) % 3) + 1
+                      const pos = (idx) => {
+                        if (idx === 0) return { x: cx, y: cy }
+                        const k = idx - 1
+                        const theta =
+                          (k / partnerCount) * Math.PI * 2 - Math.PI / 2
+                        return {
+                          x: cx + R * Math.cos(theta),
+                          y: cy + R * Math.sin(theta),
                         }
-                        const nodeR = (idx) =>
-                          idx === 0 ? 22 : 13 + transferCount(idx) * 2
-                        // Selecting a node highlights it here and pans/focuses
-                        // that vessel on the map — but keeps us in the overview
-                        // (stsShowOverview stays true). Explicit drill-in lives
-                        // in the footer "View timeline" affordance.
-                        const sel = activeStsShipIndex
-                        const focusedMeta = shipMeta(list[sel] || list[0])
-                        return (
-                          <Box>
+                      }
+                      const nodeR = (idx) =>
+                        idx === 0 ? 22 : 13 + transferCount(idx) * 2
+                      // Selecting a node highlights it here and pans/focuses
+                      // that vessel on the map — but keeps us in the overview
+                      // (stsShowOverview stays true). Explicit drill-in lives
+                      // in the footer "View timeline" affordance.
+                      const sel = activeStsShipIndex
+                      const focusedMeta = shipMeta(list[sel] || list[0])
+                      return (
+                        <Box>
+                          <Box
+                            style={{
+                              border: '1px solid #393C56',
+                              borderRadius: 8,
+                              background: '#12131F',
+                              padding: 8,
+                            }}
+                          >
+                            <svg
+                              viewBox={`0 0 ${W} ${H}`}
+                              width="100%"
+                              height={H}
+                              preserveAspectRatio="xMidYMid meet"
+                            >
+                              {list.map((sid, idx) => {
+                                if (idx === 0) return null
+                                const p = pos(idx)
+                                const isSel = sel === idx
+                                // Trim the spoke so it stops at each circle's
+                                // edge instead of running under the nodes.
+                                const dx = p.x - cx
+                                const dy = p.y - cy
+                                const len = Math.hypot(dx, dy) || 1
+                                const ux = dx / len
+                                const uy = dy / len
+                                const r0 = nodeR(0)
+                                const r1 = nodeR(idx)
+                                return (
+                                  <line
+                                    key={`sp-${idx}`}
+                                    x1={cx + ux * r0}
+                                    y1={cy + uy * r0}
+                                    x2={p.x - ux * r1}
+                                    y2={p.y - uy * r1}
+                                    stroke={isSel ? '#006CD7' : '#3A3F5C'}
+                                    strokeWidth={1 + transferCount(idx)}
+                                    strokeOpacity={isSel ? 0.9 : 0.6}
+                                  >
+                                    <title>{`${ships[list[0]]?.name} ↔ ${ships[sid]?.name} · ${transferCount(idx)} transfer(s)`}</title>
+                                  </line>
+                                )
+                              })}
+                              {list.map((sid, idx) => {
+                                const s = shipMeta(sid)
+                                const p = pos(idx)
+                                const r = nodeR(idx)
+                                const isSubject = idx === 0
+                                const isSel = sel === idx
+                                return (
+                                  <g
+                                    key={`nd-${idx}`}
+                                    onClick={() => {
+                                      setActiveStsShip(idx)
+                                      const detId =
+                                        stsConnectorData?.lines?.[idx]?.detId ??
+                                        null
+                                      setStsPeekDetectionId(detId)
+                                      setPreviewDetectionId(detId)
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    <title>
+                                      {`${s.name}${
+                                        isSubject
+                                          ? ' · vessel of interest'
+                                          : ` · transferred ${stsTransferLabel(idx)}`
+                                      }`}
+                                    </title>
+                                    <circle
+                                      cx={p.x}
+                                      cy={p.y}
+                                      r={r}
+                                      fill={
+                                        isSubject
+                                          ? '#006CD7'
+                                          : isSel
+                                            ? 'rgba(0,108,215,0.18)'
+                                            : '#24263C'
+                                      }
+                                      stroke={
+                                        isSubject || isSel
+                                          ? '#006CD7'
+                                          : '#393C56'
+                                      }
+                                      strokeWidth={isSel ? 3 : 2}
+                                    />
+                                    <text
+                                      x={p.x}
+                                      y={p.y + r * 0.32}
+                                      textAnchor="middle"
+                                      fontSize={r * 0.9}
+                                      style={{ pointerEvents: 'none' }}
+                                    >
+                                      {s.flag || '🚢'}
+                                    </text>
+                                    <text
+                                      x={p.x}
+                                      y={p.y + r + 14}
+                                      textAnchor="middle"
+                                      fontSize={11}
+                                      fontWeight={
+                                        isSubject || isSel ? 700 : 500
+                                      }
+                                      fill={
+                                        isSubject || isSel ? '#fff' : '#C7CCDD'
+                                      }
+                                      style={{ pointerEvents: 'none' }}
+                                    >
+                                      {s.name}
+                                    </text>
+                                  </g>
+                                )
+                              })}
+                            </svg>
+                          </Box>
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              marginTop: 8,
+                            }}
+                          >
+                            <Text style={{ color: '#5A5F73', fontSize: 11 }}>
+                              Tap a vessel to focus it on the map
+                            </Text>
                             <Box
+                              onClick={() => setStsShowOverview(false)}
                               style={{
-                                border: '1px solid #393C56',
-                                borderRadius: 8,
-                                background: '#12131F',
-                                padding: 8,
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
                               }}
                             >
-                              <svg
-                                viewBox={`0 0 ${W} ${H}`}
-                                width="100%"
-                                height={H}
-                                preserveAspectRatio="xMidYMid meet"
-                              >
-                                {list.map((sid, idx) => {
-                                  if (idx === 0) return null
-                                  const p = pos(idx)
-                                  const isSel = sel === idx
-                                  // Trim the spoke so it stops at each circle's
-                                  // edge instead of running under the nodes.
-                                  const dx = p.x - cx
-                                  const dy = p.y - cy
-                                  const len = Math.hypot(dx, dy) || 1
-                                  const ux = dx / len
-                                  const uy = dy / len
-                                  const r0 = nodeR(0)
-                                  const r1 = nodeR(idx)
-                                  return (
-                                    <line
-                                      key={`sp-${idx}`}
-                                      x1={cx + ux * r0}
-                                      y1={cy + uy * r0}
-                                      x2={p.x - ux * r1}
-                                      y2={p.y - uy * r1}
-                                      stroke={isSel ? '#006CD7' : '#3A3F5C'}
-                                      strokeWidth={1 + transferCount(idx)}
-                                      strokeOpacity={isSel ? 0.9 : 0.6}
-                                    >
-                                      <title>{`${ships[list[0]]?.name} ↔ ${ships[sid]?.name} · ${transferCount(idx)} transfer(s)`}</title>
-                                    </line>
-                                  )
-                                })}
-                                {list.map((sid, idx) => {
-                                  const s = shipMeta(sid)
-                                  const p = pos(idx)
-                                  const r = nodeR(idx)
-                                  const isSubject = idx === 0
-                                  const isSel = sel === idx
-                                  return (
-                                    <g
-                                      key={`nd-${idx}`}
-                                      onClick={() => {
-                                        setActiveStsShip(idx)
-                                        const detId =
-                                          stsConnectorData?.lines?.[idx]
-                                            ?.detId ?? null
-                                        setStsPeekDetectionId(detId)
-                                        setPreviewDetectionId(detId)
-                                      }}
-                                      style={{ cursor: 'pointer' }}
-                                    >
-                                      <title>
-                                        {`${s.name}${
-                                          isSubject
-                                            ? ' · vessel of interest'
-                                            : ` · transferred ${stsTransferLabel(idx)}`
-                                        }`}
-                                      </title>
-                                      <circle
-                                        cx={p.x}
-                                        cy={p.y}
-                                        r={r}
-                                        fill={
-                                          isSubject
-                                            ? '#006CD7'
-                                            : isSel
-                                              ? 'rgba(0,108,215,0.18)'
-                                              : '#24263C'
-                                        }
-                                        stroke={
-                                          isSubject || isSel
-                                            ? '#006CD7'
-                                            : '#393C56'
-                                        }
-                                        strokeWidth={isSel ? 3 : 2}
-                                      />
-                                      <text
-                                        x={p.x}
-                                        y={p.y + r * 0.32}
-                                        textAnchor="middle"
-                                        fontSize={r * 0.9}
-                                        style={{ pointerEvents: 'none' }}
-                                      >
-                                        {s.flag || '🚢'}
-                                      </text>
-                                      <text
-                                        x={p.x}
-                                        y={p.y + r + 14}
-                                        textAnchor="middle"
-                                        fontSize={11}
-                                        fontWeight={
-                                          isSubject || isSel ? 700 : 500
-                                        }
-                                        fill={
-                                          isSubject || isSel
-                                            ? '#fff'
-                                            : '#C7CCDD'
-                                        }
-                                        style={{ pointerEvents: 'none' }}
-                                      >
-                                        {s.name}
-                                      </text>
-                                    </g>
-                                  )
-                                })}
-                              </svg>
-                            </Box>
-                            <Box
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: 12,
-                                marginTop: 8,
-                              }}
-                            >
-                              <Text
-                                style={{ color: '#5A5F73', fontSize: 11 }}
-                              >
-                                Tap a vessel to focus it on the map
-                              </Text>
-                              <Box
-                                onClick={() => setStsShowOverview(false)}
-                                style={{
-                                  color: '#fff',
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  whiteSpace: 'nowrap',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                View {focusedMeta.name} timeline →
-                              </Box>
+                              View {focusedMeta.name} timeline →
                             </Box>
                           </Box>
-                        )
-                      })()
-                    : (
-                        <Box
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 8,
-                          }}
-                        >
-                          {list.map((sid, idx) => {
-                            const m = shipMeta(sid)
-                            const isHovered =
-                              hoveredRosterId === `${sid}-${idx}`
-                            return (
+                        </Box>
+                      )
+                    })()
+                  ) : (
+                    <Box
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}
+                    >
+                      {list.map((sid, idx) => {
+                        const m = shipMeta(sid)
+                        const isHovered = hoveredRosterId === `${sid}-${idx}`
+                        return (
+                          <Box
+                            key={`roster-${sid}-${idx}`}
+                            onClick={() => {
+                              setStsShowOverview(false)
+                              setActiveStsShip(idx)
+                            }}
+                            onMouseEnter={() =>
+                              setHoveredRosterId(`${sid}-${idx}`)
+                            }
+                            onMouseLeave={() => setHoveredRosterId(null)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 10,
+                              padding: '10px 12px',
+                              borderRadius: 6,
+                              border: `1px solid ${
+                                isHovered ? '#006CD7' : '#393C56'
+                              }`,
+                              background: isHovered
+                                ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
+                                : '#24263C',
+                              cursor: 'pointer',
+                              transition:
+                                'background 140ms ease, border-color 140ms ease',
+                            }}
+                          >
+                            <Box
+                              style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: '50%',
+                                background: m.attributed
+                                  ? '#006CD7'
+                                  : '#F75349',
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {idx + 1}
+                            </Box>
+                            <Box style={{ flex: 1, minWidth: 0 }}>
                               <Box
-                                key={`roster-${sid}-${idx}`}
-                                onClick={() => {
-                                  setStsShowOverview(false)
-                                  setActiveStsShip(idx)
-                                }}
-                                onMouseEnter={() =>
-                                  setHoveredRosterId(`${sid}-${idx}`)
-                                }
-                                onMouseLeave={() => setHoveredRosterId(null)}
                                 style={{
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: 10,
-                                  padding: '10px 12px',
-                                  borderRadius: 6,
-                                  border: `1px solid ${
-                                    isHovered ? '#006CD7' : '#393C56'
-                                  }`,
-                                  background: isHovered
-                                    ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
-                                    : '#24263C',
-                                  cursor: 'pointer',
-                                  transition:
-                                    'background 140ms ease, border-color 140ms ease',
+                                  gap: 8,
                                 }}
                               >
-                                <Box
-                                  style={{
-                                    width: 22,
-                                    height: 22,
-                                    borderRadius: '50%',
-                                    background: m.attributed
-                                      ? '#006CD7'
-                                      : '#F75349',
-                                    color: '#fff',
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {idx + 1}
-                                </Box>
-                                <Box style={{ flex: 1, minWidth: 0 }}>
-                                  <Box
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 8,
-                                    }}
-                                  >
-                                    <Text
-                                      style={{
-                                        color: '#fff',
-                                        fontSize: 14,
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      {m.name}
-                                    </Text>
-                                    {m.flag && (
-                                      <Text style={{ fontSize: 15 }}>
-                                        {m.flag}
-                                      </Text>
-                                    )}
-                                  </Box>
-                                  <Text
-                                    style={{ color: '#8B90A5', fontSize: 11 }}
-                                  >
-                                    {stsVersion === 'v9' ||
-                                    stsVersion === 'v10' ||
-                                    stsVersion === 'v11' ||
-                                    stsVersion === 'v12'
-                                      ? idx === 0
-                                        ? 'Vessel of interest'
-                                        : `${ships[list[0]]?.name || 'Vessel'} ↔ ${m.name} · ${stsTransferLabel(idx)}`
-                                      : m.attributed
-                                        ? idx === 0
-                                          ? 'Vessel of interest'
-                                          : 'Attributed'
-                                        : 'Unattributed'}
-                                  </Text>
-                                </Box>
                                 <Text
                                   style={{
                                     color: '#fff',
-                                    fontSize: 12,
+                                    fontSize: 14,
                                     fontWeight: 600,
                                   }}
                                 >
-                                  View →
+                                  {m.name}
                                 </Text>
+                                {m.flag && (
+                                  <Text style={{ fontSize: 15 }}>{m.flag}</Text>
+                                )}
                               </Box>
-                            )
-                          })}
-                        </Box>
-                      )}
+                              <Text style={{ color: '#8B90A5', fontSize: 11 }}>
+                                {stsVersion === 'v9' ||
+                                stsVersion === 'v10' ||
+                                stsVersion === 'v11' ||
+                                stsVersion === 'v12'
+                                  ? idx === 0
+                                    ? 'Vessel of interest'
+                                    : `${ships[list[0]]?.name || 'Vessel'} ↔ ${m.name} · ${stsTransferLabel(idx)}`
+                                  : m.attributed
+                                    ? idx === 0
+                                      ? 'Vessel of interest'
+                                      : 'Attributed'
+                                    : 'Unattributed'}
+                              </Text>
+                            </Box>
+                            <Text
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: 600,
+                              }}
+                            >
+                              View →
+                            </Text>
+                          </Box>
+                        )
+                      })}
+                    </Box>
+                  )}
                 </Box>
               )
             })()}
           {(stsVersion !== 'v4' || stsListDrilledIn) && !stsOverviewActive && (
             <>
-          {stsVersion === 'v4' && stsListDrilledIn && (
-            <Box
-              onClick={() => setStsListDrilledIn(false)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '12px 20px 0 20px',
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
-              <Text
-                style={{ color: '#0094FF', fontSize: 16, fontWeight: 600 }}
-              >
-                ←
-              </Text>
-              <Text
-                style={{ color: '#0094FF', fontSize: 13, fontWeight: 600 }}
-              >
-                Back to transfer summary
-              </Text>
-            </Box>
-          )}
-          {stsVersion === 'v9' && stsUsesOverview && !stsShowOverview && (
-            <Box
-              onClick={() => setStsShowOverview(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '12px 20px 0 20px',
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
-              <Text
-                style={{ color: '#0094FF', fontSize: 16, fontWeight: 600 }}
-              >
-                ←
-              </Text>
-              <Text
-                style={{ color: '#0094FF', fontSize: 13, fontWeight: 600 }}
-              >
-                {stsRosterView === 'network'
-                  ? 'Back to transfer network'
-                  : 'Back to vessels in event'}
-              </Text>
-            </Box>
-          )}
-          <Box
-            ref={topSectionRef}
-            style={{
-              padding: isTopSummaryCollapsed
-                ? `${isStsTab && (stsVersion === 'v10' || stsVersion === 'v11' || stsVersion === 'v12' || stsVersion === 'v13' || stsVersion === 'v16' || stsVersion === 'v17') ? 12 : 20}px 20px 8px 20px`
-                : `${isStsTab && (stsVersion === 'v10' || stsVersion === 'v11' || stsVersion === 'v12' || stsVersion === 'v13' || stsVersion === 'v16' || stsVersion === 'v17') ? 12 : 20}px 20px 20px 20px`,
-              flexShrink: 0,
-              ...(topSectionHeight != null
-                ? { height: topSectionHeight, overflowY: 'auto' }
-                : {}),
-            }}
-          >
-            <Box
-              ref={topSummaryHeaderRef}
-              style={{ display: 'flex', marginBottom: '16px' }}
-            >
-              <Box
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  gap: 2,
-                }}
-              >
+              {stsVersion === 'v4' && stsListDrilledIn && (
                 <Box
+                  onClick={() => setStsListDrilledIn(false)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 8,
+                    gap: 6,
+                    padding: '12px 20px 0 20px',
+                    cursor: 'pointer',
+                    flexShrink: 0,
                   }}
                 >
-                  <Title order={4} style={{ color: 'white' }}>
-                    {activeShip.name}
-                  </Title>
-                  {activeShip.flag && (
-                    <Text style={{ fontSize: 18 }}>{activeShip.flag}</Text>
-                  )}
+                  <Text
+                    style={{ color: '#0094FF', fontSize: 16, fontWeight: 600 }}
+                  >
+                    ←
+                  </Text>
+                  <Text
+                    style={{ color: '#0094FF', fontSize: 13, fontWeight: 600 }}
+                  >
+                    Back to transfer summary
+                  </Text>
                 </Box>
-                {(shouldShowLastKnownLocationButton || showSanctionedTitle) && (
+              )}
+              {stsVersion === 'v9' && stsUsesOverview && !stsShowOverview && (
+                <Box
+                  onClick={() => setStsShowOverview(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '12px 20px 0 20px',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Text
+                    style={{ color: '#0094FF', fontSize: 16, fontWeight: 600 }}
+                  >
+                    ←
+                  </Text>
+                  <Text
+                    style={{ color: '#0094FF', fontSize: 13, fontWeight: 600 }}
+                  >
+                    {stsRosterView === 'network'
+                      ? 'Back to transfer network'
+                      : 'Back to vessels in event'}
+                  </Text>
+                </Box>
+              )}
+              <Box
+                ref={topSectionRef}
+                style={{
+                  padding: isTopSummaryCollapsed
+                    ? `${isStsTab && (stsVersion === 'v10' || stsVersion === 'v11' || stsVersion === 'v12' || stsVersion === 'v13' || stsVersion === 'v16' || stsVersion === 'v17') ? 12 : 20}px 20px 8px 20px`
+                    : `${isStsTab && (stsVersion === 'v10' || stsVersion === 'v11' || stsVersion === 'v12' || stsVersion === 'v13' || stsVersion === 'v16' || stsVersion === 'v17') ? 12 : 20}px 20px 20px 20px`,
+                  flexShrink: 0,
+                  ...(topSectionHeight != null
+                    ? { height: topSectionHeight, overflowY: 'auto' }
+                    : {}),
+                }}
+              >
+                <Box
+                  ref={topSummaryHeaderRef}
+                  style={{ display: 'flex', marginBottom: '16px' }}
+                >
+                  <Box
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      gap: 2,
+                    }}
+                  >
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <Title order={4} style={{ color: 'white' }}>
+                        {activeShip.name}
+                      </Title>
+                      {activeShip.flag && (
+                        <Text style={{ fontSize: 18 }}>{activeShip.flag}</Text>
+                      )}
+                    </Box>
+                    {(shouldShowLastKnownLocationButton ||
+                      showSanctionedTitle) && (
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          marginTop: 2,
+                        }}
+                      >
+                        {shouldShowLastKnownLocationButton && (
+                          <Tooltip
+                            withArrow
+                            arrowSize={10}
+                            openDelay={150}
+                            position="right"
+                            offset={10}
+                            color="#000"
+                            label={
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 8,
+                                }}
+                              >
+                                <KeyValuePair
+                                  keyName="Last Known Location Event"
+                                  value={
+                                    hasPendingNewLastKnownData ? (
+                                      <Box
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 6,
+                                        }}
+                                      >
+                                        <Text
+                                          style={{
+                                            color: '#fff',
+                                            fontSize: 12,
+                                          }}
+                                        >
+                                          {eventLabel[
+                                            hoverLastKnownDetection?.type
+                                          ] ||
+                                            hoverLastKnownDetection?.type ||
+                                            'Unknown'}
+                                        </Text>
+                                        <Text
+                                          style={{
+                                            color: '#00EB6C',
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                          }}
+                                        >
+                                          (New)
+                                        </Text>
+                                      </Box>
+                                    ) : (
+                                      eventLabel[
+                                        hoverLastKnownDetection?.type
+                                      ] ||
+                                      hoverLastKnownDetection?.type ||
+                                      'Unknown'
+                                    )
+                                  }
+                                />
+                                <KeyValuePair
+                                  keyName="Reported Time"
+                                  value={
+                                    hoverLastKnownDetection?.date || 'No info'
+                                  }
+                                />
+                              </Box>
+                            }
+                            styles={{
+                              tooltip: {
+                                color: '#fff',
+                                borderRadius: 8,
+                                padding: '10px 12px',
+                                maxWidth: 240,
+                              },
+                            }}
+                          >
+                            <Box
+                              onClick={handleShowLastKnownLocation}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <MarkerPin01
+                                style={{
+                                  width: 14,
+                                  height: 14,
+                                  color: '#0094FF',
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Text
+                                style={{
+                                  color: '#0094FF',
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  lineHeight: 1.2,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                Show last known location
+                              </Text>
+                              {hasPendingNewLastKnownData && (
+                                <Box
+                                  style={{
+                                    width: 7,
+                                    height: 7,
+                                    marginLeft: 4,
+                                    borderRadius: 999,
+                                    background: isNewLastKnownDotFlashOn
+                                      ? '#00EB6C'
+                                      : 'rgba(0, 235, 108, 0.28)',
+                                    boxShadow: isNewLastKnownDotFlashOn
+                                      ? '0 0 0 2px rgba(0, 235, 108, 0.2)'
+                                      : 'none',
+                                    flexShrink: 0,
+                                    transition: 'all 160ms ease',
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          </Tooltip>
+                        )}
+                        {showSanctionedTitle && (
+                          <>
+                            {shouldShowLastKnownLocationButton && (
+                              <Box
+                                style={{
+                                  width: 1,
+                                  height: 12,
+                                  background: '#393C56',
+                                  flexShrink: 0,
+                                }}
+                              />
+                            )}
+                            <img
+                              src={sanctionedTitle}
+                              alt="Sanctioned"
+                              style={{
+                                height: 12,
+                                width: 'auto',
+                                display: 'block',
+                                flexShrink: 0,
+                              }}
+                            />
+                          </>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                  <Box style={{ flex: 1 }}></Box>
                   <Box
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 10,
-                      marginTop: 2,
+                      gap: 16,
                     }}
                   >
-                    {shouldShowLastKnownLocationButton && (
-                      <Tooltip
-                        withArrow
-                        arrowSize={10}
-                        openDelay={150}
-                        position="right"
-                        offset={10}
-                        color="#000"
-                        label={
-                          <Box
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 8,
-                            }}
-                          >
-                            <KeyValuePair
-                              keyName="Last Known Location Event"
-                              value={
-                                hasPendingNewLastKnownData ? (
-                                  <Box
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 6,
-                                    }}
-                                  >
-                                    <Text
-                                      style={{ color: '#fff', fontSize: 12 }}
-                                    >
-                                      {eventLabel[
-                                        hoverLastKnownDetection?.type
-                                      ] ||
-                                        hoverLastKnownDetection?.type ||
-                                        'Unknown'}
-                                    </Text>
-                                    <Text
-                                      style={{
-                                        color: '#00EB6C',
-                                        fontSize: 12,
-                                        fontWeight: 700,
-                                      }}
-                                    >
-                                      (New)
-                                    </Text>
-                                  </Box>
-                                ) : (
-                                  eventLabel[hoverLastKnownDetection?.type] ||
-                                  hoverLastKnownDetection?.type ||
-                                  'Unknown'
-                                )
-                              }
-                            />
-                            <KeyValuePair
-                              keyName="Reported Time"
-                              value={hoverLastKnownDetection?.date || 'No info'}
-                            />
-                          </Box>
-                        }
-                        styles={{
-                          tooltip: {
-                            color: '#fff',
-                            borderRadius: 8,
-                            padding: '10px 12px',
-                            maxWidth: 240,
-                          },
-                        }}
-                      >
-                        <Box
-                          onClick={handleShowLastKnownLocation}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <MarkerPin01
-                            style={{
-                              width: 14,
-                              height: 14,
-                              color: '#0094FF',
-                              flexShrink: 0,
-                            }}
-                          />
-                          <Text
-                            style={{
-                              color: '#0094FF',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              lineHeight: 1.2,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Show last known location
-                          </Text>
-                          {hasPendingNewLastKnownData && (
-                            <Box
-                              style={{
-                                width: 7,
-                                height: 7,
-                                marginLeft: 4,
-                                borderRadius: 999,
-                                background: isNewLastKnownDotFlashOn
-                                  ? '#00EB6C'
-                                  : 'rgba(0, 235, 108, 0.28)',
-                                boxShadow: isNewLastKnownDotFlashOn
-                                  ? '0 0 0 2px rgba(0, 235, 108, 0.2)'
-                                  : 'none',
-                                flexShrink: 0,
-                                transition: 'all 160ms ease',
-                              }}
-                            />
-                          )}
-                        </Box>
-                      </Tooltip>
-                    )}
-                    {showSanctionedTitle && (
-                      <>
-                        {shouldShowLastKnownLocationButton && (
-                          <Box
-                            style={{
-                              width: 1,
-                              height: 12,
-                              background: '#393C56',
-                              flexShrink: 0,
-                            }}
-                          />
-                        )}
-                        <img
-                          src={sanctionedTitle}
-                          alt="Sanctioned"
-                          style={{
-                            height: 12,
-                            width: 'auto',
-                            display: 'block',
-                            flexShrink: 0,
-                          }}
-                        />
-                      </>
-                    )}
-                  </Box>
-                )}
-              </Box>
-              <Box style={{ flex: 1 }}></Box>
-              <Box
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 16,
-                }}
-              >
-                {/* Temporarily hidden until Add ship notes feature is implemented. */}
-                {/*
+                    {/* Temporarily hidden until Add ship notes feature is implemented. */}
+                    {/*
                 <Tooltip label="Add ship notes" withArrow openDelay={200}>
                   <Box
                     onMouseEnter={() => setHoveredTopAction('note')}
@@ -4676,7 +4712,7 @@ function Myships() {
                   </Box>
                 </Tooltip>
                 */}
-                {/*
+                    {/*
                 <Tooltip label="Create alert" withArrow openDelay={200}>
                   <Box
                     onMouseEnter={() => setHoveredTopAction('alert')}
@@ -4701,1749 +4737,1807 @@ function Myships() {
                   </Box>
                 </Tooltip>
                 */}
-                <Tooltip
-                  label={
-                    isBookmarkVersion
-                      ? isBookmarkProto
-                        ? 'Bookmark'
-                        : 'Favorite'
-                      : isActiveShipFavorite
-                        ? 'Remove from My Ships'
-                        : 'Add to My Ships'
-                  }
-                  withArrow
-                  openDelay={200}
-                  styles={{
-                    tooltip: {
-                      backgroundColor: '#000',
-                      color: '#fff',
-                      border: '1px solid #000',
-                    },
-                    arrow: {
-                      backgroundColor: '#000',
-                      border: '1px solid #000',
-                    },
-                  }}
-                >
-                  <Box
-                    onClick={() => {
-                      if (activeShip?.id) toggleFavoriteShip(activeShip.id)
-                    }}
-                    onMouseEnter={() => setHoveredTopAction('favorite')}
-                    onMouseLeave={() => setHoveredTopAction(null)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 28,
-                      height: 28,
-                      borderRadius: 4,
-                      cursor: 'pointer',
-                      background:
-                        hoveredTopAction === 'favorite'
-                          ? '#24263C'
-                          : 'transparent',
-                    }}
-                  >
-                    {isBookmarkProto ? (
-                      <Bookmark
-                        style={{
-                          color: isActiveShipFavorite ? '#0094FF' : '#fff',
-                          fill: isActiveShipFavorite ? '#0094FF' : 'none',
-                          width: 20,
-                          height: 20,
-                        }}
-                      />
-                    ) : (
-                      <Star01
-                        style={{
-                          color: isActiveShipFavorite ? '#F7C948' : '#fff',
-                          fill: isActiveShipFavorite ? '#F7C948' : 'none',
-                          width: 20,
-                          height: 20,
-                        }}
-                      />
-                    )}
-                  </Box>
-                </Tooltip>
-                <Tooltip
-                  label="Expand/collapse"
-                  withArrow
-                  openDelay={200}
-                  styles={{
-                    tooltip: {
-                      backgroundColor: '#000',
-                      color: '#fff',
-                      border: '1px solid #000',
-                    },
-                    arrow: {
-                      backgroundColor: '#000',
-                      border: '1px solid #000',
-                    },
-                  }}
-                >
-                  <Box
-                    onClick={handleTopSummaryToggle}
-                    onMouseEnter={() => setHoveredTopAction('resize')}
-                    onMouseLeave={() => setHoveredTopAction(null)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 28,
-                      height: 28,
-                      borderRadius: 4,
-                      cursor: 'pointer',
-                      background: isTopSummaryCollapsed
-                        ? '#006CD7'
-                        : hoveredTopAction === 'resize'
-                          ? '#24263C'
-                          : 'transparent',
-                    }}
-                  >
-                    <EnlargeVerticalIcon
-                      width={26}
-                      height={26}
-                      style={{
-                        color: '#fff',
-                      }}
-                    />
-                  </Box>
-                </Tooltip>
-              </Box>
-            </Box>
-            {!isTopSummaryCollapsed && (
-              <>
-                <Box
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'max-content max-content minmax(0, 1fr)',
-                    columnGap: '16px',
-                    marginBottom: '16px',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <Box
-                    onMouseEnter={() => setHoveredCopyField('imo')}
-                    onMouseLeave={() => setHoveredCopyField(null)}
-                  >
-                    <Text style={{ color: '#888F9E', fontSize: '10px' }}>
-                      IMO
-                    </Text>
-                    <Box
-                      onClick={() => {
-                        if (canCopyImo)
-                          handleCopyToClipboard(activeShip.imo, 'imo')
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
-                        cursor: canCopyImo ? 'pointer' : 'default',
-                      }}
-                    >
-                      <Text
-                        size="xs"
-                        style={{
-                          color: 'white',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          minWidth: 0,
-                        }}
-                        title={activeShip.imo || 'No info'}
-                      >
-                        {activeShip.imo || 'No info'}
-                      </Text>
-                      {canCopyImo && (
-                        <Tooltip
-                          label={copiedField === 'imo' ? 'Copied!' : 'Copy IMO'}
-                          withArrow
-                          color="#393C56"
-                          opened={
-                            hoveredCopyField === 'imo' || copiedField === 'imo'
-                          }
-                          styles={{
-                            tooltip: {
-                              color: '#fff',
-                              fontSize: 12,
-                              fontWeight: 600,
-                            },
-                          }}
-                        >
-                          <Box
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: 18,
-                              height: 18,
-                              color: copiedField === 'imo' ? '#fff' : '#0094ff',
-                              cursor:
-                                hoveredCopyField === 'imo' ||
-                                copiedField === 'imo'
-                                  ? 'pointer'
-                                  : 'default',
-                              flexShrink: 0,
-                              transform:
-                                copiedField === 'imo'
-                                  ? 'scale(1.12)'
-                                  : 'scale(1)',
-                              transition:
-                                'transform 140ms ease, color 140ms ease, opacity 140ms ease',
-                              borderRadius: 999,
-                              background: 'transparent',
-                              opacity:
-                                hoveredCopyField === 'imo' ||
-                                copiedField === 'imo'
-                                  ? 1
-                                  : 0,
-                              pointerEvents:
-                                hoveredCopyField === 'imo' ||
-                                copiedField === 'imo'
-                                  ? 'auto'
-                                  : 'none',
-                            }}
-                          >
-                            <Copy02
-                              style={{
-                                width: 14,
-                                height: 14,
-                                color:
-                                  copiedField === 'imo' ? '#fff' : '#0094ff',
-                              }}
-                            />
-                          </Box>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Box>
-                  <Box
-                    onMouseEnter={() => setHoveredCopyField('mmsi')}
-                    onMouseLeave={() => setHoveredCopyField(null)}
-                  >
-                    <Text style={{ color: '#888F9E', fontSize: '10px' }}>
-                      MMSI
-                    </Text>
-                    <Box
-                      onClick={() => {
-                        if (canCopyMmsi)
-                          handleCopyToClipboard(activeShip.mmsi, 'mmsi')
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
-                        cursor: canCopyMmsi ? 'pointer' : 'default',
-                      }}
-                    >
-                      <Text
-                        size="xs"
-                        style={{
-                          color: 'white',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          minWidth: 0,
-                        }}
-                        title={activeShip.mmsi || 'No info'}
-                      >
-                        {activeShip.mmsi || 'No info'}
-                      </Text>
-                      {canCopyMmsi && (
-                        <Tooltip
-                          label={
-                            copiedField === 'mmsi' ? 'Copied!' : 'Copy MMSI'
-                          }
-                          withArrow
-                          color="#393C56"
-                          opened={
-                            hoveredCopyField === 'mmsi' ||
-                            copiedField === 'mmsi'
-                          }
-                          styles={{
-                            tooltip: {
-                              color: '#fff',
-                              fontSize: 12,
-                              fontWeight: 600,
-                            },
-                          }}
-                        >
-                          <Box
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: 18,
-                              height: 18,
-                              color:
-                                copiedField === 'mmsi' ? '#fff' : '#0094ff',
-                              cursor:
-                                hoveredCopyField === 'mmsi' ||
-                                copiedField === 'mmsi'
-                                  ? 'pointer'
-                                  : 'default',
-                              flexShrink: 0,
-                              transform:
-                                copiedField === 'mmsi'
-                                  ? 'scale(1.12)'
-                                  : 'scale(1)',
-                              transition:
-                                'transform 140ms ease, color 140ms ease, opacity 140ms ease',
-                              borderRadius: 999,
-                              background: 'transparent',
-                              opacity:
-                                hoveredCopyField === 'mmsi' ||
-                                copiedField === 'mmsi'
-                                  ? 1
-                                  : 0,
-                              pointerEvents:
-                                hoveredCopyField === 'mmsi' ||
-                                copiedField === 'mmsi'
-                                  ? 'auto'
-                                  : 'none',
-                            }}
-                          >
-                            <Copy02
-                              style={{
-                                width: 14,
-                                height: 14,
-                                color:
-                                  copiedField === 'mmsi' ? '#fff' : '#0094ff',
-                              }}
-                            />
-                          </Box>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Box>
-                  <Box
-                    onMouseEnter={() => setHoveredCopyField('shipId')}
-                    onMouseLeave={() => setHoveredCopyField(null)}
-                  >
-                    <Text style={{ color: '#888F9E', fontSize: '10px' }}>
-                      SynMax Ship ID
-                    </Text>
-                    <Box
-                      onClick={() => {
-                        if (canCopyShipId)
-                          handleCopyToClipboard(activeShip.shipId, 'shipId')
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        cursor: canCopyShipId ? 'pointer' : 'default',
+                    <Tooltip
+                      label={
+                        isBookmarkVersion
+                          ? isBookmarkProto
+                            ? 'Bookmark'
+                            : 'Favorite'
+                          : isActiveShipFavorite
+                            ? 'Remove from My Ships'
+                            : 'Add to My Ships'
+                      }
+                      withArrow
+                      openDelay={200}
+                      styles={{
+                        tooltip: {
+                          backgroundColor: '#000',
+                          color: '#fff',
+                          border: '1px solid #000',
+                        },
+                        arrow: {
+                          backgroundColor: '#000',
+                          border: '1px solid #000',
+                        },
                       }}
                     >
                       <Box
-                        title={activeShip.shipId || 'No info'}
-                        style={{
-                          color: 'white',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 0,
-                          fontSize: 11,
-                          whiteSpace: 'nowrap',
-                          overflow: 'visible',
+                        onClick={() => {
+                          if (activeShip?.id) toggleFavoriteShip(activeShip.id)
                         }}
-                      >
-                        {activeShip.shipId ? (
-                          <Box
-                            component="span"
-                            style={{
-                              display: 'inline-block',
-                            }}
-                          >
-                            {activeShip.shipId}
-                          </Box>
-                        ) : (
-                          'No info'
-                        )}
-                      </Box>
-                      {canCopyShipId && (
-                        <Tooltip
-                          label={
-                            copiedField === 'shipId'
-                              ? 'Copied!'
-                              : 'Copy SynMax Ship Id'
-                          }
-                          withArrow
-                          color="#393C56"
-                          opened={
-                            hoveredCopyField === 'shipId' ||
-                            copiedField === 'shipId'
-                          }
-                          styles={{
-                            tooltip: {
-                              color: '#fff',
-                              fontSize: 12,
-                              fontWeight: 600,
-                            },
-                          }}
-                        >
-                          <Box
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: 18,
-                              height: 18,
-                              color:
-                                copiedField === 'shipId' ? '#fff' : '#0094ff',
-                              cursor:
-                                hoveredCopyField === 'shipId' ||
-                                copiedField === 'shipId'
-                                  ? 'pointer'
-                                  : 'default',
-                              flexShrink: 0,
-                              transform:
-                                copiedField === 'shipId'
-                                  ? 'scale(1.12)'
-                                  : 'scale(1)',
-                              transition:
-                                'transform 140ms ease, color 140ms ease, opacity 140ms ease',
-                              borderRadius: 999,
-                              background: 'transparent',
-                              opacity:
-                                hoveredCopyField === 'shipId' ||
-                                copiedField === 'shipId'
-                                  ? 1
-                                  : 0,
-                              pointerEvents:
-                                hoveredCopyField === 'shipId' ||
-                                copiedField === 'shipId'
-                                  ? 'auto'
-                                  : 'none',
-                            }}
-                          >
-                            <Copy02
-                              style={{
-                                width: 14,
-                                height: 14,
-                                color:
-                                  copiedField === 'shipId' ? '#fff' : '#0094ff',
-                              }}
-                            />
-                          </Box>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Box>
-                </Box>
-                {shouldShowNewAisDetailsRow && (
-                  <Box
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns:
-                        'max-content max-content minmax(0, 1fr)',
-                      columnGap: '16px',
-                      marginBottom: '16px',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <Box style={{ minWidth: 183 }}>
-                      <KeyValuePair
-                        keyName="Latest Speed"
-                        value={activeShip?.aisInfo?.latestSpeed || 'No info'}
-                      />
-                    </Box>
-                    <Box style={{ minWidth: 0 }}>
-                      <KeyValuePair
-                        keyName="Destination"
-                        value={activeShip?.aisInfo?.destination || 'No info'}
-                      />
-                    </Box>
-                  </Box>
-                )}
-                {!isUnattributed && (
-                  <ShipDetailsPanel
-                    selectedEvent={selectedDetection}
-                    isLatest={isLatest}
-                    eventLabel={eventLabel[selectedDetection?.type] || ''}
-                    eventIconOverride={selectedStsIcon}
-                    flashEnabled={flashEnabled}
-                    onToolsVisibleChange={setDetailToolsVisible}
-                    onToolAction={handleShipToolAction}
-                    activeToolIds={activeMapToolPanels}
-                  />
-                )}
-              </>
-            )}
-          </Box>
-          {isUnattributed ? (
-            <>
-              <Box style={{ flexShrink: 0, padding: '20px 20px 0 20px' }}>
-                <ShipDetailsPanel
-                  selectedEvent={selectedDetection}
-                  isLatest
-                  eventLabel={
-                    isStsUnattributed
-                      ? 'Unattributed'
-                      : eventLabel[selectedDetection?.type] || ''
-                  }
-                  flashEnabled={false}
-                  unattributed
-                  onToolsVisibleChange={setDetailToolsVisible}
-                  onToolAction={handleShipToolAction}
-                  activeToolIds={activeMapToolPanels}
-                />
-              </Box>
-              <Box
-                className="no-scrollbar"
-                style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  padding: '8px 20px 20px 20px',
-                }}
-              >
-                <EventTimelineCard
-                  date={latestDetection?.date}
-                  event={
-                    isStsUnattributed
-                      ? 'Unattributed'
-                      : eventLabel[selectedDetection?.type] ||
-                        selectedDetection?.type
-                  }
-                  icon={<UnattributedIcon style={{ height: 14 }} />}
-                  selected
-                  onSelect={() => {}}
-                  aisInfo={{}}
-                  synMaxInfo={
-                    activeShip.synMaxInfo ||
-                    (isStsUnattributed
-                      ? {
-                          objectId: 'N/A',
-                          imageCapturedTime: latestDetection?.date || 'No info',
-                          imageSource: 'Planet Scope',
-                          status: 'Preview',
-                          latitude: activeShip.aisInfo?.latitude || 'No info',
-                          longitude: activeShip.aisInfo?.longitude || 'No info',
-                          heading: activeShip.aisInfo?.heading || 'No info',
-                          shipLength: activeShip.aisInfo?.length || 'No info',
-                          shipWidth: activeShip.aisInfo?.width || 'No info',
-                          shipType: activeShip.aisInfo?.shipType || 'No info',
-                          shipSubtype: 'Unassigned',
-                        }
-                      : undefined)
-                  }
-                />
-              </Box>
-            </>
-          ) : (
-            <>
-              <Box
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  borderBottom: '1px solid #393C56',
-                  flexShrink: 0,
-                }}
-              >
-                {detailTabsOverflowLeft && (
-                  <Box
-                    onClick={() =>
-                      detailTabScrollRef.current?.scrollBy({
-                        left: -140,
-                        behavior: 'smooth',
-                      })
-                    }
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 30,
-                      height: 50,
-                      cursor: 'pointer',
-                      background: '#181926',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <ChevronDown
-                      style={{
-                        color: '#898f9d',
-                        width: 14,
-                        height: 14,
-                        transform: 'rotate(90deg)',
-                      }}
-                    />
-                  </Box>
-                )}
-                <Box
-                  style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
-                >
-                  <Box
-                    ref={detailTabScrollRef}
-                    className="tab-row-scroll"
-                    style={{
-                      display: 'flex',
-                      overflowX: 'auto',
-                      overflowY: 'hidden',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {detailTabs.map((tab, i) => (
-                      <Box
-                        key={tab}
-                        ref={(node) => {
-                          if (node) {
-                            detailTabButtonRefs.current[i] = node
-                          } else {
-                            delete detailTabButtonRefs.current[i]
-                          }
-                        }}
-                        onClick={() => handleDetailTabClick(tab, i)}
+                        onMouseEnter={() => setHoveredTopAction('favorite')}
+                        onMouseLeave={() => setHoveredTopAction(null)}
                         style={{
-                          flex: '0 0 auto',
-                          height: 50,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          padding: '0 18px',
-                          textAlign: 'center',
+                          width: 28,
+                          height: 28,
+                          borderRadius: 4,
                           cursor: 'pointer',
-                          borderBottom:
-                            activeDetailTab === i
-                              ? '2px solid #fff'
-                              : '2px solid transparent',
+                          background:
+                            hoveredTopAction === 'favorite'
+                              ? '#24263C'
+                              : 'transparent',
                         }}
                       >
-                        <Text
+                        {isBookmarkProto ? (
+                          <Bookmark
+                            style={{
+                              color: isActiveShipFavorite ? '#0094FF' : '#fff',
+                              fill: isActiveShipFavorite ? '#0094FF' : 'none',
+                              width: 20,
+                              height: 20,
+                            }}
+                          />
+                        ) : (
+                          <Star01
+                            style={{
+                              color: isActiveShipFavorite ? '#F7C948' : '#fff',
+                              fill: isActiveShipFavorite ? '#F7C948' : 'none',
+                              width: 20,
+                              height: 20,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </Tooltip>
+                    <Tooltip
+                      label="Expand/collapse"
+                      withArrow
+                      openDelay={200}
+                      styles={{
+                        tooltip: {
+                          backgroundColor: '#000',
+                          color: '#fff',
+                          border: '1px solid #000',
+                        },
+                        arrow: {
+                          backgroundColor: '#000',
+                          border: '1px solid #000',
+                        },
+                      }}
+                    >
+                      <Box
+                        onClick={handleTopSummaryToggle}
+                        onMouseEnter={() => setHoveredTopAction('resize')}
+                        onMouseLeave={() => setHoveredTopAction(null)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 28,
+                          height: 28,
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          background: isTopSummaryCollapsed
+                            ? '#006CD7'
+                            : hoveredTopAction === 'resize'
+                              ? '#24263C'
+                              : 'transparent',
+                        }}
+                      >
+                        <EnlargeVerticalIcon
+                          width={26}
+                          height={26}
                           style={{
                             color: '#fff',
-                            fontSize: 12,
-                            fontWeight: activeDetailTab === i ? 700 : 400,
-                            whiteSpace: 'nowrap',
                           }}
-                        >
-                          {tab}
-                        </Text>
+                        />
                       </Box>
-                    ))}
+                    </Tooltip>
                   </Box>
                 </Box>
-                {detailTabsOverflowRight && (
-                  <Box
-                    onClick={() =>
-                      detailTabScrollRef.current?.scrollBy({
-                        left: 140,
-                        behavior: 'smooth',
-                      })
-                    }
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 30,
-                      height: 50,
-                      cursor: 'pointer',
-                      background: '#181926',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <ChevronDown
-                      style={{
-                        color: '#898f9d',
-                        width: 14,
-                        height: 14,
-                        transform: 'rotate(-90deg)',
-                      }}
-                    />
-                  </Box>
-                )}
-              </Box>
-              {ENABLE_TIMELINE_DRAG && (
-                <Tooltip
-                  label="Drag to resize timeline"
-                  position="bottom"
-                  withArrow
-                  openDelay={0}
-                  closeDelay={0}
-                  color="#393C56"
-                  styles={{
-                    tooltip: { color: '#fff', fontSize: 11, fontWeight: 600 },
-                  }}
-                >
-                  <Box
-                    onMouseDown={handleTimelineResizeStart}
-                    onMouseEnter={() => setIsDragHandleHovered(true)}
-                    onMouseLeave={() => setIsDragHandleHovered(false)}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      height: 10,
-                      flexShrink: 0,
-                      cursor: 'ns-resize',
-                      background: 'transparent',
-                      position: 'relative',
-                    }}
-                  >
+                {!isTopSummaryCollapsed && (
+                  <>
                     <Box
                       style={{
-                        width:
-                          isResizingTimeline || isDragHandleHovered ? 54 : 42,
-                        height: 3,
-                        borderRadius: 999,
-                        background:
-                          isResizingTimeline || isDragHandleHovered
-                            ? '#5C6270'
-                            : 'rgba(92, 98, 112, 0.45)',
-                        transition: 'all 120ms ease',
-                      }}
-                    />
-                  </Box>
-                </Tooltip>
-              )}
-              <Box
-                ref={scrollContainerRef}
-                style={{ flex: 1, overflowY: 'auto' }}
-              >
-                {activeDetailTab === 0 && (
-                  <Box
-                    style={{
-                      padding: '8px 20px 20px 20px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 0,
-                    }}
-                  >
-                    <Box
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        width: '100%',
-                        gap: 16,
-                        marginBottom: 0,
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 5,
-                        background: '#181926',
-                        padding: '8px 0 8px 0',
+                        display: 'grid',
+                        gridTemplateColumns:
+                          'max-content max-content minmax(0, 1fr)',
+                        columnGap: '16px',
+                        marginBottom: '16px',
+                        alignItems: 'flex-start',
                       }}
                     >
-                      <Menu
-                        withinPortal
-                        position="top-start"
-                        middlewares={{ flip: false, shift: true }}
-                        offset={6}
-                        opened={timelineTimeMenuOpened}
-                        onChange={setTimelineTimeMenuOpened}
-                      >
-                        <Menu.Target>
-                          <Box
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              cursor: 'pointer',
-                              userSelect: 'none',
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: '#FFFFFF',
-                                fontSize: 10,
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {`Date: ${timelineTimeFilterLabel}`}
-                            </Text>
-                            <ChevronDown
-                              style={{
-                                width: 16,
-                                height: 16,
-                                color: '#FFFFFF',
-                                transform: timelineTimeMenuOpened
-                                  ? 'rotate(180deg)'
-                                  : 'rotate(0deg)',
-                                transition: 'transform 140ms ease',
-                              }}
-                            />
-                          </Box>
-                        </Menu.Target>
-                        <Menu.Dropdown
-                          styles={{
-                            dropdown: {
-                              background: '#1B1D2E',
-                              border: '1px solid #393C56',
-                              minWidth: 170,
-                              padding: 0,
-                            },
-                          }}
-                        >
-                          {TIMELINE_TIME_FILTER_OPTIONS.map((option) => (
-                            <Menu.Item
-                              key={option.value}
-                              onClick={() => {
-                                updateTabState(
-                                  'timelineTimeFilter',
-                                  option.value
-                                )
-                                setTimelineTimeMenuOpened(false)
-                              }}
-                              styles={{
-                                item: {
-                                  color: '#fff',
-                                  fontSize: 12,
-                                  fontWeight:
-                                    timelineTimeFilter === option.value
-                                      ? 700
-                                      : 500,
-                                  padding: '12px 16px',
-                                  background:
-                                    timelineTimeFilter === option.value
-                                      ? '#393C56'
-                                      : 'transparent',
-                                  borderRadius: 0,
-                                },
-                                itemLabel: { color: '#fff' },
-                              }}
-                            >
-                              {option.label}
-                            </Menu.Item>
-                          ))}
-                        </Menu.Dropdown>
-                      </Menu>
-                      <Menu
-                        withinPortal
-                        position="top-start"
-                        middlewares={{ flip: false, shift: true }}
-                        offset={6}
-                        opened={timelineEventTypeMenuOpened}
-                        onChange={setTimelineEventTypeMenuOpened}
-                      >
-                        <Menu.Target>
-                          <Box
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              cursor: 'pointer',
-                              userSelect: 'none',
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: '#FFFFFF',
-                                fontSize: 10,
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {`Event type: ${timelineEventTypeDisplayLabel}`}
-                            </Text>
-                            <ChevronDown
-                              style={{
-                                width: 16,
-                                height: 16,
-                                color: '#FFFFFF',
-                                transform: timelineEventTypeMenuOpened
-                                  ? 'rotate(180deg)'
-                                  : 'rotate(0deg)',
-                                transition: 'transform 140ms ease',
-                              }}
-                            />
-                          </Box>
-                        </Menu.Target>
-                        <Menu.Dropdown
-                          styles={{
-                            dropdown: {
-                              background: '#1B1D2E',
-                              border: '1px solid #393C56',
-                              minWidth: 170,
-                              padding: 0,
-                            },
-                          }}
-                        >
-                          {TIMELINE_EVENT_TYPE_FILTER_OPTIONS.map((option) => (
-                            <Menu.Item
-                              key={option.value}
-                              onClick={() => {
-                                updateTabState(
-                                  'timelineEventTypeFilter',
-                                  option.value
-                                )
-                                setTimelineEventTypeMenuOpened(false)
-                              }}
-                              styles={{
-                                item: {
-                                  color: '#fff',
-                                  fontSize: 12,
-                                  fontWeight:
-                                    timelineEventTypeFilter === option.value
-                                      ? 700
-                                      : 500,
-                                  padding: '12px 16px',
-                                  background:
-                                    timelineEventTypeFilter === option.value
-                                      ? '#393C56'
-                                      : 'transparent',
-                                  borderRadius: 0,
-                                },
-                                itemLabel: { color: '#fff' },
-                              }}
-                            >
-                              {option.label}
-                            </Menu.Item>
-                          ))}
-                        </Menu.Dropdown>
-                      </Menu>
                       <Box
-                        onClick={() =>
-                          setTimelineSortByTab((prev) => ({
-                            ...prev,
-                            [activeShipTab]:
-                              (prev[activeShipTab] ?? 'desc') === 'desc'
-                                ? 'asc'
-                                : 'desc',
-                          }))
-                        }
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                        }}
+                        onMouseEnter={() => setHoveredCopyField('imo')}
+                        onMouseLeave={() => setHoveredCopyField(null)}
                       >
-                        <Text
-                          style={{
-                            color: '#FFFFFF',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {timelineSortLabel}
+                        <Text style={{ color: '#888F9E', fontSize: '10px' }}>
+                          IMO
                         </Text>
-                        <ChevronDown
-                          style={{
-                            width: 16,
-                            height: 16,
-                            color: '#FFFFFF',
-                            transform:
-                              timelineSortOrder === 'asc'
-                                ? 'rotate(180deg)'
-                                : 'rotate(0deg)',
-                            transition: 'transform 140ms ease',
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                    {sortedFilteredTimelineItems.map((item, index) => {
-                      const isLastTimelineItem =
-                        index === sortedFilteredTimelineItems.length - 1
-                      if (item.kind === 'context') {
-                        const contextEvent = item.event
-                        return (
-                          <Box
-                            key={contextEvent.id}
-                            style={{ marginBottom: isLastTimelineItem ? 0 : 8 }}
-                          >
-                            <EventTimelineCard
-                              date={contextEvent.dateLabel}
-                              variant={contextEvent.variant}
-                              port={contextEvent.port}
-                              status={contextEvent.status}
-                              duration={contextEvent.duration}
-                              newFlag={contextEvent.newFlag}
-                              previousFlag={contextEvent.previousFlag}
-                            />
-                          </Box>
-                        )
-                      }
-
-                      const det = item.detection
-                      const stsLightIcon = renderStsBars(
-                        getStsDetectionBarColors(det),
-                        {
-                          width: 6,
-                          height: 14,
-                          gap: 2,
-                        }
-                      )
-                      const stsAisIcon = renderStsBars(
-                        getStsDetectionBarColors(det),
-                        {
-                          width: 6,
-                          height: 14,
-                          gap: 2,
-                        }
-                      )
-                      const iconMap = {
-                        ais: <AisIcon style={{ height: 14 }} />,
-                        light: <LightShipIcon style={{ height: 14 }} />,
-                        dark: <DarkShipIcon style={{ height: 14 }} />,
-                        spoofing: <SpoofingIcon style={{ height: 14 }} />,
-                        sts: stsLightIcon,
-                        'sts-ais': stsAisIcon,
-                        unattributed: (
-                          <UnattributedIcon style={{ height: 14 }} />
-                        ),
-                      }
-                      const parsedDetDate = new Date(det.date)
-                      const detDateKey = `${parsedDetDate.getFullYear()}-${String(parsedDetDate.getMonth() + 1).padStart(2, '0')}-${String(parsedDetDate.getDate()).padStart(2, '0')}`
-                      return (
                         <Box
-                          key={det.id}
-                          ref={(el) => {
-                            cardRefs.current[det.id] = el
+                          onClick={() => {
+                            if (canCopyImo)
+                              handleCopyToClipboard(activeShip.imo, 'imo')
                           }}
-                          style={{ marginBottom: isLastTimelineItem ? 0 : 8 }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            minWidth: 0,
+                            whiteSpace: 'nowrap',
+                            cursor: canCopyImo ? 'pointer' : 'default',
+                          }}
                         >
-                          <EventTimelineCard
-                            date={det.date}
-                            event={eventLabel[det.type] || det.type}
-                            icon={iconMap[det.type]}
-                            variant={
-                              det.type === 'sts' || det.type === 'sts-ais'
-                                ? 'sts'
-                                : undefined
-                            }
-                            selected={
-                              normalizeDetectionId(selectedCard) ===
-                              normalizeDetectionId(det.id)
-                            }
-                            isPreviewed={previewCards.includes(det.id)}
-                            onTogglePreview={() => {
-                              const nextPreviewCards = previewCards.includes(
-                                det.id
-                              )
-                                ? previewCards.filter((id) => id !== det.id)
-                                : [...previewCards, det.id]
-                              updateTabState('previewCards', nextPreviewCards)
-                              // Keep "Show Details" local to the card; do not move map focus.
-                              setPreviewDetectionId(null)
-                            }}
-                            onGoToDate={
-                              detDateKey !== mapDate
-                                ? () => {
-                                    const dateLabel =
-                                      parsedDetDate.toLocaleDateString(
-                                        'en-US',
-                                        {
-                                          month: 'short',
-                                          day: 'numeric',
-                                          year: 'numeric',
-                                        }
-                                      )
-                                    requestGoToDate(
-                                      detDateKey,
-                                      det.id,
-                                      dateLabel
-                                    )
-                                  }
-                                : undefined
-                            }
-                            onSelect={() => {
-                              setFlashEnabled(true)
-                              setPreviewDetectionId(null)
-                              updateTabState('previewCards', [])
-
-                              // On STS tab, selecting a non-STS event navigates to ship tab.
-                              const shouldSwitchToShipTab =
-                                isStsTab && !det.stsPartner
-                              selectDetection(det, {
-                                source: 'timeline',
-                                allowTabSwitch: shouldSwitchToShipTab,
-                              })
-                            }}
-                            onViewStsShips={
-                              det.stsPartner
-                                ? () =>
-                                    selectDetection(det, {
-                                      source: 'timeline',
-                                      allowTabSwitch: true,
-                                    })
-                                : undefined
-                            }
-                            aisInfo={activeShip.aisInfo}
-                            partnerAisInfo={
-                              det.stsPartner
-                                ? ships[det.stsPartner]?.aisInfo
-                                : undefined
-                            }
-                            shipName={activeShip.name}
-                            partnerName={
-                              det.stsPartner
-                                ? ships[det.stsPartner]?.name
-                                : undefined
-                            }
-                            synMaxInfo={
-                              det.type === 'light' ||
-                              det.type === 'dark' ||
-                              det.type === 'spoofing'
-                                ? activeShip.synMaxInfo
-                                : undefined
-                            }
-                            detectionType={det.type}
-                            stsHeroNode={
-                              (det.type === 'sts' ||
-                                det.type === 'sts-ais') &&
-                              isStsTab &&
-                              Array.isArray(stsShipIds) &&
-                              stsShipIds.length > 1
-                                ? renderStsHero(stsShipIds, {
-                                    activeIdx: activeStsShipIndex,
-                                    height: 206,
-                                    width: 180,
-                                    marginBottom: 0,
-                                    borderRadius: 4,
-                                  })
-                                : undefined
-                            }
-                          />
-                        </Box>
-                      )
-                    })}
-                  </Box>
-                )}
-                {activeDetailTab === 1 && (
-                  <Box style={{ padding: '8px 20px 20px 20px' }}>
-                    <Box
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        width: '100%',
-                        gap: 16,
-                        marginBottom: 0,
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 5,
-                        background: '#181926',
-                        padding: '8px 0 8px 0',
-                      }}
-                    >
-                      <Menu
-                        withinPortal
-                        position="top-start"
-                        middlewares={{ flip: false, shift: true }}
-                        offset={6}
-                        opened={satTimelineTimeMenuOpened}
-                        onChange={setSatTimelineTimeMenuOpened}
-                      >
-                        <Menu.Target>
-                          <Box
+                          <Text
+                            size="xs"
                             style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              cursor: 'pointer',
-                              userSelect: 'none',
+                              color: 'white',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              minWidth: 0,
                             }}
+                            title={activeShip.imo || 'No info'}
                           >
-                            <Text
-                              style={{
-                                color: '#FFFFFF',
-                                fontSize: 10,
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {`Date: ${satTimelineTimeFilterLabel}`}
-                            </Text>
-                            <ChevronDown
-                              style={{
-                                width: 16,
-                                height: 16,
-                                color: '#FFFFFF',
-                                transform: satTimelineTimeMenuOpened
-                                  ? 'rotate(180deg)'
-                                  : 'rotate(0deg)',
-                                transition: 'transform 140ms ease',
-                              }}
-                            />
-                          </Box>
-                        </Menu.Target>
-                        <Menu.Dropdown
-                          styles={{
-                            dropdown: {
-                              background: '#1B1D2E',
-                              border: '1px solid #393C56',
-                              minWidth: 170,
-                              padding: 0,
-                            },
-                          }}
-                        >
-                          {TIMELINE_TIME_FILTER_OPTIONS.map((option) => (
-                            <Menu.Item
-                              key={option.value}
-                              onClick={() => {
-                                updateTabState(
-                                  'satTimelineTimeFilter',
-                                  option.value
-                                )
-                                setSatTimelineTimeMenuOpened(false)
-                              }}
+                            {activeShip.imo || 'No info'}
+                          </Text>
+                          {canCopyImo && (
+                            <Tooltip
+                              label={
+                                copiedField === 'imo' ? 'Copied!' : 'Copy IMO'
+                              }
+                              withArrow
+                              color="#393C56"
+                              opened={
+                                hoveredCopyField === 'imo' ||
+                                copiedField === 'imo'
+                              }
                               styles={{
-                                item: {
+                                tooltip: {
                                   color: '#fff',
                                   fontSize: 12,
-                                  fontWeight:
-                                    satTimelineTimeFilter === option.value
-                                      ? 700
-                                      : 500,
-                                  padding: '12px 16px',
-                                  background:
-                                    satTimelineTimeFilter === option.value
-                                      ? '#393C56'
-                                      : 'transparent',
-                                  borderRadius: 0,
+                                  fontWeight: 600,
                                 },
-                                itemLabel: { color: '#fff' },
                               }}
                             >
-                              {option.label}
-                            </Menu.Item>
-                          ))}
-                        </Menu.Dropdown>
-                      </Menu>
-                      <Menu
-                        withinPortal
-                        position="top-start"
-                        middlewares={{ flip: false, shift: true }}
-                        offset={6}
-                        opened={satTimelineEventTypeMenuOpened}
-                        onChange={setSatTimelineEventTypeMenuOpened}
-                      >
-                        <Menu.Target>
-                          <Box
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              cursor: 'pointer',
-                              userSelect: 'none',
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: '#FFFFFF',
-                                fontSize: 10,
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {`Data Source: ${satTimelineDataSourceFilterLabel}`}
-                            </Text>
-                            <ChevronDown
-                              style={{
-                                width: 16,
-                                height: 16,
-                                color: '#FFFFFF',
-                                transform: satTimelineEventTypeMenuOpened
-                                  ? 'rotate(180deg)'
-                                  : 'rotate(0deg)',
-                                transition: 'transform 140ms ease',
-                              }}
-                            />
-                          </Box>
-                        </Menu.Target>
-                        <Menu.Dropdown
-                          styles={{
-                            dropdown: {
-                              background: '#1B1D2E',
-                              border: '1px solid #393C56',
-                              minWidth: 170,
-                              padding: 0,
-                            },
-                          }}
-                        >
-                          {SAT_TIMELINE_DATA_SOURCE_FILTER_OPTIONS.map(
-                            (option) => (
-                              <Menu.Item
-                                key={option.value}
-                                onClick={() => {
-                                  updateTabState(
-                                    'satTimelineDataSourceFilter',
-                                    option.value
-                                  )
-                                  setSatTimelineEventTypeMenuOpened(false)
-                                }}
-                                styles={{
-                                  item: {
-                                    color: '#fff',
-                                    fontSize: 12,
-                                    fontWeight:
-                                      satTimelineDataSourceFilter ===
-                                      option.value
-                                        ? 700
-                                        : 500,
-                                    padding: '12px 16px',
-                                    background:
-                                      satTimelineDataSourceFilter ===
-                                      option.value
-                                        ? '#393C56'
-                                        : 'transparent',
-                                    borderRadius: 0,
-                                  },
-                                  itemLabel: { color: '#fff' },
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 18,
+                                  height: 18,
+                                  color:
+                                    copiedField === 'imo' ? '#fff' : '#0094ff',
+                                  cursor:
+                                    hoveredCopyField === 'imo' ||
+                                    copiedField === 'imo'
+                                      ? 'pointer'
+                                      : 'default',
+                                  flexShrink: 0,
+                                  transform:
+                                    copiedField === 'imo'
+                                      ? 'scale(1.12)'
+                                      : 'scale(1)',
+                                  transition:
+                                    'transform 140ms ease, color 140ms ease, opacity 140ms ease',
+                                  borderRadius: 999,
+                                  background: 'transparent',
+                                  opacity:
+                                    hoveredCopyField === 'imo' ||
+                                    copiedField === 'imo'
+                                      ? 1
+                                      : 0,
+                                  pointerEvents:
+                                    hoveredCopyField === 'imo' ||
+                                    copiedField === 'imo'
+                                      ? 'auto'
+                                      : 'none',
                                 }}
                               >
-                                {option.label}
-                              </Menu.Item>
-                            )
+                                <Copy02
+                                  style={{
+                                    width: 14,
+                                    height: 14,
+                                    color:
+                                      copiedField === 'imo'
+                                        ? '#fff'
+                                        : '#0094ff',
+                                  }}
+                                />
+                              </Box>
+                            </Tooltip>
                           )}
-                        </Menu.Dropdown>
-                      </Menu>
+                        </Box>
+                      </Box>
                       <Box
-                        onClick={() =>
-                          setSatSortByTab((prev) => ({
-                            ...prev,
-                            [activeShipTab]:
-                              (prev[activeShipTab] ?? 'desc') === 'desc'
-                                ? 'asc'
-                                : 'desc',
-                          }))
-                        }
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                        }}
+                        onMouseEnter={() => setHoveredCopyField('mmsi')}
+                        onMouseLeave={() => setHoveredCopyField(null)}
                       >
-                        <Text
+                        <Text style={{ color: '#888F9E', fontSize: '10px' }}>
+                          MMSI
+                        </Text>
+                        <Box
+                          onClick={() => {
+                            if (canCopyMmsi)
+                              handleCopyToClipboard(activeShip.mmsi, 'mmsi')
+                          }}
                           style={{
-                            color: '#FFFFFF',
-                            fontSize: 10,
-                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            minWidth: 0,
                             whiteSpace: 'nowrap',
+                            cursor: canCopyMmsi ? 'pointer' : 'default',
                           }}
                         >
-                          {satTimelineSortOrder === 'desc'
-                            ? 'Sort by: Date (Newest)'
-                            : 'Sort by: Date (Oldest)'}
+                          <Text
+                            size="xs"
+                            style={{
+                              color: 'white',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              minWidth: 0,
+                            }}
+                            title={activeShip.mmsi || 'No info'}
+                          >
+                            {activeShip.mmsi || 'No info'}
+                          </Text>
+                          {canCopyMmsi && (
+                            <Tooltip
+                              label={
+                                copiedField === 'mmsi' ? 'Copied!' : 'Copy MMSI'
+                              }
+                              withArrow
+                              color="#393C56"
+                              opened={
+                                hoveredCopyField === 'mmsi' ||
+                                copiedField === 'mmsi'
+                              }
+                              styles={{
+                                tooltip: {
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                },
+                              }}
+                            >
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 18,
+                                  height: 18,
+                                  color:
+                                    copiedField === 'mmsi' ? '#fff' : '#0094ff',
+                                  cursor:
+                                    hoveredCopyField === 'mmsi' ||
+                                    copiedField === 'mmsi'
+                                      ? 'pointer'
+                                      : 'default',
+                                  flexShrink: 0,
+                                  transform:
+                                    copiedField === 'mmsi'
+                                      ? 'scale(1.12)'
+                                      : 'scale(1)',
+                                  transition:
+                                    'transform 140ms ease, color 140ms ease, opacity 140ms ease',
+                                  borderRadius: 999,
+                                  background: 'transparent',
+                                  opacity:
+                                    hoveredCopyField === 'mmsi' ||
+                                    copiedField === 'mmsi'
+                                      ? 1
+                                      : 0,
+                                  pointerEvents:
+                                    hoveredCopyField === 'mmsi' ||
+                                    copiedField === 'mmsi'
+                                      ? 'auto'
+                                      : 'none',
+                                }}
+                              >
+                                <Copy02
+                                  style={{
+                                    width: 14,
+                                    height: 14,
+                                    color:
+                                      copiedField === 'mmsi'
+                                        ? '#fff'
+                                        : '#0094ff',
+                                  }}
+                                />
+                              </Box>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </Box>
+                      <Box
+                        onMouseEnter={() => setHoveredCopyField('shipId')}
+                        onMouseLeave={() => setHoveredCopyField(null)}
+                      >
+                        <Text style={{ color: '#888F9E', fontSize: '10px' }}>
+                          SynMax Ship ID
                         </Text>
-                        <ChevronDown
-                          style={{
-                            width: 16,
-                            height: 16,
-                            color: '#FFFFFF',
-                            transform:
-                              satTimelineSortOrder === 'asc'
-                                ? 'rotate(180deg)'
-                                : 'rotate(0deg)',
-                            transition: 'transform 140ms ease',
+                        <Box
+                          onClick={() => {
+                            if (canCopyShipId)
+                              handleCopyToClipboard(activeShip.shipId, 'shipId')
                           }}
-                        />
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            cursor: canCopyShipId ? 'pointer' : 'default',
+                          }}
+                        >
+                          <Box
+                            title={activeShip.shipId || 'No info'}
+                            style={{
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 0,
+                              fontSize: 11,
+                              whiteSpace: 'nowrap',
+                              overflow: 'visible',
+                            }}
+                          >
+                            {activeShip.shipId ? (
+                              <Box
+                                component="span"
+                                style={{
+                                  display: 'inline-block',
+                                }}
+                              >
+                                {activeShip.shipId}
+                              </Box>
+                            ) : (
+                              'No info'
+                            )}
+                          </Box>
+                          {canCopyShipId && (
+                            <Tooltip
+                              label={
+                                copiedField === 'shipId'
+                                  ? 'Copied!'
+                                  : 'Copy SynMax Ship Id'
+                              }
+                              withArrow
+                              color="#393C56"
+                              opened={
+                                hoveredCopyField === 'shipId' ||
+                                copiedField === 'shipId'
+                              }
+                              styles={{
+                                tooltip: {
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                },
+                              }}
+                            >
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 18,
+                                  height: 18,
+                                  color:
+                                    copiedField === 'shipId'
+                                      ? '#fff'
+                                      : '#0094ff',
+                                  cursor:
+                                    hoveredCopyField === 'shipId' ||
+                                    copiedField === 'shipId'
+                                      ? 'pointer'
+                                      : 'default',
+                                  flexShrink: 0,
+                                  transform:
+                                    copiedField === 'shipId'
+                                      ? 'scale(1.12)'
+                                      : 'scale(1)',
+                                  transition:
+                                    'transform 140ms ease, color 140ms ease, opacity 140ms ease',
+                                  borderRadius: 999,
+                                  background: 'transparent',
+                                  opacity:
+                                    hoveredCopyField === 'shipId' ||
+                                    copiedField === 'shipId'
+                                      ? 1
+                                      : 0,
+                                  pointerEvents:
+                                    hoveredCopyField === 'shipId' ||
+                                    copiedField === 'shipId'
+                                      ? 'auto'
+                                      : 'none',
+                                }}
+                              >
+                                <Copy02
+                                  style={{
+                                    width: 14,
+                                    height: 14,
+                                    color:
+                                      copiedField === 'shipId'
+                                        ? '#fff'
+                                        : '#0094ff',
+                                  }}
+                                />
+                              </Box>
+                            </Tooltip>
+                          )}
+                        </Box>
                       </Box>
                     </Box>
-                    {satelliteTimelineRows.length === 0 ? (
-                      <Text style={{ color: '#898F9D', fontSize: 12 }}>
-                        No satellite imagery available.
-                      </Text>
-                    ) : (
+                    {shouldShowNewAisDetailsRow && (
                       <Box
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                          // marginTop: 8,
-                          gap: 8,
-                          cursor: 'pointer',
+                          gridTemplateColumns:
+                            'max-content max-content minmax(0, 1fr)',
+                          columnGap: '16px',
+                          marginBottom: '16px',
+                          alignItems: 'flex-start',
                         }}
                       >
-                        {satelliteTimelineRows.map((item) => (
-                          <Box
-                            key={item.id}
-                            ref={(el) => {
-                              const key = normalizeDetectionId(item.detectionId)
-                              if (el) {
-                                satCardRefs.current[key] = el
-                              } else {
-                                delete satCardRefs.current[key]
-                              }
-                            }}
-                            onClick={() => {
-                              if (activeShipTab) {
-                                setSelectedSatDetectionByTab((prev) => ({
-                                  ...prev,
-                                  [activeShipTab]: normalizeDetectionId(
-                                    item.detectionId
-                                  ),
-                                }))
-                              }
-                              applyGoToDate(
-                                item.detectionDateKey,
-                                item.detectionId,
-                                { preferExactDetection: true }
-                              )
-                            }}
-                            onMouseEnter={() =>
-                              setHoveredSatelliteCardId(item.id)
+                        <Box style={{ minWidth: 183 }}>
+                          <KeyValuePair
+                            keyName="Latest Speed"
+                            value={
+                              activeShip?.aisInfo?.latestSpeed || 'No info'
                             }
-                            onMouseLeave={() => setHoveredSatelliteCardId(null)}
+                          />
+                        </Box>
+                        <Box style={{ minWidth: 0 }}>
+                          <KeyValuePair
+                            keyName="Destination"
+                            value={
+                              activeShip?.aisInfo?.destination || 'No info'
+                            }
+                          />
+                        </Box>
+                      </Box>
+                    )}
+                    {!isUnattributed && (
+                      <ShipDetailsPanel
+                        selectedEvent={selectedDetection}
+                        isLatest={isLatest}
+                        eventLabel={eventLabel[selectedDetection?.type] || ''}
+                        eventIconOverride={selectedStsIcon}
+                        flashEnabled={flashEnabled}
+                        onToolsVisibleChange={setDetailToolsVisible}
+                        onToolAction={handleShipToolAction}
+                        activeToolIds={activeMapToolPanels}
+                      />
+                    )}
+                  </>
+                )}
+              </Box>
+              {isUnattributed ? (
+                <>
+                  <Box style={{ flexShrink: 0, padding: '20px 20px 0 20px' }}>
+                    <ShipDetailsPanel
+                      selectedEvent={selectedDetection}
+                      isLatest
+                      eventLabel={
+                        isStsUnattributed
+                          ? 'Unattributed'
+                          : eventLabel[selectedDetection?.type] || ''
+                      }
+                      flashEnabled={false}
+                      unattributed
+                      onToolsVisibleChange={setDetailToolsVisible}
+                      onToolAction={handleShipToolAction}
+                      activeToolIds={activeMapToolPanels}
+                    />
+                  </Box>
+                  <Box
+                    className="no-scrollbar"
+                    style={{
+                      flex: 1,
+                      overflowY: 'auto',
+                      padding: '8px 20px 20px 20px',
+                    }}
+                  >
+                    <EventTimelineCard
+                      date={latestDetection?.date}
+                      event={
+                        isStsUnattributed
+                          ? 'Unattributed'
+                          : eventLabel[selectedDetection?.type] ||
+                            selectedDetection?.type
+                      }
+                      icon={<UnattributedIcon style={{ height: 14 }} />}
+                      selected
+                      onSelect={() => {}}
+                      aisInfo={{}}
+                      synMaxInfo={
+                        activeShip.synMaxInfo ||
+                        (isStsUnattributed
+                          ? {
+                              objectId: 'N/A',
+                              imageCapturedTime:
+                                latestDetection?.date || 'No info',
+                              imageSource: 'Planet Scope',
+                              status: 'Preview',
+                              latitude:
+                                activeShip.aisInfo?.latitude || 'No info',
+                              longitude:
+                                activeShip.aisInfo?.longitude || 'No info',
+                              heading: activeShip.aisInfo?.heading || 'No info',
+                              shipLength:
+                                activeShip.aisInfo?.length || 'No info',
+                              shipWidth: activeShip.aisInfo?.width || 'No info',
+                              shipType:
+                                activeShip.aisInfo?.shipType || 'No info',
+                              shipSubtype: 'Unassigned',
+                            }
+                          : undefined)
+                      }
+                    />
+                  </Box>
+                </>
+              ) : (
+                <>
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      borderBottom: '1px solid #393C56',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {detailTabsOverflowLeft && (
+                      <Box
+                        onClick={() =>
+                          detailTabScrollRef.current?.scrollBy({
+                            left: -140,
+                            behavior: 'smooth',
+                          })
+                        }
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 30,
+                          height: 50,
+                          cursor: 'pointer',
+                          background: '#181926',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <ChevronDown
+                          style={{
+                            color: '#898f9d',
+                            width: 14,
+                            height: 14,
+                            transform: 'rotate(90deg)',
+                          }}
+                        />
+                      </Box>
+                    )}
+                    <Box
+                      style={{
+                        flex: 1,
+                        position: 'relative',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Box
+                        ref={detailTabScrollRef}
+                        className="tab-row-scroll"
+                        style={{
+                          display: 'flex',
+                          overflowX: 'auto',
+                          overflowY: 'hidden',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {detailTabs.map((tab, i) => (
+                          <Box
+                            key={tab}
+                            ref={(node) => {
+                              if (node) {
+                                detailTabButtonRefs.current[i] = node
+                              } else {
+                                delete detailTabButtonRefs.current[i]
+                              }
+                            }}
+                            onClick={() => handleDetailTabClick(tab, i)}
                             style={{
-                              minWidth: 0,
-                              border: item.isSelected
-                                ? '1px solid #0094FF'
-                                : '1px solid #3D456B',
-                              borderRadius: 4,
-                              background: item.isSelected
-                                ? '#262947'
-                                : hoveredSatelliteCardId === item.id
-                                  ? '#262947'
-                                  : '#24263C',
-                              padding: 10,
-                              transition:
-                                'background 140ms ease, border-color 140ms ease',
-                              boxSizing: 'border-box',
+                              flex: '0 0 auto',
+                              height: 50,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '0 18px',
+                              textAlign: 'center',
+                              cursor: 'pointer',
+                              borderBottom:
+                                activeDetailTab === i
+                                  ? '2px solid #fff'
+                                  : '2px solid transparent',
                             }}
                           >
-                            <Box
+                            <Text
                               style={{
-                                borderRadius: 4,
-                                overflow: 'hidden',
-                                background: '#1B1D2E',
-                                height: 226,
-                                border: '1px solid #393C56',
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: activeDetailTab === i ? 700 : 400,
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              <img
-                                src={item.image}
-                                alt="Satellite timeline capture"
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  objectFit: 'cover',
-                                  display: 'block',
-                                }}
-                              />
-                            </Box>
-                            <Box style={{ marginTop: 12 }}>
-                              <KeyValuePair
-                                keyName="Image Captured Time"
-                                value={item.capturedTime}
-                              />
-                            </Box>
-                            <Box
-                              style={{
-                                marginTop: 8,
-                                display: 'grid',
-                                gridTemplateColumns:
-                                  'repeat(3, minmax(0, 1fr))',
-                                gap: 12,
-                              }}
-                            >
-                              <KeyValuePair
-                                keyName="Latitude"
-                                value={item.latitude}
-                              />
-                              <KeyValuePair
-                                keyName="Longitude"
-                                value={item.longitude}
-                              />
-                              <KeyValuePair keyName="OID" value={item.oid} />
-                            </Box>
+                              {tab}
+                            </Text>
                           </Box>
                         ))}
+                      </Box>
+                    </Box>
+                    {detailTabsOverflowRight && (
+                      <Box
+                        onClick={() =>
+                          detailTabScrollRef.current?.scrollBy({
+                            left: 140,
+                            behavior: 'smooth',
+                          })
+                        }
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 30,
+                          height: 50,
+                          cursor: 'pointer',
+                          background: '#181926',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <ChevronDown
+                          style={{
+                            color: '#898f9d',
+                            width: 14,
+                            height: 14,
+                            transform: 'rotate(-90deg)',
+                          }}
+                        />
                       </Box>
                     )}
                   </Box>
-                )}
-                {activeDetailTab === 2 && (
-                  <Box style={{ padding: '8px 20px 20px 20px' }}>
-                    <Box
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
+                  {ENABLE_TIMELINE_DRAG && (
+                    <Tooltip
+                      label="Drag to resize timeline"
+                      position="bottom"
+                      withArrow
+                      openDelay={0}
+                      closeDelay={0}
+                      color="#393C56"
+                      styles={{
+                        tooltip: {
+                          color: '#fff',
+                          fontSize: 11,
+                          fontWeight: 600,
+                        },
                       }}
                     >
-                      <Text
-                        style={{
-                          color: '#8D95AA',
-                          fontSize: 12,
-                          fontWeight: 400,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        Ownership
-                      </Text>
                       <Box
+                        onMouseDown={handleTimelineResizeStart}
+                        onMouseEnter={() => setIsDragHandleHovered(true)}
+                        onMouseLeave={() => setIsDragHandleHovered(false)}
                         style={{
-                          border: '1px solid #3D456B',
-                          borderRadius: 4,
-                          background: '#24263C',
-                          padding: 20,
-                          marginBottom: 16,
-                        }}
-                      >
-                        <Box
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                            gap: '12px 20px',
-                          }}
-                        >
-                          <KeyValuePair
-                            keyName="Commercial Owner"
-                            value={ownershipInfo.commercialOwner}
-                          />
-                          <KeyValuePair
-                            keyName="Effective Owner"
-                            value={ownershipInfo.effectiveOwner}
-                          />
-                          <KeyValuePair
-                            keyName="Financial Owner"
-                            value={ownershipInfo.financialOwner}
-                          />
-                          <KeyValuePair
-                            keyName="Technical Owner"
-                            value={ownershipInfo.technicalOwner}
-                          />
-                          <KeyValuePair
-                            keyName="P&I Club"
-                            value={ownershipInfo.pniClub}
-                          />
-                          <KeyValuePair
-                            keyName="Member"
-                            value={ownershipInfo.member}
-                          />
-                        </Box>
-                      </Box>
-
-                      <Text
-                        style={{
-                          color: '#8D95AA',
-                          fontSize: 12,
-                          fontWeight: 400,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        Attribution
-                      </Text>
-                      <Box
-                        style={{
-                          width: '100%',
-                          borderRadius: 4,
-                          overflow: 'hidden',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          height: 10,
+                          flexShrink: 0,
+                          cursor: 'ns-resize',
                           background: 'transparent',
+                          position: 'relative',
                         }}
                       >
                         <Box
                           style={{
-                            display: 'grid',
-                            gridTemplateColumns:
-                              'minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.9fr) 96px',
-                            columnGap: 10,
+                            width:
+                              isResizingTimeline || isDragHandleHovered
+                                ? 54
+                                : 42,
+                            height: 3,
+                            borderRadius: 999,
+                            background:
+                              isResizingTimeline || isDragHandleHovered
+                                ? '#5C6270'
+                                : 'rgba(92, 98, 112, 0.45)',
+                            transition: 'all 120ms ease',
+                          }}
+                        />
+                      </Box>
+                    </Tooltip>
+                  )}
+                  <Box
+                    ref={scrollContainerRef}
+                    style={{ flex: 1, overflowY: 'auto' }}
+                  >
+                    {activeDetailTab === 0 && (
+                      <Box
+                        style={{
+                          padding: '8px 20px 20px 20px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 0,
+                        }}
+                      >
+                        <Box
+                          style={{
+                            display: 'flex',
                             alignItems: 'center',
-                            padding: '6px 12px',
-                            background: '#24263C',
-                            borderRadius: 4,
-                            marginBottom: 2,
+                            justifyContent: 'space-between',
+                            width: '100%',
+                            gap: 16,
+                            marginBottom: 0,
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 5,
+                            background: '#181926',
+                            padding: '8px 0 8px 0',
                           }}
                         >
-                          <Text
-                            style={{
-                              color: '#ffff',
-                              fontSize: 12,
-                              minWidth: 0,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
+                          <Menu
+                            withinPortal
+                            position="top-start"
+                            middlewares={{ flip: false, shift: true }}
+                            offset={6}
+                            opened={timelineTimeMenuOpened}
+                            onChange={setTimelineTimeMenuOpened}
                           >
-                            Metric
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#ffff',
-                              fontSize: 12,
-                              minWidth: 0,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
+                            <Menu.Target>
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {`Date: ${timelineTimeFilterLabel}`}
+                                </Text>
+                                <ChevronDown
+                                  style={{
+                                    width: 16,
+                                    height: 16,
+                                    color: '#FFFFFF',
+                                    transform: timelineTimeMenuOpened
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
+                                    transition: 'transform 140ms ease',
+                                  }}
+                                />
+                              </Box>
+                            </Menu.Target>
+                            <Menu.Dropdown
+                              styles={{
+                                dropdown: {
+                                  background: '#1B1D2E',
+                                  border: '1px solid #393C56',
+                                  minWidth: 170,
+                                  padding: 0,
+                                },
+                              }}
+                            >
+                              {TIMELINE_TIME_FILTER_OPTIONS.map((option) => (
+                                <Menu.Item
+                                  key={option.value}
+                                  onClick={() => {
+                                    updateTabState(
+                                      'timelineTimeFilter',
+                                      option.value
+                                    )
+                                    setTimelineTimeMenuOpened(false)
+                                  }}
+                                  styles={{
+                                    item: {
+                                      color: '#fff',
+                                      fontSize: 12,
+                                      fontWeight:
+                                        timelineTimeFilter === option.value
+                                          ? 700
+                                          : 500,
+                                      padding: '12px 16px',
+                                      background:
+                                        timelineTimeFilter === option.value
+                                          ? '#393C56'
+                                          : 'transparent',
+                                      borderRadius: 0,
+                                    },
+                                    itemLabel: { color: '#fff' },
+                                  }}
+                                >
+                                  {option.label}
+                                </Menu.Item>
+                              ))}
+                            </Menu.Dropdown>
+                          </Menu>
+                          <Menu
+                            withinPortal
+                            position="top-start"
+                            middlewares={{ flip: false, shift: true }}
+                            offset={6}
+                            opened={timelineEventTypeMenuOpened}
+                            onChange={setTimelineEventTypeMenuOpened}
                           >
-                            Prediction
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              minWidth: 0,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            Reference
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              minWidth: 0,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            Difference
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              textAlign: 'center',
-                            }}
-                          >
-                            Score
-                          </Text>
-                        </Box>
-                        {attributionRows.map((row, idx) => (
+                            <Menu.Target>
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {`Event type: ${timelineEventTypeDisplayLabel}`}
+                                </Text>
+                                <ChevronDown
+                                  style={{
+                                    width: 16,
+                                    height: 16,
+                                    color: '#FFFFFF',
+                                    transform: timelineEventTypeMenuOpened
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
+                                    transition: 'transform 140ms ease',
+                                  }}
+                                />
+                              </Box>
+                            </Menu.Target>
+                            <Menu.Dropdown
+                              styles={{
+                                dropdown: {
+                                  background: '#1B1D2E',
+                                  border: '1px solid #393C56',
+                                  minWidth: 170,
+                                  padding: 0,
+                                },
+                              }}
+                            >
+                              {TIMELINE_EVENT_TYPE_FILTER_OPTIONS.map(
+                                (option) => (
+                                  <Menu.Item
+                                    key={option.value}
+                                    onClick={() => {
+                                      updateTabState(
+                                        'timelineEventTypeFilter',
+                                        option.value
+                                      )
+                                      setTimelineEventTypeMenuOpened(false)
+                                    }}
+                                    styles={{
+                                      item: {
+                                        color: '#fff',
+                                        fontSize: 12,
+                                        fontWeight:
+                                          timelineEventTypeFilter ===
+                                          option.value
+                                            ? 700
+                                            : 500,
+                                        padding: '12px 16px',
+                                        background:
+                                          timelineEventTypeFilter ===
+                                          option.value
+                                            ? '#393C56'
+                                            : 'transparent',
+                                        borderRadius: 0,
+                                      },
+                                      itemLabel: { color: '#fff' },
+                                    }}
+                                  >
+                                    {option.label}
+                                  </Menu.Item>
+                                )
+                              )}
+                            </Menu.Dropdown>
+                          </Menu>
                           <Box
-                            key={`${row.metric}-${idx}`}
+                            onClick={() =>
+                              setTimelineSortByTab((prev) => ({
+                                ...prev,
+                                [activeShipTab]:
+                                  (prev[activeShipTab] ?? 'desc') === 'desc'
+                                    ? 'asc'
+                                    : 'desc',
+                              }))
+                            }
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: '#FFFFFF',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {timelineSortLabel}
+                            </Text>
+                            <ChevronDown
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: '#FFFFFF',
+                                transform:
+                                  timelineSortOrder === 'asc'
+                                    ? 'rotate(180deg)'
+                                    : 'rotate(0deg)',
+                                transition: 'transform 140ms ease',
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                        {sortedFilteredTimelineItems.map((item, index) => {
+                          const isLastTimelineItem =
+                            index === sortedFilteredTimelineItems.length - 1
+                          if (item.kind === 'context') {
+                            const contextEvent = item.event
+                            return (
+                              <Box
+                                key={contextEvent.id}
+                                style={{
+                                  marginBottom: isLastTimelineItem ? 0 : 8,
+                                }}
+                              >
+                                <EventTimelineCard
+                                  date={contextEvent.dateLabel}
+                                  variant={contextEvent.variant}
+                                  port={contextEvent.port}
+                                  status={contextEvent.status}
+                                  duration={contextEvent.duration}
+                                  newFlag={contextEvent.newFlag}
+                                  previousFlag={contextEvent.previousFlag}
+                                />
+                              </Box>
+                            )
+                          }
+
+                          const det = item.detection
+                          const stsLightIcon = renderStsBars(
+                            getStsDetectionBarColors(det),
+                            {
+                              width: 6,
+                              height: 14,
+                              gap: 2,
+                            }
+                          )
+                          const stsAisIcon = renderStsBars(
+                            getStsDetectionBarColors(det),
+                            {
+                              width: 6,
+                              height: 14,
+                              gap: 2,
+                            }
+                          )
+                          const iconMap = {
+                            ais: <AisIcon style={{ height: 14 }} />,
+                            light: <LightShipIcon style={{ height: 14 }} />,
+                            dark: <DarkShipIcon style={{ height: 14 }} />,
+                            spoofing: <SpoofingIcon style={{ height: 14 }} />,
+                            sts: stsLightIcon,
+                            'sts-ais': stsAisIcon,
+                            unattributed: (
+                              <UnattributedIcon style={{ height: 14 }} />
+                            ),
+                          }
+                          const parsedDetDate = new Date(det.date)
+                          const detDateKey = `${parsedDetDate.getFullYear()}-${String(parsedDetDate.getMonth() + 1).padStart(2, '0')}-${String(parsedDetDate.getDate()).padStart(2, '0')}`
+                          return (
+                            <Box
+                              key={det.id}
+                              ref={(el) => {
+                                cardRefs.current[det.id] = el
+                              }}
+                              style={{
+                                marginBottom: isLastTimelineItem ? 0 : 8,
+                              }}
+                            >
+                              <EventTimelineCard
+                                date={det.date}
+                                event={eventLabel[det.type] || det.type}
+                                icon={iconMap[det.type]}
+                                variant={
+                                  det.type === 'sts' || det.type === 'sts-ais'
+                                    ? 'sts'
+                                    : undefined
+                                }
+                                selected={
+                                  normalizeDetectionId(selectedCard) ===
+                                  normalizeDetectionId(det.id)
+                                }
+                                isPreviewed={previewCards.includes(det.id)}
+                                onTogglePreview={() => {
+                                  const nextPreviewCards =
+                                    previewCards.includes(det.id)
+                                      ? previewCards.filter(
+                                          (id) => id !== det.id
+                                        )
+                                      : [...previewCards, det.id]
+                                  updateTabState(
+                                    'previewCards',
+                                    nextPreviewCards
+                                  )
+                                  // Keep "Show Details" local to the card; do not move map focus.
+                                  setPreviewDetectionId(null)
+                                }}
+                                onGoToDate={
+                                  detDateKey !== mapDate
+                                    ? () => {
+                                        const dateLabel =
+                                          parsedDetDate.toLocaleDateString(
+                                            'en-US',
+                                            {
+                                              month: 'short',
+                                              day: 'numeric',
+                                              year: 'numeric',
+                                            }
+                                          )
+                                        requestGoToDate(
+                                          detDateKey,
+                                          det.id,
+                                          dateLabel
+                                        )
+                                      }
+                                    : undefined
+                                }
+                                onSelect={() => {
+                                  setFlashEnabled(true)
+                                  setPreviewDetectionId(null)
+                                  updateTabState('previewCards', [])
+
+                                  // On STS tab, selecting a non-STS event navigates to ship tab.
+                                  const shouldSwitchToShipTab =
+                                    isStsTab && !det.stsPartner
+                                  selectDetection(det, {
+                                    source: 'timeline',
+                                    allowTabSwitch: shouldSwitchToShipTab,
+                                  })
+                                }}
+                                onViewStsShips={
+                                  det.stsPartner
+                                    ? () =>
+                                        selectDetection(det, {
+                                          source: 'timeline',
+                                          allowTabSwitch: true,
+                                        })
+                                    : undefined
+                                }
+                                aisInfo={activeShip.aisInfo}
+                                partnerAisInfo={
+                                  det.stsPartner
+                                    ? ships[det.stsPartner]?.aisInfo
+                                    : undefined
+                                }
+                                shipName={activeShip.name}
+                                partnerName={
+                                  det.stsPartner
+                                    ? ships[det.stsPartner]?.name
+                                    : undefined
+                                }
+                                synMaxInfo={
+                                  det.type === 'light' ||
+                                  det.type === 'dark' ||
+                                  det.type === 'spoofing'
+                                    ? activeShip.synMaxInfo
+                                    : undefined
+                                }
+                                detectionType={det.type}
+                                stsHeroNode={
+                                  (det.type === 'sts' ||
+                                    det.type === 'sts-ais') &&
+                                  isStsTab &&
+                                  Array.isArray(stsShipIds) &&
+                                  stsShipIds.length > 1
+                                    ? renderStsHero(stsShipIds, {
+                                        activeIdx: activeStsShipIndex,
+                                        height: 206,
+                                        width: 180,
+                                        marginBottom: 0,
+                                        borderRadius: 4,
+                                      })
+                                    : undefined
+                                }
+                              />
+                            </Box>
+                          )
+                        })}
+                      </Box>
+                    )}
+                    {activeDetailTab === 1 && (
+                      <Box style={{ padding: '8px 20px 20px 20px' }}>
+                        <Box
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            width: '100%',
+                            gap: 16,
+                            marginBottom: 0,
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 5,
+                            background: '#181926',
+                            padding: '8px 0 8px 0',
+                          }}
+                        >
+                          <Menu
+                            withinPortal
+                            position="top-start"
+                            middlewares={{ flip: false, shift: true }}
+                            offset={6}
+                            opened={satTimelineTimeMenuOpened}
+                            onChange={setSatTimelineTimeMenuOpened}
+                          >
+                            <Menu.Target>
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {`Date: ${satTimelineTimeFilterLabel}`}
+                                </Text>
+                                <ChevronDown
+                                  style={{
+                                    width: 16,
+                                    height: 16,
+                                    color: '#FFFFFF',
+                                    transform: satTimelineTimeMenuOpened
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
+                                    transition: 'transform 140ms ease',
+                                  }}
+                                />
+                              </Box>
+                            </Menu.Target>
+                            <Menu.Dropdown
+                              styles={{
+                                dropdown: {
+                                  background: '#1B1D2E',
+                                  border: '1px solid #393C56',
+                                  minWidth: 170,
+                                  padding: 0,
+                                },
+                              }}
+                            >
+                              {TIMELINE_TIME_FILTER_OPTIONS.map((option) => (
+                                <Menu.Item
+                                  key={option.value}
+                                  onClick={() => {
+                                    updateTabState(
+                                      'satTimelineTimeFilter',
+                                      option.value
+                                    )
+                                    setSatTimelineTimeMenuOpened(false)
+                                  }}
+                                  styles={{
+                                    item: {
+                                      color: '#fff',
+                                      fontSize: 12,
+                                      fontWeight:
+                                        satTimelineTimeFilter === option.value
+                                          ? 700
+                                          : 500,
+                                      padding: '12px 16px',
+                                      background:
+                                        satTimelineTimeFilter === option.value
+                                          ? '#393C56'
+                                          : 'transparent',
+                                      borderRadius: 0,
+                                    },
+                                    itemLabel: { color: '#fff' },
+                                  }}
+                                >
+                                  {option.label}
+                                </Menu.Item>
+                              ))}
+                            </Menu.Dropdown>
+                          </Menu>
+                          <Menu
+                            withinPortal
+                            position="top-start"
+                            middlewares={{ flip: false, shift: true }}
+                            offset={6}
+                            opened={satTimelineEventTypeMenuOpened}
+                            onChange={setSatTimelineEventTypeMenuOpened}
+                          >
+                            <Menu.Target>
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {`Data Source: ${satTimelineDataSourceFilterLabel}`}
+                                </Text>
+                                <ChevronDown
+                                  style={{
+                                    width: 16,
+                                    height: 16,
+                                    color: '#FFFFFF',
+                                    transform: satTimelineEventTypeMenuOpened
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
+                                    transition: 'transform 140ms ease',
+                                  }}
+                                />
+                              </Box>
+                            </Menu.Target>
+                            <Menu.Dropdown
+                              styles={{
+                                dropdown: {
+                                  background: '#1B1D2E',
+                                  border: '1px solid #393C56',
+                                  minWidth: 170,
+                                  padding: 0,
+                                },
+                              }}
+                            >
+                              {SAT_TIMELINE_DATA_SOURCE_FILTER_OPTIONS.map(
+                                (option) => (
+                                  <Menu.Item
+                                    key={option.value}
+                                    onClick={() => {
+                                      updateTabState(
+                                        'satTimelineDataSourceFilter',
+                                        option.value
+                                      )
+                                      setSatTimelineEventTypeMenuOpened(false)
+                                    }}
+                                    styles={{
+                                      item: {
+                                        color: '#fff',
+                                        fontSize: 12,
+                                        fontWeight:
+                                          satTimelineDataSourceFilter ===
+                                          option.value
+                                            ? 700
+                                            : 500,
+                                        padding: '12px 16px',
+                                        background:
+                                          satTimelineDataSourceFilter ===
+                                          option.value
+                                            ? '#393C56'
+                                            : 'transparent',
+                                        borderRadius: 0,
+                                      },
+                                      itemLabel: { color: '#fff' },
+                                    }}
+                                  >
+                                    {option.label}
+                                  </Menu.Item>
+                                )
+                              )}
+                            </Menu.Dropdown>
+                          </Menu>
+                          <Box
+                            onClick={() =>
+                              setSatSortByTab((prev) => ({
+                                ...prev,
+                                [activeShipTab]:
+                                  (prev[activeShipTab] ?? 'desc') === 'desc'
+                                    ? 'asc'
+                                    : 'desc',
+                              }))
+                            }
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: '#FFFFFF',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {satTimelineSortOrder === 'desc'
+                                ? 'Sort by: Date (Newest)'
+                                : 'Sort by: Date (Oldest)'}
+                            </Text>
+                            <ChevronDown
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: '#FFFFFF',
+                                transform:
+                                  satTimelineSortOrder === 'asc'
+                                    ? 'rotate(180deg)'
+                                    : 'rotate(0deg)',
+                                transition: 'transform 140ms ease',
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                        {satelliteTimelineRows.length === 0 ? (
+                          <Text style={{ color: '#898F9D', fontSize: 12 }}>
+                            No satellite imagery available.
+                          </Text>
+                        ) : (
+                          <Box
                             style={{
                               display: 'grid',
-                              gridTemplateColumns:
-                                'minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.9fr) 96px',
-                              columnGap: 10,
-                              alignItems: 'center',
-                              padding: '6px 12px',
-                              borderTop:
-                                idx === 0 ? 'none' : '1px solid #393C56',
-                              background: '#181926',
+                              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                              // marginTop: 8,
+                              gap: 8,
+                              cursor: 'pointer',
                             }}
                           >
-                            <Text
-                              style={{
-                                color: '#FFFFFF',
-                                fontSize: 12,
-                                fontWeight: 500,
-                                lineHeight: 1.2,
-                                minWidth: 0,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {row.metric}
-                            </Text>
-                            <Text
-                              style={{
-                                color: '#FFFFFF',
-                                fontSize: 12,
-                                fontWeight: 400,
-                                lineHeight: 1.2,
-                                minWidth: 0,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {row.prediction}
-                            </Text>
-                            <Text
-                              style={{
-                                color: '#FFFFFF',
-                                fontSize: 12,
-                                fontWeight: 400,
-                                lineHeight: 1.2,
-                                minWidth: 0,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {row.reference}
-                            </Text>
-                            <Text
-                              style={{
-                                color: '#FFFFFF',
-                                fontSize: 12,
-                                fontWeight: 400,
-                                lineHeight: 1.2,
-                                minWidth: 0,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {row.difference}
-                            </Text>
+                            {satelliteTimelineRows.map((item) => (
+                              <Box
+                                key={item.id}
+                                ref={(el) => {
+                                  const key = normalizeDetectionId(
+                                    item.detectionId
+                                  )
+                                  if (el) {
+                                    satCardRefs.current[key] = el
+                                  } else {
+                                    delete satCardRefs.current[key]
+                                  }
+                                }}
+                                onClick={() => {
+                                  if (activeShipTab) {
+                                    setSelectedSatDetectionByTab((prev) => ({
+                                      ...prev,
+                                      [activeShipTab]: normalizeDetectionId(
+                                        item.detectionId
+                                      ),
+                                    }))
+                                  }
+                                  applyGoToDate(
+                                    item.detectionDateKey,
+                                    item.detectionId,
+                                    { preferExactDetection: true }
+                                  )
+                                }}
+                                onMouseEnter={() =>
+                                  setHoveredSatelliteCardId(item.id)
+                                }
+                                onMouseLeave={() =>
+                                  setHoveredSatelliteCardId(null)
+                                }
+                                style={{
+                                  minWidth: 0,
+                                  border: item.isSelected
+                                    ? '1px solid #0094FF'
+                                    : '1px solid #3D456B',
+                                  borderRadius: 4,
+                                  background: item.isSelected
+                                    ? '#262947'
+                                    : hoveredSatelliteCardId === item.id
+                                      ? '#262947'
+                                      : '#24263C',
+                                  padding: 10,
+                                  transition:
+                                    'background 140ms ease, border-color 140ms ease',
+                                  boxSizing: 'border-box',
+                                }}
+                              >
+                                <Box
+                                  style={{
+                                    borderRadius: 4,
+                                    overflow: 'hidden',
+                                    background: '#1B1D2E',
+                                    height: 226,
+                                    border: '1px solid #393C56',
+                                  }}
+                                >
+                                  <img
+                                    src={item.image}
+                                    alt="Satellite timeline capture"
+                                    style={{
+                                      width: '100%',
+                                      height: '100%',
+                                      objectFit: 'cover',
+                                      display: 'block',
+                                    }}
+                                  />
+                                </Box>
+                                <Box style={{ marginTop: 12 }}>
+                                  <KeyValuePair
+                                    keyName="Image Captured Time"
+                                    value={item.capturedTime}
+                                  />
+                                </Box>
+                                <Box
+                                  style={{
+                                    marginTop: 8,
+                                    display: 'grid',
+                                    gridTemplateColumns:
+                                      'repeat(3, minmax(0, 1fr))',
+                                    gap: 12,
+                                  }}
+                                >
+                                  <KeyValuePair
+                                    keyName="Latitude"
+                                    value={item.latitude}
+                                  />
+                                  <KeyValuePair
+                                    keyName="Longitude"
+                                    value={item.longitude}
+                                  />
+                                  <KeyValuePair
+                                    keyName="OID"
+                                    value={item.oid}
+                                  />
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
+                    )}
+                    {activeDetailTab === 2 && (
+                      <Box style={{ padding: '8px 20px 20px 20px' }}>
+                        <Box
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#8D95AA',
+                              fontSize: 12,
+                              fontWeight: 400,
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            Ownership
+                          </Text>
+                          <Box
+                            style={{
+                              border: '1px solid #3D456B',
+                              borderRadius: 4,
+                              background: '#24263C',
+                              padding: 20,
+                              marginBottom: 16,
+                            }}
+                          >
                             <Box
                               style={{
-                                justifySelf: 'center',
-                                borderRadius: 999,
-                                background: row.scoreBg,
-                                color: row.scoreColor,
-                                fontSize: 10,
-                                fontWeight: 700,
-                                padding: '3px 10px',
-                                lineHeight: 1.2,
-                                textAlign: 'center',
-                                minWidth: 70,
-                                flexShrink: 0,
+                                display: 'grid',
+                                gridTemplateColumns:
+                                  'repeat(2, minmax(0, 1fr))',
+                                gap: '12px 20px',
                               }}
                             >
-                              {row.score}
+                              <KeyValuePair
+                                keyName="Commercial Owner"
+                                value={ownershipInfo.commercialOwner}
+                              />
+                              <KeyValuePair
+                                keyName="Effective Owner"
+                                value={ownershipInfo.effectiveOwner}
+                              />
+                              <KeyValuePair
+                                keyName="Financial Owner"
+                                value={ownershipInfo.financialOwner}
+                              />
+                              <KeyValuePair
+                                keyName="Technical Owner"
+                                value={ownershipInfo.technicalOwner}
+                              />
+                              <KeyValuePair
+                                keyName="P&I Club"
+                                value={ownershipInfo.pniClub}
+                              />
+                              <KeyValuePair
+                                keyName="Member"
+                                value={ownershipInfo.member}
+                              />
                             </Box>
                           </Box>
-                        ))}
-                      </Box>
-                    </Box>
-                  </Box>
-                )}
-                {isTiffaniShipTab && activeDetailTab === 3 && (
-                  <Box style={{ padding: '8px 20px 20px 20px' }}>
-                    <Box
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: 4,
-                        marginBottom: 10,
-                        borderRadius: 6,
-                        border: '1px solid #3D456B',
-                        background: '#24263C',
-                      }}
-                    >
-                      {SANCTION_TITLE_VARIANT_OPTIONS.map((option) => {
-                        const isActive = sanctionTitleVariant === option.value
-                        return (
-                          <Box
-                            key={option.value}
-                            onClick={() => setSanctionTitleVariant(option.value)}
+
+                          <Text
                             style={{
-                              cursor: 'pointer',
-                              borderRadius: 4,
-                              border: isActive
-                                ? '1px solid #0094FF'
-                                : '1px solid transparent',
-                              background: isActive ? '#273252' : 'transparent',
-                              padding: '4px 10px',
+                              color: '#8D95AA',
+                              fontSize: 12,
+                              fontWeight: 400,
+                              lineHeight: 1.2,
                             }}
                           >
-                            <Text
+                            Attribution
+                          </Text>
+                          <Box
+                            style={{
+                              width: '100%',
+                              borderRadius: 4,
+                              overflow: 'hidden',
+                              background: 'transparent',
+                            }}
+                          >
+                            <Box
                               style={{
-                                color: isActive ? '#FFFFFF' : '#8D95AA',
-                                fontSize: 11,
-                                fontWeight: isActive ? 600 : 500,
-                                lineHeight: 1.2,
+                                display: 'grid',
+                                gridTemplateColumns:
+                                  'minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.9fr) 96px',
+                                columnGap: 10,
+                                alignItems: 'center',
+                                padding: '6px 12px',
+                                background: '#24263C',
+                                borderRadius: 4,
+                                marginBottom: 2,
                               }}
                             >
-                              {option.label}
-                            </Text>
+                              <Text
+                                style={{
+                                  color: '#ffff',
+                                  fontSize: 12,
+                                  minWidth: 0,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                Metric
+                              </Text>
+                              <Text
+                                style={{
+                                  color: '#ffff',
+                                  fontSize: 12,
+                                  minWidth: 0,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                Prediction
+                              </Text>
+                              <Text
+                                style={{
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  minWidth: 0,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                Reference
+                              </Text>
+                              <Text
+                                style={{
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  minWidth: 0,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                Difference
+                              </Text>
+                              <Text
+                                style={{
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  textAlign: 'center',
+                                }}
+                              >
+                                Score
+                              </Text>
+                            </Box>
+                            {attributionRows.map((row, idx) => (
+                              <Box
+                                key={`${row.metric}-${idx}`}
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns:
+                                    'minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.9fr) 96px',
+                                  columnGap: 10,
+                                  alignItems: 'center',
+                                  padding: '6px 12px',
+                                  borderTop:
+                                    idx === 0 ? 'none' : '1px solid #393C56',
+                                  background: '#181926',
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    lineHeight: 1.2,
+                                    minWidth: 0,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {row.metric}
+                                </Text>
+                                <Text
+                                  style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 12,
+                                    fontWeight: 400,
+                                    lineHeight: 1.2,
+                                    minWidth: 0,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {row.prediction}
+                                </Text>
+                                <Text
+                                  style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 12,
+                                    fontWeight: 400,
+                                    lineHeight: 1.2,
+                                    minWidth: 0,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {row.reference}
+                                </Text>
+                                <Text
+                                  style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 12,
+                                    fontWeight: 400,
+                                    lineHeight: 1.2,
+                                    minWidth: 0,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {row.difference}
+                                </Text>
+                                <Box
+                                  style={{
+                                    justifySelf: 'center',
+                                    borderRadius: 999,
+                                    background: row.scoreBg,
+                                    color: row.scoreColor,
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    padding: '3px 10px',
+                                    lineHeight: 1.2,
+                                    textAlign: 'center',
+                                    minWidth: 70,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {row.score}
+                                </Box>
+                              </Box>
+                            ))}
                           </Box>
-                        )
-                      })}
-                    </Box>
-                    <SanctionDetailsVersionB titleVariant={sanctionTitleVariant} />
+                        </Box>
+                      </Box>
+                    )}
+                    {isTiffaniShipTab && activeDetailTab === 3 && (
+                      <Box style={{ padding: '8px 20px 20px 20px' }}>
+                        <Box
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: 4,
+                            marginBottom: 10,
+                            borderRadius: 6,
+                            border: '1px solid #3D456B',
+                            background: '#24263C',
+                          }}
+                        >
+                          {SANCTION_TITLE_VARIANT_OPTIONS.map((option) => {
+                            const isActive =
+                              sanctionTitleVariant === option.value
+                            return (
+                              <Box
+                                key={option.value}
+                                onClick={() =>
+                                  setSanctionTitleVariant(option.value)
+                                }
+                                style={{
+                                  cursor: 'pointer',
+                                  borderRadius: 4,
+                                  border: isActive
+                                    ? '1px solid #0094FF'
+                                    : '1px solid transparent',
+                                  background: isActive
+                                    ? '#273252'
+                                    : 'transparent',
+                                  padding: '4px 10px',
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: isActive ? '#FFFFFF' : '#8D95AA',
+                                    fontSize: 11,
+                                    fontWeight: isActive ? 600 : 500,
+                                    lineHeight: 1.2,
+                                  }}
+                                >
+                                  {option.label}
+                                </Text>
+                              </Box>
+                            )
+                          })}
+                        </Box>
+                        <SanctionDetailsVersionB
+                          titleVariant={sanctionTitleVariant}
+                        />
+                      </Box>
+                    )}
                   </Box>
-                )}
-              </Box>
-            </>
-          )}
+                </>
+              )}
             </>
           )}
         </Box>
@@ -6481,7 +6575,7 @@ function Myships() {
               const a = ((idx * 2) % (n - 1)) + 1
               const b = ((idx * 3 + 1) % (n - 1)) + 1
               return [...new Set([a, b])].filter(
-                (t) => t !== idx && t !== 0 && t < n,
+                (t) => t !== idx && t !== 0 && t < n
               )
             }
             const sel = activeStsShipIndex
@@ -6489,7 +6583,7 @@ function Myships() {
             const panelPos = stsNetworkPos || {
               x: Math.max(
                 stsNetworkRect.left + 16,
-                window.innerWidth - stsNetworkSize.width - 16,
+                window.innerWidth - stsNetworkSize.width - 16
               ),
               y: stsNetworkRect.top + 16,
             }
@@ -6579,7 +6673,7 @@ function Myships() {
                         >
                           <title>
                             {`${ships[list[0]]?.name} ↔ ${ships[sid]?.name} · ${transferCount(
-                              idx,
+                              idx
                             )} transfer(s)`}
                           </title>
                         </line>
@@ -6635,9 +6729,7 @@ function Myships() {
                                   ? 'rgba(0,148,255,0.18)'
                                   : '#24263C'
                             }
-                            stroke={
-                              isSel || isSubject ? '#0094FF' : '#393C56'
-                            }
+                            stroke={isSel || isSubject ? '#0094FF' : '#393C56'}
                             strokeWidth={isSel ? 4 : 2}
                           />
                           <text
@@ -6691,7 +6783,7 @@ function Myships() {
               </Box>
             )
           })(),
-          document.body,
+          document.body
         )}
       {isStsTab &&
         stsVersion === 'v7' &&
@@ -6722,7 +6814,7 @@ function Myships() {
           >
             Show network
           </Box>,
-          document.body,
+          document.body
         )}
       {isPortTab && !loading && (
         <Box
@@ -6864,40 +6956,56 @@ function Myships() {
             (portVisibilityBehavior === 'strict-layer-toggle' ||
               portVisibilityBehavior === 'strict-layer-toggle-v2' ||
               portVisibilityBehavior === 'strict-layer-toggle-v3') && (
-            <Box
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '9px 14px',
-                marginBottom: 16,
-                background: portsLayerVisible ? 'rgba(0, 148, 255, 0.08)' : '#060a14',
-                border: portsLayerVisible ? '1px solid #0094FF' : '1px solid #1e293b',
-                borderRadius: 6,
-                gap: 8,
-              }}
-            >
-              <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <MarkerPin01 size={15} color={portsLayerVisible ? '#0094FF' : '#888F9E'} />
-                <Text style={{ fontSize: 12, color: portsLayerVisible ? '#ffffff' : '#888F9E' }}>
-                  {portsLayerVisible ? 'Port shape visible on map' : 'Port shape hidden — Ports layer is off'}
-                </Text>
-              </Box>
               <Box
-                onClick={() => onPortsLayerVisibleChange?.(!portsLayerVisible)}
                 style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: portsLayerVisible ? '#888F9E' : '#0094FF',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '9px 14px',
+                  marginBottom: 16,
+                  background: portsLayerVisible
+                    ? 'rgba(0, 148, 255, 0.08)'
+                    : '#060a14',
+                  border: portsLayerVisible
+                    ? '1px solid #0094FF'
+                    : '1px solid #1e293b',
+                  borderRadius: 6,
+                  gap: 8,
                 }}
               >
-                {portsLayerVisible ? 'Hide' : 'Show on map'}
+                <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <MarkerPin01
+                    size={15}
+                    color={portsLayerVisible ? '#0094FF' : '#888F9E'}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: portsLayerVisible ? '#ffffff' : '#888F9E',
+                    }}
+                  >
+                    {portsLayerVisible
+                      ? 'Port shape visible on map'
+                      : 'Port shape hidden — Ports layer is off'}
+                  </Text>
+                </Box>
+                <Box
+                  onClick={() =>
+                    onPortsLayerVisibleChange?.(!portsLayerVisible)
+                  }
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: portsLayerVisible ? '#888F9E' : '#0094FF',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                >
+                  {portsLayerVisible ? 'Hide' : 'Show on map'}
+                </Box>
               </Box>
-            </Box>
-          )}
+            )}
 
           <Box
             style={{
@@ -8627,6 +8735,3 @@ function Myships() {
 }
 
 export default Myships
-
-
-

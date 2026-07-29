@@ -707,3 +707,29 @@ button:active,
   /* hull 4 (rightmost) */
   transform: translate(427.5px, 183.1px) scale(0.82, 1.03);
 }
+
+/* 5-ship raft (sts_raft_5.png) — staggered fan. */
+.sts-hull-5-0 {
+  /* hull 1 (leftmost) */
+  transform: translate(505.6px, 189.1px) scale(1.2, 1.02);
+}
+
+.sts-hull-5-1 {
+  /* hull 2 */
+  transform: translate(503.4px, 178.1px) scale(1, 1);
+}
+
+.sts-hull-5-2 {
+  /* hull 3 */
+  transform: translate(507.6px, 179.7px) scale(1, 1);
+}
+
+.sts-hull-5-3 {
+  /* hull 4 */
+  transform: translate(552.8px, 189.8px) scale(1.1, 1.03);
+}
+
+.sts-hull-5-4 {
+  /* hull 5 (rightmost) */
+  transform: translate(463.3px, 182.4px) scale(1, 1);
+}
