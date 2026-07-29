@@ -686,3 +686,24 @@ button:active,
   /* right hull */
   transform: translate(485px, 115.9px) scale(0.95, 1);
 }
+
+/* 4-ship raft (sts_raft_4.png). */
+.sts-hull-4-0 {
+  /* hull 1 (leftmost) */
+  transform: translate(487.8px, 192.4px) scale(1, 1.03);
+}
+
+.sts-hull-4-1 {
+  /* hull 2 */
+  transform: translate(480.3px, 190.8px) scale(0.9, 1.03);
+}
+
+.sts-hull-4-2 {
+  /* hull 3 */
+  transform: translate(457.9px, 189.1px) scale(0.95, 1.03);
+}
+
+.sts-hull-4-3 {
+  /* hull 4 (rightmost) */
+  transform: translate(427.5px, 183.1px) scale(0.82, 1.03);
+}
