@@ -953,7 +953,12 @@ function ForYouSecondaryNav({
       kind === 'port'
         ? [
             { key: 'name', label: 'Port', width: 'minmax(0, 1fr)' },
-            { key: 'reason', label: 'Why flagged', width: 'minmax(0, 1.8fr)' },
+            {
+              key: 'reason',
+              label: 'Why flagged',
+              width: 'minmax(0, 1.8fr)',
+              sortable: false,
+            },
           ]
         : kind === 'shape'
           ? [
@@ -962,6 +967,7 @@ function ForYouSecondaryNav({
                 key: 'reason',
                 label: 'Why flagged',
                 width: 'minmax(0, 1.8fr)',
+                sortable: false,
               },
             ]
           : [
@@ -971,6 +977,7 @@ function ForYouSecondaryNav({
                 key: 'reason',
                 label: 'Why flagged',
                 width: 'minmax(0, 1.8fr)',
+                sortable: false,
               },
             ]
     return (
@@ -1314,7 +1321,12 @@ function ForYouSecondaryNav({
             }))}
             columns={[
               { key: 'name', label: 'Dashboard', width: 'minmax(0, 1fr)' },
-              { key: 'description', label: 'About', width: 'minmax(0, 1.6fr)' },
+              {
+                key: 'description',
+                label: 'About',
+                width: 'minmax(0, 1.6fr)',
+                sortable: false,
+              },
               { key: 'updated', label: 'Updated', width: 'minmax(0, 0.8fr)' },
             ]}
             emptyMessage={

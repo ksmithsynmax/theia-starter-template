@@ -470,8 +470,8 @@ textarea::placeholder {
 }
 
 .dark-controls .mantine-Checkbox-input:checked {
-  background-color: #006CD7 !important;
-  border-color: #006CD7 !important;
+  background-color: #006cd7 !important;
+  border-color: #006cd7 !important;
 }
 
 .dark-controls .mantine-Radio-radio {
@@ -480,7 +480,7 @@ textarea::placeholder {
 }
 
 .dark-controls .mantine-Radio-radio:checked {
-  border-color: #006CD7 !important;
+  border-color: #006cd7 !important;
 }
 
 .dark-controls .mantine-Checkbox-label,
@@ -637,4 +637,35 @@ button:active,
 .port-hover-card-switch .mantine-Switch-thumb::after {
   display: none !important;
   content: none !important;
+}
+
+/* ===== STS v17 segmentation hull outlines (manual position tuning) =====
+   Each traced hull's <g> gets these classes in Myships.jsx. The `transform`
+   below POSITIONS the hull; the size (scale) stays on the inner <path>, so you
+   can move a hull freely without breaking its proportions.
+
+   Units are the hero image's own coordinate space (viewBox 1536 x 1024), which
+   is shown at roughly 0.63x on screen — so ~16px here ≈ ~10px on screen.
+   Smaller Y = up, larger Y = down; smaller X = left, larger X = right.
+
+   NOTE: while these rules exist they OVERRIDE the tx/ty in Myships.jsx — so
+   tweak the numbers HERE (or live in DevTools), not in the JSX. Delete a rule
+   to hand control back to the JSX tx/ty. */
+/* Pivot any scale around the hull's own center, so shrinking width/height
+   keeps the hull in place instead of sliding it toward the image origin. */
+.sts-hull {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.sts-hull-2-0 {
+  /* left hull — brown tanker.
+     scale(width, height): 1st number narrows/widens, 2nd shortens/lengthens.
+     scale(0.95, 1) = 5% narrower, same length. */
+  transform: translate(580.7px, 118.8px) scale(0.95, 1);
+}
+
+.sts-hull-2-1 {
+  /* right hull — gray tanker */
+  transform: translate(586.4px, 122.9px) scale(1, 1);
 }

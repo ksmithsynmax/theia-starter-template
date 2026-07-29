@@ -95,6 +95,59 @@ const buildStsSvg = (colors) => {
   return `<svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">${left}${right}${innerDividers}<rect x="0.75" y="0.75" width="15.5" height="15.5" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/>${divider}</svg>`
 }
 
+// v10 STS marker: a fixed 17×17 chip split into N vertical bands (one per
+// participating ship, colored by its most-recent detection type). Every divider
+// runs vertically — no horizontal split — so all "detection lines" read the
+// same way.
+const buildStsRowsSvg = (colors) => {
+  const list = (Array.isArray(colors) ? colors : [colors]).filter(Boolean)
+  const n = Math.max(list.length, 1)
+  const x0 = 1
+  const y0 = 1
+  const innerW = 15
+  const innerH = 15
+  const w = innerW / n
+  const bands = list
+    .map(
+      (color, i) =>
+        `<rect x="${(x0 + i * w).toFixed(4)}" y="${y0}" width="${w.toFixed(4)}" height="${innerH}" fill="${color}"/>`
+    )
+    .join('')
+  const dividers = Array.from({ length: n - 1 }, (_, i) => {
+    const x = (x0 + (i + 1) * w).toFixed(4)
+    return `<path d="M${x} ${y0}V${y0 + innerH}" stroke="#111326" stroke-width="1" stroke-linecap="butt"/>`
+  }).join('')
+  return `<svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">${bands}${dividers}<rect x="0.75" y="0.75" width="15.5" height="15.5" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/></svg>`
+}
+
+// v12 STS marker: one fixed-width bar per participating ship (each bar the width
+// of a single band in the 2-ship icon), so the chip stays the same height but
+// grows wider as more ships join — 2 ships reads identically to today, 5 ships
+// is 5 bars across. Each bar is colored by that ship's most-recent detection.
+const buildStsBarsSvg = (colors) => {
+  const list = (Array.isArray(colors) ? colors : [colors]).filter(Boolean)
+  const n = Math.max(list.length, 1)
+  const x0 = 1
+  const y0 = 1
+  const barW = 7.5 // one band of the fixed 2-ship (17px) icon
+  const innerH = 15
+  const innerW = barW * n
+  const totalW = innerW + 2
+  const bands = list
+    .map(
+      (color, i) =>
+        `<rect x="${(x0 + i * barW).toFixed(4)}" y="${y0}" width="${barW.toFixed(4)}" height="${innerH}" fill="${color}"/>`
+    )
+    .join('')
+  const dividers = Array.from({ length: n - 1 }, (_, i) => {
+    const x = (x0 + (i + 1) * barW).toFixed(4)
+    return `<path d="M${x} ${y0}V${y0 + innerH}" stroke="#111326" stroke-width="1" stroke-linecap="butt"/>`
+  }).join('')
+  const outerW = (totalW - 1.5).toFixed(4)
+  const wStr = totalW.toFixed(4)
+  return `<svg width="${wStr}" height="17" viewBox="0 0 ${wStr} 17" fill="none" xmlns="http://www.w3.org/2000/svg">${bands}${dividers}<rect x="0.75" y="0.75" width="${outerW}" height="15.5" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/></svg>`
+}
+
 // Colors for an STS marker's segments. Prefer an explicit per-ship detection-type
 // list (N-ship events); otherwise fall back to the legacy 2-ship encoding.
 const getStsSegmentColors = (detection) => {
@@ -125,7 +178,7 @@ const getStsShipCount = (detection) =>
 const STS_HULL_PATH =
   'M6.74999 20.9387L12.75 20.9387L12.75 16.18C12.75 5.45464 6.74998 0.93869 6.74998 0.93869C6.74998 0.93869 0.749988 5.45464 0.749994 16.18L0.749997 20.9387H6.74999Z'
 const STS_EVENT_COLOR = '#A78BFA'
-const buildStsCountSvg = (count, angle = 0) => {
+const buildStsCountSvg = (count, angle = 0, showBadge = true) => {
   const n = Math.max(Number(count) || 2, 2)
   // Two full-size hulls (same 14×22 footprint as the AIS/dark markers), one
   // bow-up and one bow-down, so the marker reads as two vessels meeting. The
@@ -135,10 +188,26 @@ const buildStsCountSvg = (count, angle = 0) => {
   const hullUp = `<g transform="translate(1 2)"><path d="${STS_HULL_PATH}" fill="${STS_EVENT_COLOR}" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/></g>`
   const hullDown = `<g transform="translate(12 2) rotate(180 6.75 10.94)"><path d="${STS_HULL_PATH}" fill="${STS_EVENT_COLOR}" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/></g>`
   const hulls = `<g transform="rotate(${angle} 13.25 12.94)">${hullUp}${hullDown}</g>`
-  const badge =
-    `<circle cx="26" cy="7" r="6" fill="#111326" stroke="#FFFFFF" stroke-width="1.25"/>` +
-    `<text x="26" y="7" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="8.5" font-weight="700" fill="#FFFFFF">${n}</text>`
+  const badge = showBadge
+    ? `<circle cx="26" cy="7" r="6" fill="#111326" stroke="#FFFFFF" stroke-width="1.25"/>` +
+      `<text x="26" y="7" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="8.5" font-weight="700" fill="#FFFFFF">${n}</text>`
+    : ''
   return `<svg width="36" height="32" viewBox="-3 -3 36 32" fill="none" xmlns="http://www.w3.org/2000/svg">${hulls}${badge}</svg>`
+}
+
+// v16 STS marker: the SAME teardrop hull as the AIS/Light/Dark/Unattributed
+// markers, so it sits naturally in the icon set — but filled with the neutral
+// STS color and carrying a small "transfer" glyph inside (two opposing arrows,
+// like the radar arcs on Light/Dark). One hull + a transfer mark reads as
+// "ship-to-ship" without implying how many ships are involved.
+const buildStsHullTransferSvg = () => {
+  const hull = `<path d="M6.74999 20.9387L12.75 20.9387L12.75 16.18C12.75 5.45464 6.74998 0.93869 6.74998 0.93869C6.74998 0.93869 0.749988 5.45464 0.749994 16.18L0.749997 20.9387H6.74999Z" fill="${STS_EVENT_COLOR}" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/>`
+  const arrows =
+    `<g stroke="#111326" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" fill="none">` +
+    `<path d="M3.7 13.1H9.1"/><path d="M7.6 11.7L9.5 13.1L7.6 14.5"/>` +
+    `<path d="M9.8 16.1H4.4"/><path d="M5.9 14.7L4 16.1L5.9 17.5"/>` +
+    `</g>`
+  return `<svg width="14" height="22" viewBox="0 0 14 22" fill="none" xmlns="http://www.w3.org/2000/svg">${hull}${arrows}</svg>`
 }
 
 // Directional ship markers (teardrop hulls). Spoofing (diamond) and STS chips
@@ -187,6 +256,23 @@ const getMarkerSvg = (detection, stsVersion) => {
         getStsShipCount(detection),
         getMarkerHeading(detection),
       )
+    }
+    if (stsVersion === 'v13' || stsVersion === 'v17') {
+      // Same two-hull STS glyph as v8, without the count badge.
+      return buildStsCountSvg(
+        getStsShipCount(detection),
+        getMarkerHeading(detection),
+        false,
+      )
+    }
+    if (stsVersion === 'v16') {
+      return buildStsHullTransferSvg()
+    }
+    if (stsVersion === 'v10' || stsVersion === 'v11') {
+      return buildStsRowsSvg(getStsSegmentColors(detection))
+    }
+    if (stsVersion === 'v12') {
+      return buildStsBarsSvg(getStsSegmentColors(detection))
     }
     return buildStsSvg(getStsSegmentColors(detection))
   }

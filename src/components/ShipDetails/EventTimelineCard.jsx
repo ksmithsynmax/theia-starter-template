@@ -81,6 +81,7 @@ const EventTimelineCard = ({
   partnerAisInfo,
   synMaxInfo,
   detectionType,
+  stsHeroNode,
 }) => {
   const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false)
   const [detailsHovered, setDetailsHovered] = useState(false)
@@ -303,17 +304,21 @@ const EventTimelineCard = ({
                   </Box>
 
                   <Box style={{ display: 'flex', gap: 12 }}>
-                    <img
-                      src={ship.img}
-                      alt="Ship-to-ship satellite imagery"
-                      style={{
-                        width: 180,
-                        height: 206,
-                        borderRadius: 4,
-                        objectFit: 'cover',
-                        flexShrink: 0,
-                      }}
-                    />
+                    {idx === 0 && stsHeroNode ? (
+                      stsHeroNode
+                    ) : (
+                      <img
+                        src={ship.img}
+                        alt="Ship-to-ship satellite imagery"
+                        style={{
+                          width: 180,
+                          height: 206,
+                          borderRadius: 4,
+                          objectFit: 'cover',
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
 
                     <Box
                       style={{

@@ -161,45 +161,12 @@ export const DataTable = ({
               textOverflow: 'ellipsis',
             }}
           >
-            <Box
-              component="button"
-              type="button"
-              onClick={() =>
-                setSortConfig((prev) => {
-                  if (!prev || prev.key !== column.key) {
-                    return { key: column.key, direction: 'asc' }
-                  }
-                  return {
-                    key: column.key,
-                    direction: prev.direction === 'asc' ? 'desc' : 'asc',
-                  }
-                })
-              }
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-start',
-                textAlign: 'left',
-                gap: 4,
-                width: '100%',
-                minWidth: 0,
-                overflow: 'hidden',
-                border: 'none',
-                background: 'transparent',
-                padding: 0,
-                margin: 0,
-                color: 'inherit',
-                cursor: 'pointer',
-                lineHeight: '16px',
-              }}
-            >
+            {column.sortable === false ? (
               <Box
                 component="span"
                 style={{
                   display: 'block',
-                  flex: '0 1 auto',
                   minWidth: 0,
-                  maxWidth: 'calc(100% - 16px)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -208,27 +175,76 @@ export const DataTable = ({
               >
                 {column.label}
               </Box>
+            ) : (
               <Box
+                component="button"
+                type="button"
+                onClick={() =>
+                  setSortConfig((prev) => {
+                    if (!prev || prev.key !== column.key) {
+                      return { key: column.key, direction: 'asc' }
+                    }
+                    return {
+                      key: column.key,
+                      direction: prev.direction === 'asc' ? 'desc' : 'asc',
+                    }
+                  })
+                }
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 12,
-                  height: 12,
-                  lineHeight: 0,
-                  flexShrink: 0,
-                  opacity: sortConfig?.key === column.key ? 1 : 0.65,
-                  transform:
-                    sortConfig?.key === column.key &&
-                    sortConfig?.direction === 'desc'
-                      ? 'rotate(180deg)'
-                      : 'none',
-                  transition: 'transform 120ms ease, opacity 120ms ease',
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  gap: 4,
+                  width: '100%',
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  border: 'none',
+                  background: 'transparent',
+                  padding: 0,
+                  margin: 0,
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  lineHeight: '16px',
                 }}
               >
-                <SortHeaderIcon />
+                <Box
+                  component="span"
+                  style={{
+                    display: 'block',
+                    flex: '0 1 auto',
+                    minWidth: 0,
+                    maxWidth: 'calc(100% - 16px)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    lineHeight: '16px',
+                  }}
+                >
+                  {column.label}
+                </Box>
+                <Box
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 12,
+                    height: 12,
+                    lineHeight: 0,
+                    flexShrink: 0,
+                    opacity: sortConfig?.key === column.key ? 1 : 0.65,
+                    transform:
+                      sortConfig?.key === column.key &&
+                      sortConfig?.direction === 'desc'
+                        ? 'rotate(180deg)'
+                        : 'none',
+                    transition: 'transform 120ms ease, opacity 120ms ease',
+                  }}
+                >
+                  <SortHeaderIcon />
+                </Box>
               </Box>
-            </Box>
+            )}
           </Text>
         ))}
         {hasMarker && <Box style={{ width: 32 }} />}
