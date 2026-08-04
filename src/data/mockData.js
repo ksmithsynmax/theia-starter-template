@@ -443,12 +443,22 @@ export const detections = [
 
   // --- N-ship STS marker examples (prototype) ---
   // A demo row just south of the main cluster (~6°N, 56–68°E) showing how the
-  // dynamic STS icon reads for 2, 3, 4, and 5 participating ships. `stsShips` is
-  // the full participant list (drives how many ships the panel shows) and
+  // dynamic STS icon reads for 2, 3, 4, 5, and 6 participating ships. `stsShips`
+  // is the full participant list (drives how many ships the panel shows) and
   // `stsShipTypes` is each ship's most-recent detection type (drives the marker's
   // colored segments). The two lists are index-aligned.
   { id: 201, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star'], stsShipTypes: ['light', 'unattributed'], lng: 60.2, lat: 12.0, date: ago(0, 12, 0) },
   { id: 202, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star', 'meridian-star'], stsShipTypes: ['light', 'ais', 'unattributed'], lng: 66.2, lat: 11.3, date: ago(0, 12, 0) },
   { id: 203, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star', 'meridian-star', 'celestine'], stsShipTypes: ['light', 'dark', 'ais', 'unattributed'], lng: 60.7, lat: 8.4, date: ago(0, 12, 0) },
   { id: 204, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star', 'meridian-star', 'celestine', 'tiffani'], stsShipTypes: ['light', 'dark', 'spoofing', 'ais', 'unattributed'], lng: 68.6, lat: 16.4, date: ago(0, 12, 0) },
+  // 6-ship event: exceeds the prototype's current 2–5 support. The panel's tabs,
+  // roster, and network render all 6 dynamically, but the map marker only paints
+  // 5 color segments (badge still counts 6) and the hero image falls back to the
+  // 5-ship satellite photo (the 6th pin stacks on the 5th). This is the overflow
+  // case we're designing for.
+  { id: 205, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star', 'meridian-star', 'celestine', 'tiffani', 'sea-falcon'], stsShipTypes: ['light', 'dark', 'spoofing', 'ais', 'unattributed', 'dark'], lng: 64.0, lat: 6.4, date: ago(0, 12, 0) },
+  // 7- and 10-ship rafts for stress-testing the "Scale to N" (v19) flow. The 10-
+  // ship event includes an unattributed vessel, as a real large raft often would.
+  { id: 206, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star', 'meridian-star', 'celestine', 'tiffani', 'sea-falcon', 'orion-dawn'], stsShipTypes: ['light', 'dark', 'spoofing', 'ais', 'unattributed', 'dark', 'ais'], lng: 58.0, lat: 6.0, date: ago(0, 12, 0) },
+  { id: 207, shipId: 'invictus', type: 'sts', stsPartner: 'wisdom-star', stsShips: ['invictus', 'wisdom-star', 'meridian-star', 'celestine', 'tiffani', 'sea-falcon', 'orion-dawn', 'nordic-crown', 'azure-horizon', 'unknown'], stsShipTypes: ['light', 'dark', 'spoofing', 'ais', 'unattributed', 'dark', 'ais', 'light', 'spoofing', 'unattributed'], lng: 70.0, lat: 6.0, date: ago(0, 12, 0) },
 ]

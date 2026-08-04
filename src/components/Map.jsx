@@ -265,6 +265,15 @@ const getMarkerSvg = (detection, stsVersion) => {
         false,
       )
     }
+    if (stsVersion === 'v18' || stsVersion === 'v19') {
+      // v17 two-hull glyph, but with the count badge back on so an over-sized
+      // raft (>5) is visible on the map itself, not just in the panel.
+      return buildStsCountSvg(
+        getStsShipCount(detection),
+        getMarkerHeading(detection),
+        true,
+      )
+    }
     if (stsVersion === 'v16') {
       return buildStsHullTransferSvg()
     }

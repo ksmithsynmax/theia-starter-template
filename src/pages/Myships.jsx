@@ -20,6 +20,7 @@ import {
   Button,
   Accordion,
   Select,
+  Switch,
 } from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
 import {
@@ -58,6 +59,7 @@ import satRaft2 from '../assets/sts_raft_2.png'
 import satRaft3 from '../assets/sts_raft_3.png'
 import satRaft4 from '../assets/sts_raft_4.png'
 import satRaft5 from '../assets/sts_raft_5.png'
+import satRaft6 from '../assets/sts_raft_6.png'
 import sanctionedTitle from '../assets/SanctionedTitle.svg'
 
 const baseDetailTabs = [
@@ -97,6 +99,13 @@ const SAT_TIMELINE_DATA_SOURCE_FILTER_OPTIONS = [
 ]
 const SAT_TIMELINE_DETECTION_TYPES = ['light', 'dark', 'spoofing', 'ais']
 const STS_PREFERRED_SAT_TIMELINE_DETECTION_TYPES = ['light', 'dark', 'spoofing']
+// Product's expected upper bound for a ship-to-ship transfer. Events with more
+// vessels than this are still shown in full, but v18 flags them as suspect
+// (the model may be wrong) while v19 treats them as a legitimate large raft.
+const STS_MAX_VESSELS = 5
+// Where a "Flag for review" (v18) notification is sent. Prototype only — swap
+// this to an email address to demo the email destination instead of Slack.
+const STS_REVIEW_DESTINATION = { kind: 'slack', target: '#maritime-sts-review' }
 const getSatTimelineDataSource = (detectionType) =>
   detectionType === 'dark' ? 'sar' : 'optical'
 const normalizeDetectionId = (id) => String(id)
@@ -308,6 +317,28 @@ function Myships() {
   // hero, so we can "spotlight" it (dim the rest, draw its mask edge + reticle,
   // and surface its mini clip card) per Seb's segmentation concepts.
   const [stsHeroHoverIdx, setStsHeroHoverIdx] = useState(null)
+  // v17: whether the segmentation layer (hull outlines + hover spotlight + mini
+  // clip card) is active. Toggled from the "SEGMENT FOCUS" chip on the hero and
+  // remembered across sessions so an analyst's preference sticks.
+  const [stsSegmentOn, setStsSegmentOn] = useState(() => {
+    try {
+      return localStorage.getItem('stsSegmentOn') !== '0'
+    } catch {
+      return true
+    }
+  })
+  const toggleStsSegment = useCallback(() => {
+    setStsSegmentOn((on) => {
+      const next = !on
+      try {
+        localStorage.setItem('stsSegmentOn', next ? '1' : '0')
+      } catch {
+        /* ignore persistence failures (e.g. private mode) */
+      }
+      if (!next) setStsHeroHoverIdx(null)
+      return next
+    })
+  }, [])
   // v4: whether the user has drilled from the transfer summary into a vessel.
   const [stsListDrilledIn, setStsListDrilledIn] = useState(false)
   // v2/v8: whether the STS event opens on the event overview (annotated
@@ -316,6 +347,9 @@ function Myships() {
   // v9 overview: toggle the "Vessels in event" section between the roster list
   // and an inline transfer-network graph.
   const [stsRosterView, setStsRosterView] = useState('list')
+  // v18 ("Cap at 5"): whether the analyst has flagged an over-sized event for
+  // review. Local prototype state; resets when the active STS tab changes.
+  const [stsReviewFlagged, setStsReviewFlagged] = useState(false)
   // v7: the floating network panel — open state, anchor rect for the map area,
   // and its (draggable) position / (resizable) size.
   const [stsNetworkOpen, setStsNetworkOpen] = useState(true)
@@ -434,9 +468,18 @@ function Myships() {
     onForceHideSelectedPortContextChange,
     portShapeControlEnabled = true,
     forYouPrototype = 'proto1',
-    stsVersion = 'v1',
+    stsVersion: stsVersionRaw = 'v1',
     onStsNetworkPanelChange,
   } = useOutletContext() || {}
+
+  // Two overflow-design explorations sit on top of the v17 layout:
+  //   v18 = "Cap at 5"   — treat >5 vessels as suspect; show 5 + an anomaly banner.
+  //   v19 = "Scale to N" — no cap; the raft view just grows to 6, 7, 8+ vessels.
+  // Both inherit every v17 style branch by resolving to 'v17' here, so the only
+  // thing that differs is the overflow mode we thread through separately.
+  const stsOverflowMode =
+    stsVersionRaw === 'v18' ? 'cap' : stsVersionRaw === 'v19' ? 'scale' : null
+  const stsVersion = stsOverflowMode ? 'v17' : stsVersionRaw
 
   const activeTab = shipTabs.find((t) => t.id === activeShipTab)
   const isStsTab = activeTab?.type === 'sts'
@@ -456,6 +499,10 @@ function Myships() {
   // pair (production behavior). Every other version renders the event's real
   // participant list exactly — a 3-ship event shows 3, a 4-ship event shows 4,
   // etc. — instead of padding to a fixed count.
+  // Always render every vessel the image contains — we never truncate the
+  // roster, even in v18. v18 differs from v19 only in how it *frames* an
+  // over-sized event (a "may be unreliable" warning vs. a neutral large-raft
+  // note); both show whatever was detected.
   const stsShipIds = !isStsTab
     ? null
     : stsVersion === 'v1'
@@ -463,6 +510,10 @@ function Myships() {
       : eventShipIds.length
         ? eventShipIds
         : displayStsShipIds
+  // How many vessels the model reported for this event.
+  const stsReportedCount = stsShipIds ? stsShipIds.length : 0
+  // Does this event exceed product's expected ship-to-ship size?
+  const stsOverflow = stsReportedCount > STS_MAX_VESSELS
 
   // Display label for an STS tab.
   const stsTabLabel = (sid) => ships[sid]?.name || 'Vessel'
@@ -506,7 +557,9 @@ function Myships() {
     setStsNetworkOpen(true)
     setStsNetworkPos(null)
     setStsHeroHoverIdx(null)
-  }, [stsVersion])
+    // Key off the raw version so switching between v17/v18/v19 (which all share
+    // the resolved 'v17' layout) still resets the drill-in state.
+  }, [stsVersionRaw])
 
   // v4: return to the transfer summary whenever the active STS tab changes.
   // Also start on the first ship so a stale index from a larger event (e.g.
@@ -518,6 +571,7 @@ function Myships() {
     setStsRosterView('list')
     setStsNetworkOpen(true)
     setStsNetworkPos(null)
+    setStsReviewFlagged(false)
   }, [activeShipTab])
 
   const stsShipKey = stsShipIds ? stsShipIds.join('|') : ''
@@ -1939,6 +1993,7 @@ function Myships() {
         3: satRaft3,
         4: satRaft4,
         5: satRaft5,
+        6: satRaft6,
       }
       const pinPosByCount = {
         2: [
@@ -1962,6 +2017,14 @@ function Myships() {
           { top: '28%', left: '50%' },
           { top: '60%', left: '56%' },
           { top: '28%', left: '62%' },
+        ],
+        6: [
+          { top: '28%', left: '36%' },
+          { top: '60%', left: '42%' },
+          { top: '28%', left: '47%' },
+          { top: '60%', left: '53%' },
+          { top: '28%', left: '59%' },
+          { top: '60%', left: '65%' },
         ],
       }
       const heroImage = heroByCount[list.length] || satRaft5
@@ -2140,7 +2203,7 @@ function Myships() {
           stsHeroHoverIdx != null && stsHeroHoverIdx < list.length
             ? stsHeroHoverIdx
             : activeIdx
-        const hasFocus = hasOutlines && focusIdx != null
+        const hasFocus = stsSegmentOn && hasOutlines && focusIdx != null
         const focusShape = hasFocus ? outlines[focusIdx] : null
         const focusSid = hasFocus ? list[focusIdx] : null
         const focusShip = focusSid ? ships[focusSid] : null
@@ -2184,9 +2247,43 @@ function Myships() {
                 transition: 'filter 0.2s ease',
               }}
             />
+            {/* Honest fallback: we only have pen-traced hulls for 2–5 vessels.
+                For any other count the stock raft image can't match the event,
+                so instead of a silently-dead toggle we say so outright. Only on
+                the full-size overview hero (not the tiny drill-in thumbnail). */}
+            {stsSegmentOn && !hasOutlines && width === '100%' && (
+              <Box
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  left: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '5px 10px',
+                  borderRadius: 6,
+                  background: 'rgba(3, 6, 15, 0.62)',
+                  border: '1px solid rgba(141,147,168,0.45)',
+                  zIndex: 3,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#C2C7D6',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 0.8,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {`Segmentation unavailable for ${list.length} vessels`}
+                </Text>
+              </Box>
+            )}
             {/* Segmentation overlay: outlines + spotlight + reticle, all in the
-                image's pixel space with the same `cover` crop as the <img>. */}
-            {hasOutlines && (
+                image's pixel space with the same `cover` crop as the <img>.
+                Hidden entirely when the analyst turns SEGMENT FOCUS off. */}
+            {stsSegmentOn && hasOutlines && (
               <svg
                 viewBox={`0 0 ${HERO_VB.w} ${HERO_VB.h}`}
                 preserveAspectRatio="xMidYMid slice"
@@ -2312,34 +2409,6 @@ function Myships() {
                   })}
               </svg>
             )}
-            {/* SEGMENT FOCUS eyebrow (top-left), per the Spotlight slides. */}
-            <Box
-              style={{
-                position: 'absolute',
-                top: 10,
-                left: 12,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '3px 8px',
-                borderRadius: 4,
-                background: 'rgba(3, 6, 15, 0.55)',
-                border: '1px solid rgba(0,108,215,0.5)',
-                pointerEvents: 'none',
-                zIndex: 3,
-              }}
-            >
-              <Text
-                style={{
-                  color: '#0094FF',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: 0.8,
-                }}
-              >
-                SEGMENT FOCUS
-              </Text>
-            </Box>
             {/* Mini clip card for the focused hull (CONF / LENGTH / HEADING).
                 The "SHIP N" eyebrow + vessel name identify the card, so the old
                 "SEGMENTED MINI-CLIP" label was dropped to save space. */}
@@ -2475,7 +2544,7 @@ function Myships() {
         </Box>
       )
     },
-    [ships, stsVersion, stsHeroHoverIdx]
+    [ships, stsVersion, stsHeroHoverIdx, stsSegmentOn]
   )
   const selectedStsIcon =
     isStsTab && activeTab
@@ -3835,16 +3904,257 @@ function Myships() {
                     padding: `${stsVersion === 'v10' || stsVersion === 'v11' || stsVersion === 'v12' || stsVersion === 'v13' || stsVersion === 'v16' || stsVersion === 'v17' ? 12 : 0}px 20px 20px 20px`,
                   }}
                 >
-                  <Box style={{ marginBottom: 12 }}>
-                    <Text
-                      style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}
+                  {/* Overflow messaging for events bigger than product's expected
+                      ship-to-ship size. v18 ("Cap at 5") frames it as a suspected
+                      mis-detection (amber, with a flag-for-review action); v19
+                      ("Scale to N") frames it as a legitimate large raft (blue,
+                      informational). Any other version renders no banner. */}
+                  {stsOverflow && stsOverflowMode && (
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        marginBottom: 14,
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        background:
+                          stsOverflowMode === 'cap'
+                            ? 'rgba(247, 178, 74, 0.12)'
+                            : 'rgba(0, 148, 255, 0.10)',
+                        border: `1px solid ${
+                          stsOverflowMode === 'cap'
+                            ? 'rgba(247, 178, 74, 0.55)'
+                            : 'rgba(0, 148, 255, 0.45)'
+                        }`,
+                      }}
                     >
-                      Ship-to-Ship event
-                    </Text>
-                    <Text style={{ color: '#8B90A5', fontSize: 12 }}>
-                      {list.length} vessels
-                      {evtDate ? ` · ${evtDate} UTC` : ''}
-                    </Text>
+                      <Box
+                        style={{
+                          flexShrink: 0,
+                          width: 18,
+                          height: 18,
+                          marginTop: 1,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background:
+                            stsOverflowMode === 'cap' ? '#F7B24A' : '#0094FF',
+                          color: '#0B0E1A',
+                          fontSize: 12,
+                          fontWeight: 800,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {stsOverflowMode === 'cap' ? '!' : 'i'}
+                      </Box>
+                      <Box style={{ minWidth: 0, flex: 1 }}>
+                        <Text
+                          style={{
+                            color:
+                              stsOverflowMode === 'cap' ? '#F7C67E' : '#8FD0FF',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            marginBottom: 3,
+                          }}
+                        >
+                          {stsOverflowMode === 'cap'
+                            ? `Unusually large transfer — ${stsReportedCount} vessels reported`
+                            : `Large raft — ${stsReportedCount} vessels detected`}
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#C2C7D6',
+                            fontSize: 11,
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          {stsOverflowMode === 'cap'
+                            ? `Ship-to-ship transfers usually involve ${STS_MAX_VESSELS} vessels or fewer, so this detection may be unreliable.`
+                            : `This is larger than a typical transfer. All ${stsReportedCount} vessels are listed below; the annotated image only covers the first ${STS_MAX_VESSELS}.`}
+                        </Text>
+                        {stsOverflowMode === 'cap' &&
+                          (stsReviewFlagged ? (
+                            // Confirmation + a preview of exactly what got sent,
+                            // so the "where does it go?" question is answered on
+                            // screen. Destination (Slack vs email) is driven by
+                            // STS_REVIEW_DESTINATION.
+                            <Box style={{ marginTop: 10 }}>
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  marginBottom: 8,
+                                }}
+                              >
+                                <Box
+                                  style={{
+                                    flexShrink: 0,
+                                    width: 16,
+                                    height: 16,
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: '#2FBF71',
+                                    color: '#08110B',
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                  }}
+                                >
+                                  ✓
+                                </Box>
+                                <Text
+                                  style={{
+                                    color: '#7CE0AE',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {STS_REVIEW_DESTINATION.kind === 'slack'
+                                    ? `Sent to ${STS_REVIEW_DESTINATION.target} on Slack`
+                                    : `Emailed to ${STS_REVIEW_DESTINATION.target}`}
+                                </Text>
+                                <Text
+                                  onClick={() => setStsReviewFlagged(false)}
+                                  style={{
+                                    color: '#8B90A5',
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    textDecoration: 'underline',
+                                  }}
+                                >
+                                  Undo
+                                </Text>
+                              </Box>
+                              <Box
+                                style={{
+                                  padding: '8px 10px',
+                                  borderRadius: 6,
+                                  background: 'rgba(3, 6, 15, 0.5)',
+                                  border: '1px solid rgba(141,147,168,0.28)',
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: '#888F9E',
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    marginBottom: 3,
+                                  }}
+                                >
+                                  {STS_REVIEW_DESTINATION.kind === 'slack'
+                                    ? `SynMax bot · ${STS_REVIEW_DESTINATION.target}`
+                                    : `To: ${STS_REVIEW_DESTINATION.target}`}
+                                </Text>
+                                <Text
+                                  style={{
+                                    color: '#D7DBE6',
+                                    fontSize: 11,
+                                    lineHeight: 1.5,
+                                  }}
+                                >
+                                  {`⚠️ Possible STS mis-detection — ${stsReportedCount} vessels reported (expected ≤${STS_MAX_VESSELS}). Event ${eventId}${
+                                    evtLat != null && evtLng != null
+                                      ? ` · ${evtLat}°, ${evtLng}°`
+                                      : ''
+                                  }. Please confirm or dismiss.`}
+                                </Text>
+                              </Box>
+                            </Box>
+                          ) : (
+                            <Box
+                              onClick={() => setStsReviewFlagged(true)}
+                              style={{
+                                marginTop: 8,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '5px 10px',
+                                borderRadius: 6,
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                background: 'transparent',
+                                border: '1px solid rgba(247, 178, 74, 0.55)',
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  color: '#F7C67E',
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  letterSpacing: 0.3,
+                                }}
+                              >
+                                Flag for review
+                              </Text>
+                            </Box>
+                          ))}
+                      </Box>
+                    </Box>
+                  )}
+                  <Box
+                    style={{
+                      marginBottom: 12,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                    }}
+                  >
+                    <Box style={{ minWidth: 0 }}>
+                      <Text
+                        style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}
+                      >
+                        Ship-to-Ship event
+                      </Text>
+                      <Text style={{ color: '#8B90A5', fontSize: 12 }}>
+                        {`${list.length} vessels`}
+                        {evtDate ? ` · ${evtDate} UTC` : ''}
+                      </Text>
+                    </Box>
+                    {/* v17: segmentation on/off. Lives here (next to the title)
+                        rather than on the hero so it doesn't cover the ships.
+                        Only shown for counts we have traced hulls for (2–5) so
+                        the toggle is never a no-op; other counts get an inline
+                        "unavailable" note on the hero instead. */}
+                    {stsVersion === 'v17' &&
+                      [2, 3, 4, 5].includes(list.length) && (
+                      <Switch
+                        checked={stsSegmentOn}
+                        onChange={toggleStsSegment}
+                        label="Segment focus"
+                        labelPosition="left"
+                        size="xs"
+                        color="#006CD7"
+                        style={{ flexShrink: 0 }}
+                        styles={{
+                          root: { display: 'flex' },
+                          body: { display: 'flex', alignItems: 'center' },
+                          track: {
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: stsSegmentOn
+                              ? '#0094FF'
+                              : '#4A4D6A',
+                          },
+                          thumb: { border: 'none', backgroundColor: '#FFFFFF' },
+                          label: {
+                            color: stsSegmentOn ? '#FFFFFF' : '#8D93A8',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: 0.8,
+                            textTransform: 'uppercase',
+                            paddingRight: 8,
+                            cursor: 'pointer',
+                            transition: 'color 0.15s ease',
+                          },
+                        }}
+                      />
+                    )}
                   </Box>
 
                   {/* Location + event-level ID (ID last; stands in for the

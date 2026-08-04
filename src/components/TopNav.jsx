@@ -275,6 +275,8 @@ const TopNav = ({
             <option value="v13">Ship-to-Ship v13</option>
             <option value="v16">Ship-to-Ship v16</option>
             <option value="v17">Ship-to-Ship v17</option>
+            <option value="v18">Ship-to-Ship v18 — Cap at 5</option>
+            <option value="v19">Ship-to-Ship v19 — Scale to N</option>
           </Box>
           {/* Favorites dropdown hidden while focusing on the For You feature.
           <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Favorites</Text>
