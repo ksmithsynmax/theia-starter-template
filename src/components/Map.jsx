@@ -15,7 +15,22 @@ import FuturePathPanel from './FuturePathPanel'
 import EstimatedLocationPanel from './EstimatedLocationPanel'
 import { useShipContext } from '../context/ShipContext'
 import { getPortIconSvg } from '../custom-icons/PortIcon'
+import KeyValuePair from './KeyValuePair'
 import { mockPortFeatures } from '../data/mockPortFeatures'
+import { PROTOTYPE_PORTS, resolvePortCoords } from '../data/portCoords'
+import { ships as shipsById } from '../data/mockData'
+import {
+  greatCirclePath,
+  haversineNm,
+  computeEta,
+  formatDistanceNm,
+  formatDuration,
+  formatEta,
+  initialBearing,
+  syntheticSpeedKn,
+  PATH_TO_PORT_SPEEDS,
+} from '../utils/pathToPort'
+import { buildExpectedArrivals } from '../data/mockExpectedArrivals'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
@@ -324,12 +339,6 @@ const getDefaultPopupPosition = (layout, containerWidth) => ({
   y: layout.top,
 })
 
-const PROTOTYPE_PORTS = [
-  { id: 'port-dubai', name: 'Dubai', lng: 55.2708, lat: 25.2648 },
-  { id: 'port-muscat', name: 'Muscat', lng: 58.5659, lat: 23.6280 },
-  { id: 'port-mumbai', name: 'Mumbai', lng: 72.8277, lat: 18.9360 },
-  { id: 'port-bar-harbor', name: 'Bar Harbor', lng: 103.78, lat: 1.25, flag: '🇺🇸' },
-]
 const PORT_FOCUS_MIN_GUTTER_PX = 180
 
 const normalizePortToken = (value) =>
@@ -671,6 +680,7 @@ const Map = forwardRef(function Map(
     leftPanelInset = 0,
     rightPanelInset = 0,
     stsVersion = 'v1',
+    pathToPortVersion = 'v1',
     portVisibilityBehavior = 'strict-layer-toggle',
     forceHideSelectedPortContext = false,
     portHoverCardEnabled = true,
@@ -733,6 +743,10 @@ const Map = forwardRef(function Map(
     closeShipTab,
     forYouItems,
     stsConnectorData,
+    pathToPortRoute,
+    pathToPortSpeed,
+    setPathToPortSpeed,
+    clearPathToPort,
   } = useShipContext()
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -746,6 +760,9 @@ const Map = forwardRef(function Map(
   const detectionByIdRef = useRef(new globalThis.Map())
   const lastPreviewAreaSignatureRef = useRef('')
   const lastFocusedPortViewportKeyRef = useRef('')
+  const lastFitRouteKeyRef = useRef(null)
+  const arrivalsCardMarkersRef = useRef({})
+  const lastFitArrivalsKeyRef = useRef(null)
   const portAnimatingRef = useRef(false)
   const portShapeExplicitlyShownRef = useRef(false)
   const activePortCenterRef = useRef(null)
@@ -791,6 +808,10 @@ const Map = forwardRef(function Map(
   // event stands out. On by default when an event exposes connectors; the map
   // toggle turns both the overlay and the connector lines off.
   const [stsFocusOn, setStsFocusOn] = useState(true)
+  // Path to Port v4: whether the "all arrivals" overlay (routes + on-map cards)
+  // is shown. Default off so opening a port keeps the normal port behavior; the
+  // analyst turns the overlay on via the map toggle.
+  const [arrivalsOverlayOn, setArrivalsOverlayOn] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
   const [mapDimensions, setMapDimensions] = useState({
@@ -833,6 +854,41 @@ const Map = forwardRef(function Map(
       left: leftPadding,
     }
   }, [leftPanelInset, rightPanelInset, mapDimensions.width])
+
+  // Distance / ETA readout for the v1 floating map panel. Mirrors the math the
+  // panel in Myships uses, so both versions agree.
+  const pathToPortReadout = useMemo(() => {
+    if (!pathToPortRoute?.shipId || !pathToPortRoute?.portId) return null
+    const port = resolvePortCoords({
+      id: pathToPortRoute.portId,
+      name: pathToPortRoute.portName,
+    })
+    let det =
+      pathToPortRoute.detectionId != null
+        ? runtimeDetections.find((d) => d.id === pathToPortRoute.detectionId)
+        : null
+    if (!det) {
+      det = runtimeDetections
+        .filter(
+          (d) =>
+            d.shipId === pathToPortRoute.shipId &&
+            Number.isFinite(d.lng) &&
+            Number.isFinite(d.lat)
+        )
+        .sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0]
+    }
+    const position = det ? { lng: det.lng, lat: det.lat } : null
+    const distanceNm = port && position ? haversineNm(position, port) : null
+    const { hours, etaDate } = computeEta(distanceNm, pathToPortSpeed)
+    const ship = shipsById[pathToPortRoute.shipId]
+    return {
+      shipName: ship?.name || pathToPortRoute.shipId,
+      portName: pathToPortRoute.portName || port?.name || 'destination port',
+      distanceNm,
+      etaHours: hours,
+      etaDate,
+    }
+  }, [pathToPortRoute, pathToPortSpeed, runtimeDetections])
 
   useEffect(() => {
     detectionByIdRef.current = new globalThis.Map(
@@ -1951,6 +2007,13 @@ const Map = forwardRef(function Map(
         el.style.cursor = 'pointer'
         el.style.pointerEvents = 'auto'
         el.style.position = 'relative'
+        // Keep port anchors above ship detection markers (which use z-index 1).
+        // Without this, a detection marker that happens to overlap a port icon
+        // sits on top and swallows the click, so clicking the port re-selects
+        // the detection instead of opening the port — an intermittent failure
+        // that depends on whether a detection overlaps the port at the current
+        // zoom/pan.
+        el.style.zIndex = '3'
 
         // Render the SVG exactly once to prevent any flicker
         el.innerHTML = getPortIconSvg('#393C56', 30)
@@ -2040,6 +2103,24 @@ const Map = forwardRef(function Map(
         }
       } else {
         marker.setLngLat(targetLngLat)
+      }
+
+      // Keep each marker's selected flag in sync with the actual active port.
+      // Without this, a port that was opened then closed stays flagged
+      // selected='true', so its click handler early-returns and the slide panel
+      // never reopens.
+      const syncEl = marker.getElement()
+      syncEl.dataset.selected = isActivePort ? 'true' : 'false'
+      const syncCircle = syncEl.querySelector('circle')
+      if (syncCircle) {
+        syncCircle.setAttribute('stroke', isActivePort ? '#FFFFFF' : '#393C56')
+      }
+      if (!isActivePort) {
+        const syncTip = syncEl.querySelector('[data-port-tooltip="true"]')
+        if (syncTip) {
+          syncTip.style.opacity = '0'
+          syncTip.style.transform = 'translate(0, -50%)'
+        }
       }
 
       const markerTooltip = marker
@@ -2658,6 +2739,338 @@ const Map = forwardRef(function Map(
     })
     source.setData({ type: 'FeatureCollection', features })
   }, [mapReady, stsConnectorData, stsFocusOn])
+
+  // Path to Port: predicted great-circle route from a vessel's current position
+  // to the destination port. Drawn as a dashed line with endpoint dots. Shared
+  // across every Path to Port version; the output UI (distance/ETA) lives in the
+  // panel, not on the map.
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    const m = map.current
+
+    if (!m.getSource('vessel-route')) {
+      m.addSource('vessel-route', {
+        type: 'geojson',
+        data: EMPTY_FEATURE_COLLECTION,
+      })
+    }
+    if (!m.getLayer('vessel-route-line')) {
+      m.addLayer({
+        id: 'vessel-route-line',
+        type: 'line',
+        source: 'vessel-route',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#0094FF',
+          'line-width': 2.5,
+          'line-opacity': 0.9,
+          'line-dasharray': [1.5, 1.5],
+        },
+      })
+    }
+    if (!m.getLayer('vessel-route-endpoint')) {
+      m.addLayer({
+        id: 'vessel-route-endpoint',
+        type: 'circle',
+        source: 'vessel-route',
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: {
+          'circle-radius': 5,
+          'circle-color': [
+            'case',
+            ['==', ['get', 'role'], 'port'],
+            '#0094FF',
+            '#FFFFFF',
+          ],
+          'circle-stroke-color': '#0094FF',
+          'circle-stroke-width': 2,
+        },
+      })
+    }
+
+    const source = m.getSource('vessel-route')
+    if (!source) return
+
+    // Resolve vessel position: the pinned detection if available, else the
+    // ship's latest detection that carries coordinates.
+    let vesselCoord = null
+    if (pathToPortRoute?.shipId) {
+      let det =
+        pathToPortRoute.detectionId != null
+          ? runtimeDetections.find((d) => d.id === pathToPortRoute.detectionId)
+          : null
+      if (!det) {
+        det = runtimeDetections
+          .filter(
+            (d) =>
+              d.shipId === pathToPortRoute.shipId &&
+              Number.isFinite(d.lng) &&
+              Number.isFinite(d.lat)
+          )
+          .sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0]
+      }
+      if (det && Number.isFinite(det.lng) && Number.isFinite(det.lat)) {
+        vesselCoord = [det.lng, det.lat]
+      }
+    }
+
+    const port = pathToPortRoute?.portId
+      ? PROTOTYPE_PORTS.find((p) => p.id === pathToPortRoute.portId)
+      : null
+    const portCoord = port ? [port.lng, port.lat] : null
+
+    if (!vesselCoord || !portCoord) {
+      source.setData(EMPTY_FEATURE_COLLECTION)
+      lastFitRouteKeyRef.current = null
+      return
+    }
+
+    const path = greatCirclePath(
+      { lng: vesselCoord[0], lat: vesselCoord[1] },
+      { lng: portCoord[0], lat: portCoord[1] }
+    )
+    source.setData({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: path },
+          properties: {},
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: vesselCoord },
+          properties: { role: 'vessel' },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: portCoord },
+          properties: { role: 'port' },
+        },
+      ],
+    })
+
+    // Frame both endpoints once per new route so the whole path is visible.
+    const routeKey = `${pathToPortRoute.shipId}|${pathToPortRoute.portId}|${pathToPortRoute.detectionId}`
+    if (lastFitRouteKeyRef.current !== routeKey) {
+      lastFitRouteKeyRef.current = routeKey
+      const bounds = new mapboxgl.LngLatBounds(vesselCoord, vesselCoord)
+      bounds.extend(portCoord)
+      map.current.fitBounds(bounds, {
+        padding: panelAwareFocusPadding,
+        maxZoom: 9,
+        duration: 1400,
+        easing: (t) => 1 - (1 - t) ** 3,
+      })
+    }
+  }, [
+    mapReady,
+    pathToPortRoute,
+    runtimeDetections,
+    panelAwareFocusPadding,
+  ])
+
+  // Path to Port v4 ("All arrivals"): draw every expected arrival's predicted
+  // path to the open port at once, each with a blue vessel arrow and an on-map
+  // callout card (MMSI / Speed / Heading / Destination / ETA). Speed and heading
+  // are synthesized for the illustration (heading = route bearing, speed = stable
+  // per-vessel value). Used for the ports explainer video.
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    const m = map.current
+
+    if (!m.getSource('arrivals-routes')) {
+      m.addSource('arrivals-routes', {
+        type: 'geojson',
+        data: EMPTY_FEATURE_COLLECTION,
+      })
+    }
+    if (!m.getLayer('arrivals-routes-line')) {
+      m.addLayer({
+        id: 'arrivals-routes-line',
+        type: 'line',
+        source: 'arrivals-routes',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#2DD4BF',
+          'line-width': 2,
+          'line-opacity': 0.9,
+          'line-dasharray': [1.5, 1.5],
+        },
+      })
+    }
+    if (!m.getLayer('arrivals-routes-endpoint')) {
+      m.addLayer({
+        id: 'arrivals-routes-endpoint',
+        type: 'circle',
+        source: 'arrivals-routes',
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: {
+          'circle-radius': 4,
+          'circle-color': '#2DD4BF',
+          'circle-stroke-color': '#0A0E19',
+          'circle-stroke-width': 1.5,
+        },
+      })
+    }
+
+    const source = m.getSource('arrivals-routes')
+    if (!source) return
+
+    const clearArrivalCards = () => {
+      Object.values(arrivalsCardMarkersRef.current).forEach((marker) =>
+        marker.remove()
+      )
+      arrivalsCardMarkersRef.current = {}
+    }
+
+    const activeTab = shipTabs.find((t) => t.id === activeShipTab)
+    const active =
+      pathToPortVersion === 'v4' &&
+      arrivalsOverlayOn &&
+      activeTab?.type === 'port' &&
+      showPorts
+
+    if (!active) {
+      source.setData(EMPTY_FEATURE_COLLECTION)
+      clearArrivalCards()
+      lastFitArrivalsKeyRef.current = null
+      return
+    }
+
+    const { port, rows } = buildExpectedArrivals({
+      portTab: activeTab,
+      ships: shipsById,
+      detections: runtimeDetections,
+      speed: 12,
+    })
+    const portCoord = port ? [port.lng, port.lat] : null
+    const arrivals = rows
+      .filter((row) => row.position && portCoord)
+      .slice(0, 6)
+      .map((row) => {
+        const speed = syntheticSpeedKn(row.mmsi || row.shipId)
+        const heading = initialBearing(row.position, {
+          lng: portCoord[0],
+          lat: portCoord[1],
+        })
+        const { etaDate } = computeEta(row.distanceNm, speed)
+        return { ...row, speed, heading, etaDate }
+      })
+
+    if (!portCoord || arrivals.length === 0) {
+      source.setData(EMPTY_FEATURE_COLLECTION)
+      clearArrivalCards()
+      lastFitArrivalsKeyRef.current = null
+      return
+    }
+
+    const features = []
+    arrivals.forEach((row) => {
+      const coord = [row.position.lng, row.position.lat]
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: greatCirclePath(
+            { lng: coord[0], lat: coord[1] },
+            { lng: portCoord[0], lat: portCoord[1] }
+          ),
+        },
+        properties: {},
+      })
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: coord },
+        properties: {},
+      })
+    })
+    source.setData({ type: 'FeatureCollection', features })
+
+    // Card + arrow markers (DOM), keyed by ship id.
+    const seen = new Set()
+    arrivals.forEach((row) => {
+      seen.add(row.shipId)
+      let marker = arrivalsCardMarkersRef.current[row.shipId]
+      const arrowRotation = Number.isFinite(row.heading) ? row.heading : 0
+      const cardHtml = `
+        <div style="position:absolute;top:50%;right:26px;transform:translateY(-50%);
+          width:210px;background:#0d0f17;border:1px solid #393C56;border-radius:8px;
+          padding:12px 14px;color:#fff;font-size:12px;line-height:1.2;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+            <span style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;">${row.name}</span>
+            <span style="font-size:13px;">${row.flag || ''}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:10px;margin-bottom:10px;">
+            <div><div style="color:#888F9E;font-size:10px;margin-bottom:3px;">MMSI</div><div style="color:#fff;">${row.mmsi || '—'}</div></div>
+            <div><div style="color:#888F9E;font-size:10px;margin-bottom:3px;">Speed</div><div style="color:#fff;">${row.speed} kn</div></div>
+            <div><div style="color:#888F9E;font-size:10px;margin-bottom:3px;">Heading</div><div style="color:#fff;">${Math.round(arrowRotation)}°</div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1.4fr;column-gap:10px;">
+            <div><div style="color:#888F9E;font-size:10px;margin-bottom:3px;">Destination</div><div style="color:#fff;white-space:nowrap;">${activeTab?.name || '—'}</div></div>
+            <div><div style="color:#888F9E;font-size:10px;margin-bottom:3px;">ETA</div><div style="color:#fff;white-space:nowrap;">${formatEta(row.etaDate)}</div></div>
+          </div>
+          <div style="position:absolute;top:50%;right:-6px;transform:translateY(-50%) rotate(45deg);
+            width:10px;height:10px;background:#0d0f17;border-right:1px solid #393C56;border-top:1px solid #393C56;"></div>
+        </div>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(${arrowRotation}deg);">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2 L19 21 L12 16 L5 21 Z" fill="#2E9BFF" stroke="#0A0E19" stroke-width="1.2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      `
+      if (!marker) {
+        const el = document.createElement('div')
+        el.style.position = 'relative'
+        el.style.width = '0'
+        el.style.height = '0'
+        el.style.pointerEvents = 'none'
+        el.innerHTML = cardHtml
+        marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([row.position.lng, row.position.lat])
+          .addTo(m)
+        arrivalsCardMarkersRef.current[row.shipId] = marker
+      } else {
+        marker.setLngLat([row.position.lng, row.position.lat])
+        marker.getElement().innerHTML = cardHtml
+      }
+    })
+
+    // Remove markers for ships no longer in the arrivals set.
+    Object.keys(arrivalsCardMarkersRef.current).forEach((shipId) => {
+      if (!seen.has(shipId)) {
+        arrivalsCardMarkersRef.current[shipId].remove()
+        delete arrivalsCardMarkersRef.current[shipId]
+      }
+    })
+
+    // Frame all vessels + the port once per port so the fan of routes reads well.
+    const arrivalsKey = `${activeTab.id}|${arrivals.map((r) => r.shipId).join(',')}`
+    if (lastFitArrivalsKeyRef.current !== arrivalsKey) {
+      lastFitArrivalsKeyRef.current = arrivalsKey
+      const bounds = new mapboxgl.LngLatBounds(portCoord, portCoord)
+      arrivals.forEach((row) =>
+        bounds.extend([row.position.lng, row.position.lat])
+      )
+      map.current.fitBounds(bounds, {
+        padding: { top: 90, right: 90, bottom: 90, left: 90 + (Number(leftPanelInset) || 0) },
+        maxZoom: 8,
+        duration: 1400,
+        easing: (t) => 1 - (1 - t) ** 3,
+      })
+    }
+  }, [
+    mapReady,
+    pathToPortVersion,
+    arrivalsOverlayOn,
+    activeShipTab,
+    shipTabs,
+    runtimeDetections,
+    showPorts,
+    leftPanelInset,
+  ])
 
   // Keep visible saved shapes + the in-progress pending shape rendered, with a
   // small floating label/close control per visible saved shape.
@@ -4722,6 +5135,145 @@ const Map = forwardRef(function Map(
           outline: 'none',
         }}
       />
+      {pathToPortVersion === 'v1' && pathToPortReadout && (
+        <Box
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 12 + (Number(leftPanelInset) || 0),
+            zIndex: 30,
+            width: 380,
+            padding: 20,
+            borderRadius: 8,
+            background: '#181926',
+            border: '1px solid #393C56',
+            pointerEvents: 'auto',
+          }}
+        >
+          <Box
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: 8,
+              marginBottom: 16,
+            }}
+          >
+            <Box style={{ minWidth: 0 }}>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>
+                Path to Port
+              </Text>
+              <Text style={{ color: '#888F9E', fontSize: 12, marginTop: 2 }}>
+                {pathToPortReadout.shipName} to {pathToPortReadout.portName}
+              </Text>
+            </Box>
+            <Box
+              component="button"
+              type="button"
+              onClick={() => clearPathToPort()}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#888F9E',
+                fontSize: 18,
+                lineHeight: 1,
+                cursor: 'pointer',
+                padding: 2,
+              }}
+            >
+              ×
+            </Box>
+          </Box>
+
+          <Box
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1.6fr',
+              columnGap: 16,
+              marginBottom: 20,
+            }}
+          >
+            <KeyValuePair
+              keyName="Distance"
+              value={formatDistanceNm(pathToPortReadout.distanceNm)}
+            />
+            <KeyValuePair
+              keyName="Duration"
+              value={formatDuration(pathToPortReadout.etaHours)}
+            />
+            <KeyValuePair
+              keyName="ETA"
+              value={formatEta(pathToPortReadout.etaDate)}
+            />
+          </Box>
+
+          <Text style={{ color: '#fff', fontSize: 12, marginBottom: 8 }}>
+            Speed
+          </Text>
+          <Box style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {PATH_TO_PORT_SPEEDS.map((speed) => {
+              const active = speed === pathToPortSpeed
+              return (
+                <Box
+                  key={speed}
+                  component="button"
+                  type="button"
+                  onClick={() => setPathToPortSpeed(speed)}
+                  style={{
+                    height: 30,
+                    padding: '0 14px',
+                    borderRadius: 4,
+                    border: `1px solid ${active ? '#0094ff' : '#393C56'}`,
+                    background: active ? 'rgba(0, 148, 255, 0.12)' : '#24263C',
+                    color: active ? '#fff' : '#888F9E',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {speed} kn
+                </Box>
+              )
+            })}
+          </Box>
+        </Box>
+      )}
+      {pathToPortVersion === 'v4' &&
+        showPorts &&
+        shipTabs.find((t) => t.id === activeShipTab)?.type === 'port' && (
+          <Box
+            onClick={() => setArrivalsOverlayOn((v) => !v)}
+            style={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              zIndex: 30,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderRadius: 6,
+              cursor: 'pointer',
+              userSelect: 'none',
+              background: arrivalsOverlayOn ? '#006CD7' : '#181926',
+              border: `1px solid ${arrivalsOverlayOn ? '#006CD7' : '#393C56'}`,
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 2 L19 21 L12 16 L5 21 Z"
+                fill="currentColor"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {arrivalsOverlayOn ? 'Hide arrivals' : 'Show arrivals'}
+          </Box>
+        )}
       {Boolean(stsConnectorData?.lines?.length) && (
         <Box
           onClick={() => setStsFocusOn((v) => !v)}

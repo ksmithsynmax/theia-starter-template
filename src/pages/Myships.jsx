@@ -51,6 +51,16 @@ import EventTimelineCard from '../components/ShipDetails/EventTimelineCard'
 import SanctionDetailsVersionB from '../components/SanctionDetailsVersionB'
 import { useShipContext } from '../context/ShipContext'
 import { ships } from '../data/mockData'
+import { buildExpectedArrivals } from '../data/mockExpectedArrivals'
+import { resolvePortCoords } from '../data/portCoords'
+import {
+  formatDistanceNm,
+  formatDuration,
+  formatEta,
+  computeEta,
+  haversineNm,
+  PATH_TO_PORT_SPEEDS,
+} from '../utils/pathToPort'
 import satImageA from '../assets/HAfSz3HbAAA34GM.jpeg'
 import satImageB from '../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
 import satImageC from '../assets/b7305b3c008782765e2f14920270f2e7834f0f17.jpg'
@@ -305,6 +315,12 @@ function Myships() {
     setSelectedTerminal,
     selectedBerth,
     setSelectedBerth,
+    pathToPortRoute,
+    setPathToPortRoute,
+    pathToPortSpeed,
+    setPathToPortSpeed,
+    startPathToPort,
+    clearPathToPort,
     stsConnectorData,
     setStsConnectorData,
     setStsPeekDetectionId,
@@ -469,6 +485,7 @@ function Myships() {
     portShapeControlEnabled = true,
     forYouPrototype = 'proto1',
     stsVersion: stsVersionRaw = 'v1',
+    pathToPortVersion = 'v1',
     onStsNetworkPanelChange,
   } = useOutletContext() || {}
 
@@ -484,6 +501,120 @@ function Myships() {
   const activeTab = shipTabs.find((t) => t.id === activeShipTab)
   const isStsTab = activeTab?.type === 'sts'
   const isPortTab = activeTab?.type === 'port'
+
+  // Path to Port: expected arrivals for the active port, with distance/ETA
+  // derived at the currently selected speed. Recomputes when the port, speed, or
+  // detections change.
+  const expectedArrivalsData = useMemo(
+    () =>
+      isPortTab
+        ? buildExpectedArrivals({
+            portTab: activeTab,
+            ships,
+            detections: runtimeDetections,
+            speed: pathToPortSpeed,
+          })
+        : { port: null, rows: [] },
+    [isPortTab, activeTab, runtimeDetections, pathToPortSpeed]
+  )
+  const [expandedArrivalId, setExpandedArrivalId] = useState(null)
+
+  // Distance / ETA for the currently-active Path to Port route (the vessel the
+  // user drilled into from Expected Arrivals). Drives the v1 map panel and v2
+  // vessel-panel readouts. Recomputes with the selected speed.
+  const activePathToPort = useMemo(() => {
+    if (!pathToPortRoute?.shipId || !pathToPortRoute?.portId) return null
+    const port = resolvePortCoords({
+      id: pathToPortRoute.portId,
+      name: pathToPortRoute.portName,
+    })
+    let det =
+      pathToPortRoute.detectionId != null
+        ? runtimeDetections.find((d) => d.id === pathToPortRoute.detectionId)
+        : null
+    if (!det) {
+      det = runtimeDetections
+        .filter(
+          (d) =>
+            d.shipId === pathToPortRoute.shipId &&
+            Number.isFinite(d.lng) &&
+            Number.isFinite(d.lat)
+        )
+        .sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0]
+    }
+    const position = det ? { lng: det.lng, lat: det.lat } : null
+    const distanceNm = port && position ? haversineNm(position, port) : null
+    const { hours, etaDate } = computeEta(distanceNm, pathToPortSpeed)
+    const ship = ships[pathToPortRoute.shipId]
+    return {
+      shipId: pathToPortRoute.shipId,
+      shipName: ship?.name || pathToPortRoute.shipId,
+      portName: pathToPortRoute.portName || port?.name || 'destination port',
+      distanceNm,
+      etaHours: hours,
+      etaDate,
+    }
+  }, [pathToPortRoute, pathToPortSpeed, runtimeDetections])
+
+  // Speed selector shared by every Path to Port version.
+  const renderPathToPortSpeedChips = () => (
+    <Box style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {PATH_TO_PORT_SPEEDS.map((speed) => {
+        const active = speed === pathToPortSpeed
+        return (
+          <Box
+            key={speed}
+            component="button"
+            type="button"
+            onClick={() => setPathToPortSpeed(speed)}
+            style={{
+              height: 30,
+              padding: '0 14px',
+              borderRadius: 4,
+              border: `1px solid ${active ? '#0094ff' : '#393C56'}`,
+              background: active ? 'rgba(0, 148, 255, 0.12)' : '#24263C',
+              color: active ? '#fff' : '#888F9E',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {speed} kn
+          </Box>
+        )
+      })}
+    </Box>
+  )
+
+  // Distance / ETA / Duration readout shared by every Path to Port version.
+  const renderPathToPortReadout = (data) => {
+    if (!data) return null
+    return (
+      <Box style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Box
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr 1.6fr',
+            columnGap: 16,
+          }}
+        >
+          <KeyValuePair
+            keyName="Distance"
+            value={formatDistanceNm(data.distanceNm)}
+          />
+          <KeyValuePair
+            keyName="Duration"
+            value={formatDuration(data.etaHours)}
+          />
+          <KeyValuePair keyName="ETA" value={formatEta(data.etaDate)} />
+        </Box>
+        <Box style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Text style={{ color: '#fff', fontSize: 12 }}>Speed</Text>
+          {renderPathToPortSpeedChips()}
+        </Box>
+      </Box>
+    )
+  }
   const displayStsShipIds = isStsTab
     ? [
         activeTab.shipIds[0],
@@ -3184,6 +3315,67 @@ function Myships() {
             overflowX: 'hidden',
           }}
         >
+          {pathToPortVersion === 'v2' &&
+            !isStsTab &&
+            activePathToPort &&
+            activePathToPort.shipId === activeShipId && (
+              <Box
+                style={{
+                  margin: '16px 20px 4px 20px',
+                  padding: 16,
+                  background: '#24263C',
+                  border: '1px solid #393C56',
+                  borderRadius: 4,
+                }}
+              >
+                <Box
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 12,
+                  }}
+                >
+                  <Box style={{ minWidth: 0 }}>
+                    <Text
+                      style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}
+                    >
+                      Path to Port
+                    </Text>
+                    <Text
+                      style={{
+                        color: '#888F9E',
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      {activePathToPort.shipName} to{' '}
+                      {activePathToPort.portName}
+                    </Text>
+                  </Box>
+                  <Box
+                    component="button"
+                    type="button"
+                    onClick={() => clearPathToPort()}
+                    style={{
+                      height: 28,
+                      padding: '0 12px',
+                      borderRadius: 4,
+                      border: '1px solid #393C56',
+                      background: 'transparent',
+                      color: '#888F9E',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Clear route
+                  </Box>
+                </Box>
+                {renderPathToPortReadout(activePathToPort)}
+              </Box>
+            )}
           {isStsTab &&
             (stsVersion === 'v2' ||
               stsVersion === 'v8' ||
@@ -7379,6 +7571,7 @@ function Myships() {
                       if (
                         level === 'Terminal Details' &&
                         (activePortTab === 'Ships In Port' ||
+                          activePortTab === 'Expected Arrivals' ||
                           activePortTab === 'Notes' ||
                           activePortTab === 'Specifications')
                       ) {
@@ -7386,6 +7579,7 @@ function Myships() {
                       } else if (
                         level === 'Berth Details' &&
                         (activePortTab === 'Ships In Port' ||
+                          activePortTab === 'Expected Arrivals' ||
                           activePortTab === 'Notes')
                       ) {
                         setActivePortTab('Ship Handles')
@@ -7393,6 +7587,7 @@ function Myships() {
                         level === 'Port Details' &&
                         ![
                           'Ships In Port',
+                          'Expected Arrivals',
                           'Ship Handles',
                           'Cargo Handles',
                           'Services',
@@ -7865,6 +8060,7 @@ function Myships() {
                         ]
                       : [
                           'Ships In Port',
+                          'Expected Arrivals',
                           'Ship Handles',
                           'Cargo Handles',
                           'Services',
@@ -8116,6 +8312,227 @@ function Myships() {
                         </Box>
                       )
                     })}
+                </Box>
+              )}
+
+              {activePortTab === 'Expected Arrivals' && (
+                <Box
+                  style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    marginLeft: -20,
+                    marginRight: -20,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#888F9E',
+                      fontSize: 12,
+                      margin: '16px 20px 0 20px',
+                    }}
+                  >
+                    Vessels expected at {activeTab?.name || 'this port'}. Select a
+                    vessel to jump to its current position and preview the
+                    predicted path to port.
+                  </Text>
+                  <Box
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns:
+                        'minmax(0, 1.4fr) 34px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 0.9fr)',
+                      columnGap: 10,
+                      alignItems: 'center',
+                      padding: '6px 10px',
+                      background: '#24263C',
+                      borderRadius: '4px',
+                      margin: '12px 20px 8px 20px',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                    }}
+                  >
+                    {['Name', 'Ctry', 'Type', 'IMO', 'ETA', 'Dist'].map(
+                      (heading) => (
+                        <Text
+                          key={heading}
+                          style={{
+                            color: '#fff',
+                            fontSize: 12,
+                            minWidth: 0,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {heading}
+                        </Text>
+                      )
+                    )}
+                  </Box>
+
+                  {expectedArrivalsData.rows.length === 0 && (
+                    <Text
+                      style={{
+                        color: '#888F9E',
+                        fontSize: 13,
+                        margin: '16px 20px',
+                      }}
+                    >
+                      No expected arrivals for this port.
+                    </Text>
+                  )}
+
+                  {expectedArrivalsData.rows.map((row) => {
+                    const isActiveRoute =
+                      pathToPortRoute?.shipId === row.shipId
+                    const isExpanded =
+                      pathToPortVersion === 'v3' &&
+                      expandedArrivalId === row.id
+                    const etaShort = row.etaDate
+                      ? row.etaDate.toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false,
+                          timeZone: 'UTC',
+                        })
+                      : '—'
+                    return (
+                      <Box key={row.id}>
+                        <Box
+                          onClick={() => {
+                            if (pathToPortVersion === 'v3') {
+                              // Inline version stays on the port panel: draw the
+                              // route + frame the map without switching to the
+                              // vessel tab, and toggle the inline readout.
+                              if (expandedArrivalId === row.id) {
+                                setExpandedArrivalId(null)
+                                clearPathToPort()
+                              } else {
+                                setExpandedArrivalId(row.id)
+                                setPathToPortRoute({
+                                  shipId: row.shipId,
+                                  detectionId: row.detectionId ?? null,
+                                  portId: activeTab?.id,
+                                  portName: activeTab?.name || null,
+                                })
+                              }
+                            } else {
+                              // v1/v2 drill into the vessel's current position.
+                              startPathToPort(row, activeTab)
+                            }
+                          }}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns:
+                              'minmax(0, 1.4fr) 34px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 0.9fr)',
+                            columnGap: 10,
+                            alignItems: 'center',
+                            padding: '8px 10px',
+                            margin: '0 20px',
+                            borderBottom: '1px solid #393C56',
+                            cursor: 'pointer',
+                            background: isActiveRoute
+                              ? 'rgba(0, 148, 255, 0.1)'
+                              : 'transparent',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActiveRoute)
+                              e.currentTarget.style.background = '#24263C'
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActiveRoute)
+                              e.currentTarget.style.background = 'transparent'
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 12,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {row.name}
+                          </Text>
+                          <Text style={{ fontSize: 14 }}>{row.flag}</Text>
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 12,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {row.type}
+                          </Text>
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 12,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {row.imo}
+                          </Text>
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 12,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {etaShort}
+                          </Text>
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 12,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {formatDistanceNm(row.distanceNm)}
+                          </Text>
+                        </Box>
+                        {isExpanded && (
+                          <Box
+                            style={{
+                              margin: '10px 20px 14px 20px',
+                              padding: 14,
+                              background: '#181926',
+                              border: '1px solid #393C56',
+                              borderRadius: 8,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: '#fff',
+                                fontSize: 13,
+                                fontWeight: 600,
+                                marginBottom: 12,
+                              }}
+                            >
+                              Path to {activeTab?.name || 'port'} — {row.name}
+                            </Text>
+                            {renderPathToPortReadout({
+                              distanceNm: row.distanceNm,
+                              etaDate: row.etaDate,
+                              etaHours: row.etaHours,
+                            })}
+                          </Box>
+                        )}
+                      </Box>
+                    )
+                  })}
                 </Box>
               )}
 

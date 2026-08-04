@@ -26,7 +26,7 @@ function Layout() {
   const [forYouMarkersVisible, setForYouMarkersVisible] = useState(true)
   // Whether the pulse animation plays on pulse-style markers (icons stay either
   // way). Toggled from the Maritime Briefing Overview filter.
-  const [forYouPulseEnabled, setForYouPulseEnabled] = useState(true)
+  const [forYouPulseEnabled, setForYouPulseEnabled] = useState(false)
   // When the master toggle is off, these item ids are shown individually.
   const [forYouVisibleIds, setForYouVisibleIds] = useState([])
   // Explicit "fly to this item" request. The built-in port/shape focus logic
@@ -57,6 +57,10 @@ function Layout() {
   // Ship-to-Ship experience version, switched via the top-nav dropdown. 'v1' is
   // the current STS detail view; further versions branch off this.
   const [stsVersion, setStsVersion] = useState('v1')
+  // Path to Port experience version, switched via the top-nav dropdown. Each
+  // version places the route output (distance / ETA / duration + speed control)
+  // in a different spot; the Expected Arrivals list and map route are shared.
+  const [pathToPortVersion, setPathToPortVersion] = useState('v1')
   // Width the v7 floating network panel occludes on the right of the map, so the
   // map can pad focused vessels clear of it.
   const [stsNetworkInset, setStsNetworkInset] = useState(0)
@@ -477,6 +481,8 @@ function Layout() {
         onForYouVersionChange={setForYouVersion}
         stsVersion={stsVersion}
         onStsVersionChange={setStsVersion}
+        pathToPortVersion={pathToPortVersion}
+        onPathToPortVersionChange={setPathToPortVersion}
       />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
@@ -484,12 +490,24 @@ function Layout() {
           onDetectionClick={handleDetectionClick}
           onPortClick={(port) => {
             openPortTab(port)
+            // The detail panel only mounts on /myships (or /watchlist). Without
+            // this navigation, clicking a port from another route (e.g. For You)
+            // opens the tab in state but never shows the panel — it only appeared
+            // later once a ship click navigated here. Navigate so the port panel
+            // opens consistently on the first click.
+            if (
+              location.pathname !== '/myships' &&
+              location.pathname !== '/watchlist'
+            ) {
+              navigate('/myships')
+            }
             setPanelOpen(true)
           }}
           showPorts={portsLayerVisible}
           leftPanelInset={leftPanelInset}
           rightPanelInset={stsNetworkInset}
           stsVersion={stsVersion}
+          pathToPortVersion={pathToPortVersion}
           portVisibilityBehavior={portVisibilityBehavior}
           forceHideSelectedPortContext={forceHideSelectedPortContext}
           portHoverCardEnabled={portHoverCardEnabled}
@@ -748,6 +766,7 @@ function Layout() {
                         portShapeControlEnabled,
                         forYouPrototype,
                         stsVersion,
+                        pathToPortVersion,
                         onStsNetworkPanelChange: setStsNetworkInset,
                       }}
                     />

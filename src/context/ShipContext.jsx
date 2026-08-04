@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { ships, detections as seedDetections } from '../data/mockData'
 import { forYouItems as seedForYouItems } from '../data/forYouData'
+import { DEFAULT_PATH_TO_PORT_SPEED } from '../utils/pathToPort'
 import {
   SHIP_FILTER_DEFAULTS,
   SHIP_FILTER_TO_DETECTION_TYPES,
@@ -39,6 +40,15 @@ export function ShipProvider({ children }) {
   const [activePortLevel, setActivePortLevel] = useState('Port Details')
   const [selectedTerminal, setSelectedTerminal] = useState(null)
   const [selectedBerth, setSelectedBerth] = useState(null)
+
+  // Path to Port: a predicted route from a vessel's current position to a
+  // destination port. Set when a user clicks an Expected Arrival row. Shape:
+  // { shipId, detectionId, portId, portName }. pathToPortSpeed (knots) drives
+  // the ETA/duration output shared across all prototype versions.
+  const [pathToPortRoute, setPathToPortRoute] = useState(null)
+  const [pathToPortSpeed, setPathToPortSpeed] = useState(
+    DEFAULT_PATH_TO_PORT_SPEED
+  )
 
   // Shape drawing / bookmarked shapes state
   // shapeDrawMode: null | 'polygon' (active drawing tool on the map)
@@ -311,6 +321,16 @@ export function ShipProvider({ children }) {
     setSelectedTerminal(null)
     setSelectedBerth(null)
     setDetailPanelOpen(true)
+    // Opening a port is a context switch away from any selected detection.
+    // Clear the detection focus so the map's detection fly-to effect (which
+    // re-runs whenever the panel padding changes) can't yank the camera back to
+    // the previously selected detection instead of framing the port. This was
+    // the intermittent "click port -> click detection -> click port keeps the
+    // map on the detection" bug.
+    setActiveDetectionId(null)
+    setPanelFocusDetectionId(null)
+    setPreviewDetectionId(null)
+    setSelectedDetectionId(null)
   }, [])
 
   const openStsTab = useCallback(
@@ -396,6 +416,33 @@ export function ShipProvider({ children }) {
     [openShipTab, openStsTab]
   )
 
+  // One-click drill-in from an Expected Arrival: fly to the vessel's current
+  // position (via its latest detection) and record the destination port so the
+  // map can draw the route and every version can render distance/ETA/duration.
+  const startPathToPort = useCallback(
+    (arrival, portTab) => {
+      if (!arrival?.shipId || !portTab?.id) return
+      const detection =
+        arrival.detectionId != null
+          ? runtimeDetections.find((d) => d.id === arrival.detectionId)
+          : null
+      if (detection) {
+        selectDetection(detection, { source: 'path-to-port' })
+      } else {
+        openShipTab({ shipId: arrival.shipId })
+      }
+      setPathToPortRoute({
+        shipId: arrival.shipId,
+        detectionId: arrival.detectionId ?? null,
+        portId: portTab.id,
+        portName: portTab.name || null,
+      })
+    },
+    [runtimeDetections, selectDetection, openShipTab]
+  )
+
+  const clearPathToPort = useCallback(() => setPathToPortRoute(null), [])
+
   const closeShipTab = useCallback(
     (id) => {
       setShipTabs((prev) => {
@@ -422,6 +469,7 @@ export function ShipProvider({ children }) {
     setActiveDetectionId(null)
     setPreviewDetectionId(null)
     setPanelFocusDetectionId(null)
+    setPathToPortRoute(null)
   }, [])
 
   const toggleMapToolPanel = useCallback((toolId) => {
@@ -619,6 +667,12 @@ export function ShipProvider({ children }) {
         setSelectedTerminal,
         selectedBerth,
         setSelectedBerth,
+        pathToPortRoute,
+        setPathToPortRoute,
+        pathToPortSpeed,
+        setPathToPortSpeed,
+        startPathToPort,
+        clearPathToPort,
         shapeDrawMode,
         pendingShape,
         pendingShapeName,

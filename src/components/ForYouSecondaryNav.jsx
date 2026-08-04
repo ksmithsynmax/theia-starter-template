@@ -273,9 +273,9 @@ function ForYouSecondaryNav({
   // Map-marker visibility for the briefing, controlled from the Overview filter.
   // When a kind is off, its rows expose a per-row eye toggle (ids kept here).
   const [briefingMarkerKinds, setBriefingMarkerKinds] = useState({
-    ship: true,
-    port: true,
-    shape: true,
+    ship: false,
+    port: false,
+    shape: false,
   })
   const [briefingMarkerItemIds, setBriefingMarkerItemIds] = useState([])
 

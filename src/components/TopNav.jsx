@@ -98,6 +98,8 @@ const TopNav = ({
   onForYouVersionChange,
   stsVersion = 'v1',
   onStsVersionChange,
+  pathToPortVersion = 'v1',
+  onPathToPortVersionChange,
 }) => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -277,6 +279,31 @@ const TopNav = ({
             <option value="v17">Ship-to-Ship v17</option>
             <option value="v18">Ship-to-Ship v18 — Cap at 5</option>
             <option value="v19">Ship-to-Ship v19 — Scale to N</option>
+          </Box>
+          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Path to Port</Text>
+          <Box
+            component="select"
+            value={pathToPortVersion}
+            onChange={(event) =>
+              onPathToPortVersionChange?.(event.currentTarget.value)
+            }
+            style={{
+              height: 32,
+              background: '#24263C',
+              border: '1px solid #393C56',
+              color: '#FFFFFF',
+              borderRadius: 4,
+              padding: '0 32px 0 10px',
+              minWidth: 150,
+              fontSize: 12,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="v1">Path to Port v1 — Map panel</option>
+            <option value="v2">Path to Port v2 — Vessel panel</option>
+            <option value="v3">Path to Port v3 — Inline row</option>
+            <option value="v4">Path to Port v4 — All arrivals</option>
           </Box>
           {/* Favorites dropdown hidden while focusing on the For You feature.
           <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Favorites</Text>
