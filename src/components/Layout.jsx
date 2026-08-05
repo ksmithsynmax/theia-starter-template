@@ -217,7 +217,11 @@ function Layout() {
         setMapLayersOpen(false)
         return
       }
-      selectDetection(detection, { source: 'map', allowTabSwitch: true })
+      selectDetection(detection, {
+        source: 'map',
+        allowTabSwitch: true,
+        stsAsShip: stsVersion === 'v20' || stsVersion === 'v21',
+      })
       if (location.pathname !== '/myships' && location.pathname !== '/watchlist') {
         navigate('/myships')
       }
@@ -227,6 +231,7 @@ function Layout() {
       selectDetection,
       location.pathname,
       navigate,
+      stsVersion,
       stsConnectorData,
       setPreviewDetectionId,
       setStsPeekDetectionId,

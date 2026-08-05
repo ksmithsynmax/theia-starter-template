@@ -314,6 +314,8 @@ const TopNav = ({
                       ['v17', 'Ship-to-Ship v17'],
                       ['v18', 'Ship-to-Ship v18 — Cap at 5'],
                       ['v19', 'Ship-to-Ship v19 — Scale to N'],
+                      ['v20', 'Ship-to-Ship v20 — Ship tab'],
+                      ['v21', 'Ship-to-Ship v21 — Bounding boxes'],
                     ],
                   },
                   {

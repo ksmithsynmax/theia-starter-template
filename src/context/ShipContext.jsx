@@ -291,7 +291,12 @@ export function ShipProvider({ children }) {
     )
   }, [])
 
-  const openShipTab = useCallback((detection) => {
+  // stsMeta (optional): when a ship tab is opened from an STS detection in the
+  // v20 "ship-first" prototype, we attach STS context to the ship's own tab
+  // (instead of creating a dedicated 'sts' tab) so the panel can surface the
+  // Overview modal + involved-vessels control beneath the tools card. Shape:
+  // { stsEvent: true, stsType, stsShipIds: string[], stsDetectionId }.
+  const openShipTab = useCallback((detection, stsMeta = null) => {
     if (!detection?.shipId) return
     const ship = ships[detection.shipId]
     if (!ship) return
@@ -300,8 +305,18 @@ export function ShipProvider({ children }) {
     // any shapes currently shown.
     setVisibleShapeIds([])
     setShipTabs((prev) => {
-      if (prev.some((tab) => tab.id === ship.id)) return prev
-      return [...prev, { id: ship.id, name: ship.name }]
+      const existing = prev.find((tab) => tab.id === ship.id)
+      if (existing) {
+        // Refresh STS context on an already-open tab (e.g. switching between
+        // vessels in the same event); otherwise leave the tab untouched.
+        if (stsMeta) {
+          return prev.map((tab) =>
+            tab.id === ship.id ? { ...tab, ...stsMeta } : tab
+          )
+        }
+        return prev
+      }
+      return [...prev, { id: ship.id, name: ship.name, ...(stsMeta || {}) }]
     })
     setActiveShipTab(ship.id)
     if (detection.id != null) {
@@ -394,13 +409,29 @@ export function ShipProvider({ children }) {
   const selectDetection = useCallback(
     (detection, options = {}) => {
       if (!detection?.id) return
-      const { source = 'unknown', allowTabSwitch = true } = options
+      const {
+        source = 'unknown',
+        allowTabSwitch = true,
+        stsAsShip = false,
+      } = options
       const isStsDetection =
         (detection.type === 'sts' || detection.type === 'sts-ais') &&
         Boolean(detection.stsPartner)
 
       if (allowTabSwitch) {
-        if (isStsDetection) {
+        if (isStsDetection && stsAsShip) {
+          // v20: open the vessel's own ship tab, carrying STS context so the
+          // panel can show the Overview modal + involved-vessels control.
+          openShipTab(detection, {
+            stsEvent: true,
+            stsType: detection.type,
+            stsShipIds:
+              Array.isArray(detection.stsShips) && detection.stsShips.length
+                ? detection.stsShips
+                : [detection.shipId, detection.stsPartner].filter(Boolean),
+            stsDetectionId: detection.id,
+          })
+        } else if (isStsDetection) {
           openStsTab(
             detection.shipId,
             detection.stsPartner,

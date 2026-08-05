@@ -44,6 +44,7 @@ import UnattributedIcon from '../custom-icons/UnattributedIcon'
 import SpoofingIcon from '../custom-icons/SpoofingIcon'
 import STSIcon from '../custom-icons/STSIcon'
 import STSAisIcon from '../custom-icons/STSAisIcon'
+import StsV20Icon from '../custom-icons/StsV20Icon'
 import ShipIcon from '../custom-icons/ShipIcon'
 import EnlargeVerticalIcon from '../custom-icons/EnlargeVerticalIcon'
 import TransferIcon from '../custom-icons/TransferIcon.svg'
@@ -72,6 +73,7 @@ import satRaft3 from '../assets/sts_raft_3.png'
 import satRaft4 from '../assets/sts_raft_4.png'
 import satRaft5 from '../assets/sts_raft_5.png'
 import satRaft6 from '../assets/sts_raft_6.png'
+import satRaftOcean from '../assets/sts_raft_ocean.png'
 import sanctionedTitle from '../assets/SanctionedTitle.svg'
 
 const baseDetailTabs = [
@@ -171,8 +173,9 @@ const getSatTimelineImageForDetection = (detection) => {
   return satImageC
 }
 
-// Keep drag-resize code for possible future re-enable.
-const ENABLE_TIMELINE_DRAG = true
+// Drag-to-resize the timeline is retired in favor of the collapse/expand
+// button. Keep the code behind this flag for possible future re-enable.
+const ENABLE_TIMELINE_DRAG = false
 const SHIP_OWNERSHIP = {
   invictus: {
     commercialOwner: 'No Info',
@@ -364,6 +367,9 @@ function Myships() {
   // v2/v8: whether the STS event opens on the event overview (annotated
   // image + roster) rather than a single ship's detail.
   const [stsShowOverview, setStsShowOverview] = useState(true)
+  // v20: the "ship-first" prototype opens an STS event on the vessel's own tab
+  // and exposes the event Overview through a centered modal instead of a tab.
+  const [stsOverviewModalOpen, setStsOverviewModalOpen] = useState(false)
   // v9 overview: toggle the "Vessels in event" section between the roster list
   // and an inline transfer-network graph.
   const [stsRosterView, setStsRosterView] = useState('list')
@@ -505,6 +511,17 @@ function Myships() {
   const activeTab = shipTabs.find((t) => t.id === activeShipTab)
   const isStsTab = activeTab?.type === 'sts'
   const isPortTab = activeTab?.type === 'port'
+  // v20 "ship-first" STS: the active tab is a normal ship tab, but it carries
+  // STS context (attached in openShipTab). We surface the involved-vessels
+  // switcher + Overview modal beneath the tools card. This keys off the tab's
+  // own STS context (set when it was opened) rather than the current version
+  // dropdown, so switching versions never strands a v20-opened tab without its
+  // STS controls. (Whether a NEW click opens a ship tab vs a classic STS tab is
+  // still governed by stsVersion === 'v20' in selectDetection.)
+  const isStsShipTab = !!activeTab?.stsEvent
+  const stsEventShipIds = isStsShipTab
+    ? (activeTab.stsShipIds || []).filter((sid) => ships[sid])
+    : []
 
   // Path to Port: expected arrivals for the active port, with distance/ETA
   // derived at the currently selected speed. Recomputes when the port, speed, or
@@ -841,6 +858,52 @@ function Myships() {
     }, 0) + 1000
   )
   const allDetections = useMemo(() => runtimeDetections, [runtimeDetections])
+
+  // v20: when switching between vessels in an STS event, resolve *that vessel's
+  // own* STS detection so its tab shows its own data (not the vessel we opened
+  // from). Prefer a detection that links to another participant in this event;
+  // fall back to the vessel's latest STS detection, then to nothing (letting
+  // openShipTab default to the vessel's latest detection of any type).
+  const resolveStsVesselDetectionId = useCallback(
+    (shipId, participantIds = []) => {
+      const mine = allDetections
+        .filter(
+          (d) =>
+            d.shipId === shipId &&
+            (d.type === 'sts' || d.type === 'sts-ais')
+        )
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+      const linked = mine.find(
+        (d) => d.stsPartner && participantIds.includes(d.stsPartner)
+      )
+      return (linked || mine[0])?.id ?? null
+    },
+    [allDetections]
+  )
+
+  // Open a vessel's own tab while preserving STS event context (used by the v20
+  // involved-vessels switcher + Overview modal).
+  const openStsVesselTab = useCallback(
+    (shipId, tab) => {
+      if (!shipId || !tab) return
+      openShipTab(
+        {
+          shipId,
+          id:
+            resolveStsVesselDetectionId(shipId, tab.stsShipIds || []) ??
+            tab.stsDetectionId,
+        },
+        {
+          stsEvent: true,
+          stsType: tab.stsType,
+          stsShipIds: tab.stsShipIds,
+          stsDetectionId: tab.stsDetectionId,
+        }
+      )
+    },
+    [openShipTab, resolveStsVesselDetectionId]
+  )
+
   const isBookmarkVersion =
     watchlistVersion === 'version4' ||
     watchlistVersion === 'version5' ||
@@ -2126,6 +2189,8 @@ function Myships() {
     ) => {
       if (!Array.isArray(list) || list.length === 0) return null
       const heroByCount = {
+        // 0 vessels = open-ocean plate with no ships (baseline / empty scene).
+        0: satRaftOcean,
         2: satRaft2,
         3: satRaft3,
         4: satRaft4,
@@ -2173,7 +2238,11 @@ function Myships() {
       // the rest of the clip, brightens its outline, drops corner reticles, and
       // surfaces a mini clip card) and clicking drills into that vessel — a
       // synthesis of Seb's Spotlight / Magnifier / Mini Clip Card concepts.
-      if (stsVersion === 'v17') {
+      if (
+        stsVersion === 'v17' ||
+        stsVersion === 'v20' ||
+        stsVersion === 'v21'
+      ) {
         // Pen-traced hull outlines (Figma), baked into the hero image's own
         // pixel space (viewBox 0 0 1536 1024) and drawn with the same `cover`
         // crop as the <img>, so each outline hugs its ship at any box size.
@@ -2335,6 +2404,8 @@ function Myships() {
           : null
         const hasOutlines =
           Array.isArray(outlines) && outlines.length === list.length
+        // v21: bounding-box mini-clips instead of segmentation outlines.
+        const bboxMode = stsVersion === 'v21'
         // Hover wins; fall back to any externally-driven active vessel.
         const focusIdx =
           stsHeroHoverIdx != null && stsHeroHoverIdx < list.length
@@ -2344,7 +2415,6 @@ function Myships() {
         const focusShape = hasFocus ? outlines[focusIdx] : null
         const focusSid = hasFocus ? list[focusIdx] : null
         const focusShip = focusSid ? ships[focusSid] : null
-        const focusAttributed = Boolean(focusShip) && focusSid !== 'unknown'
         const focusName = focusShip?.name || 'Unattributed'
         const focusLength =
           focusShip?.aisInfo?.length || focusShip?.synMaxInfo?.length
@@ -2357,9 +2427,6 @@ function Myships() {
         // Segmentation edge color: white for attributed hulls (reads clearly on
         // the dark water), amber for unattributed (mirrors pin semantics).
         const restEdge = 'rgba(255, 255, 255, 0.7)'
-        const activeEdge = focusAttributed ? '#FFFFFF' : '#F7B24A'
-        // Text accent — the established STS accent blue used elsewhere.
-        const activeText = focusAttributed ? '#0094FF' : '#F7B24A'
         return (
           <Box
             style={{
@@ -2501,6 +2568,37 @@ function Myships() {
                     const glow = attributed
                       ? 'rgba(255,255,255,0.85)'
                       : 'rgba(247,178,74,0.7)'
+                    // v21: draw a bounding box (mini-clip rectangle) instead of
+                    // the pixel-accurate segmentation outline. The rect uses the
+                    // hull's trace bbox in the same local space, so it inherits
+                    // the same group transform and reads as a tight box.
+                    const shapeProps = {
+                      transform: `scale(${o.sx} ${o.sy})`,
+                      vectorEffect: 'non-scaling-stroke',
+                      fill: isFocus
+                        ? 'rgba(255,255,255,0.14)'
+                        : 'rgba(0,0,0,0.001)',
+                      stroke: edge,
+                      strokeWidth: isFocus ? 2.5 : 1.5,
+                      strokeLinejoin: 'round',
+                      onClick: onPinClick ? () => onPinClick(idx) : undefined,
+                      onMouseEnter: () => setStsHeroHoverIdx(idx),
+                      onMouseLeave: () =>
+                        setStsHeroHoverIdx((cur) =>
+                          cur === idx ? null : cur
+                        ),
+                      style: {
+                        cursor: onPinClick ? 'pointer' : 'default',
+                        pointerEvents: 'all',
+                        opacity: dimmed ? 0.35 : 1,
+                        filter: isFocus
+                          ? `drop-shadow(0 0 4px ${glow})`
+                          : 'none',
+                        transition:
+                          'stroke 0.18s ease, stroke-width 0.18s ease, opacity 0.18s ease',
+                      },
+                    }
+                    const [bx0, by0, bx1, by1] = o.tb
                     return (
                       <g
                         key={`seg-${sid}-${idx}`}
@@ -2509,38 +2607,17 @@ function Myships() {
                         }`}
                         transform={`translate(${o.tx} ${o.ty})`}
                       >
-                        <path
-                          d={o.d}
-                          transform={`scale(${o.sx} ${o.sy})`}
-                          vectorEffect="non-scaling-stroke"
-                          fill={
-                            isFocus
-                              ? 'rgba(255,255,255,0.14)'
-                              : 'rgba(0,0,0,0.001)'
-                          }
-                          stroke={edge}
-                          strokeWidth={isFocus ? 2.5 : 1.5}
-                          strokeLinejoin="round"
-                          onClick={
-                            onPinClick ? () => onPinClick(idx) : undefined
-                          }
-                          onMouseEnter={() => setStsHeroHoverIdx(idx)}
-                          onMouseLeave={() =>
-                            setStsHeroHoverIdx((cur) =>
-                              cur === idx ? null : cur
-                            )
-                          }
-                          style={{
-                            cursor: onPinClick ? 'pointer' : 'default',
-                            pointerEvents: 'all',
-                            opacity: dimmed ? 0.35 : 1,
-                            filter: isFocus
-                              ? `drop-shadow(0 0 4px ${glow})`
-                              : 'none',
-                            transition:
-                              'stroke 0.18s ease, stroke-width 0.18s ease, opacity 0.18s ease',
-                          }}
-                        />
+                        {bboxMode ? (
+                          <rect
+                            x={bx0}
+                            y={by0}
+                            width={bx1 - bx0}
+                            height={by1 - by0}
+                            {...shapeProps}
+                          />
+                        ) : (
+                          <path d={o.d} {...shapeProps} />
+                        )}
                       </g>
                     )
                   })}
@@ -2566,41 +2643,47 @@ function Myships() {
                   zIndex: 5,
                 }}
               >
-                <Text
+                <Box
                   style={{
-                    color: activeText,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: 0.6,
-                    marginBottom: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    // v21 (bounding boxes) shows only name + flag, so no gap
+                    // below is needed.
+                    marginBottom: bboxMode ? 0 : 8,
                   }}
                 >
-                  {`SHIP ${focusIdx + 1}`}
-                </Text>
-                <Text
-                  style={{
-                    color: '#fff',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    marginBottom: 8,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {focusName}
-                </Text>
-                <Box style={{ display: 'flex', gap: 12 }}>
-                  <KeyValuePair keyName="CONF" value={`${focusConf}%`} />
-                  <KeyValuePair
-                    keyName="LENGTH"
-                    value={focusLength ? `${focusLength}m` : '—'}
-                  />
-                  <KeyValuePair
-                    keyName="HEADING"
-                    value={focusHeading ? `${focusHeading}°` : '—'}
-                  />
+                  <Text
+                    style={{
+                      color: '#fff',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {focusName}
+                  </Text>
+                  {focusShip?.flag && (
+                    <Text style={{ fontSize: 13, lineHeight: 1 }}>
+                      {focusShip.flag}
+                    </Text>
+                  )}
                 </Box>
+                {!bboxMode && (
+                  <Box style={{ display: 'flex', gap: 12 }}>
+                    <KeyValuePair keyName="CONF" value={`${focusConf}%`} />
+                    <KeyValuePair
+                      keyName="LENGTH"
+                      value={focusLength ? `${focusLength}m` : '—'}
+                    />
+                    <KeyValuePair
+                      keyName="HEADING"
+                      value={focusHeading ? `${focusHeading}°` : '—'}
+                    />
+                  </Box>
+                )}
               </Box>
             )}
           </Box>
@@ -2684,9 +2767,19 @@ function Myships() {
     [ships, stsVersion, stsHeroHoverIdx, stsSegmentOn]
   )
   const selectedStsIcon =
-    isStsTab && activeTab
-      ? renderStsTabIcon(activeTab, { width: 6, height: 14, gap: 2 })
-      : undefined
+    (stsVersion === 'v17' ||
+      stsVersion === 'v20' ||
+      stsVersion === 'v21') &&
+    (isStsTab || isStsShipTab)
+      ? (
+          <StsV20Icon
+            type={activeTab?.stsType || selectedDetection?.type}
+            size={16}
+          />
+        )
+      : isStsTab && activeTab
+        ? renderStsTabIcon(activeTab, { width: 6, height: 14, gap: 2 })
+        : undefined
 
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
@@ -5670,6 +5763,116 @@ function Myships() {
                         activeToolIds={activeMapToolPanels}
                       />
                     )}
+                    {isStsShipTab && (
+                      // Compact single-row STS switcher directly under the tools
+                      // card: an Overview button + the involved vessels. Kept
+                      // slim so it doesn't push the detail tabs below the fold.
+                      <Box style={{ marginTop: 16 }}>
+                        <Text
+                          style={{
+                            color: '#fff',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            marginBottom: 8,
+                          }}
+                        >
+                          Ship-to-Ship Event
+                        </Text>
+                        <Box
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                          }}
+                        >
+                        <Box
+                          component="button"
+                          type="button"
+                          onClick={() => setStsOverviewModalOpen(true)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            height: 30,
+                            padding: '0 10px',
+                            background: '#181926',
+                            border: '1px solid #393C56',
+                            borderRadius: 4,
+                            color: '#fff',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                          }}
+                        >
+                          STS Overview
+                        </Box>
+                        <Box
+                          style={{
+                            width: 1,
+                            height: 30,
+                            background: '#393C56',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Box
+                          className="tab-row-scroll"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            overflowX: 'auto',
+                            minWidth: 0,
+                          }}
+                        >
+                          {stsEventShipIds.map((sid) => {
+                            const s = ships[sid]
+                            if (!s) return null
+                            const active = activeShipTab === sid
+                            return (
+                              <Box
+                                key={sid}
+                                component="button"
+                                type="button"
+                                onClick={() => {
+                                  if (active) return
+                                  openStsVesselTab(sid, activeTab)
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  height: 30,
+                                  padding: '0 10px',
+                                  borderRadius: 4,
+                                  border: `1px solid ${active ? '#0094FF' : '#393C56'}`,
+                                  background: active
+                                    ? 'rgba(0, 148, 255, 0.12)'
+                                    : '#181926',
+                                  cursor: active ? 'default' : 'pointer',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: '#fff',
+                                    fontSize: 12,
+                                    fontWeight: active ? 600 : 500,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {s.name}
+                                </Text>
+                                {s.flag && (
+                                  <Text style={{ fontSize: 13 }}>{s.flag}</Text>
+                                )}
+                              </Box>
+                            )
+                          })}
+                        </Box>
+                        </Box>
+                      </Box>
+                    )}
                   </>
                 )}
               </Box>
@@ -6196,13 +6399,25 @@ function Myships() {
                               gap: 2,
                             }
                           )
+                          const useV20StsIcon =
+                            stsVersion === 'v17' ||
+                            stsVersion === 'v20' ||
+                            stsVersion === 'v21'
                           const iconMap = {
                             ais: <AisIcon style={{ height: 14 }} />,
                             light: <LightShipIcon style={{ height: 14 }} />,
                             dark: <DarkShipIcon style={{ height: 14 }} />,
                             spoofing: <SpoofingIcon style={{ height: 14 }} />,
-                            sts: stsLightIcon,
-                            'sts-ais': stsAisIcon,
+                            sts: useV20StsIcon ? (
+                              <StsV20Icon type="sts" size={16} />
+                            ) : (
+                              stsLightIcon
+                            ),
+                            'sts-ais': useV20StsIcon ? (
+                              <StsV20Icon type="sts-ais" size={16} />
+                            ) : (
+                              stsAisIcon
+                            ),
                             unattributed: (
                               <UnattributedIcon style={{ height: 14 }} />
                             ),
@@ -6278,6 +6493,9 @@ function Myships() {
                                   selectDetection(det, {
                                     source: 'timeline',
                                     allowTabSwitch: shouldSwitchToShipTab,
+                                    stsAsShip:
+                                      stsVersion === 'v20' ||
+                                      stsVersion === 'v21',
                                   })
                                 }}
                                 onViewStsShips={
@@ -6286,6 +6504,9 @@ function Myships() {
                                         selectDetection(det, {
                                           source: 'timeline',
                                           allowTabSwitch: true,
+                                          stsAsShip:
+                                            stsVersion === 'v20' ||
+                                            stsVersion === 'v21',
                                         })
                                     : undefined
                                 }
@@ -9643,6 +9864,189 @@ function Myships() {
             </Box>
           </Box>
         )}
+      </Modal>
+      <Modal
+        opened={isStsShipTab && stsOverviewModalOpen}
+        onClose={() => setStsOverviewModalOpen(false)}
+        withCloseButton={false}
+        centered
+        size="560px"
+        radius={8}
+        overlayProps={{ backgroundOpacity: 0.65, blur: 1 }}
+        styles={{
+          content: {
+            background: '#24263C',
+            border: '1px solid #393C56',
+          },
+          body: { padding: 0 },
+        }}
+      >
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            padding: '20px 20px 12px 20px',
+          }}
+        >
+          <Box>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>
+              Ship-to-Ship event
+            </Text>
+            <Text style={{ color: '#888F9E', fontSize: 12, marginTop: 2 }}>
+              {`${stsEventShipIds.length} vessels`}
+              {selectedDetection?.date ? ` · ${selectedDetection.date} UTC` : ''}
+            </Text>
+          </Box>
+          <Box
+            style={{ display: 'flex', alignItems: 'center', gap: 14 }}
+          >
+            {/* Match v17: segmentation focus toggle. Only shown for vessel
+                counts we have traced hulls for (2–5) so the toggle is never a
+                no-op. */}
+            {[2, 3, 4, 5].includes(stsEventShipIds.length) && (
+              <Switch
+                checked={stsSegmentOn}
+                onChange={toggleStsSegment}
+                label="Segment focus"
+                labelPosition="left"
+                size="xs"
+                color="#006CD7"
+                style={{ flexShrink: 0 }}
+                styles={{
+                  root: { display: 'flex' },
+                  body: { display: 'flex', alignItems: 'center' },
+                  track: {
+                    border: 'none',
+                    cursor: 'pointer',
+                    backgroundColor: stsSegmentOn ? '#0094FF' : '#4A4D6A',
+                  },
+                  thumb: { border: 'none', backgroundColor: '#FFFFFF' },
+                  label: {
+                    color: stsSegmentOn ? '#FFFFFF' : '#8D93A8',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 0.8,
+                    textTransform: 'uppercase',
+                    paddingRight: 8,
+                    cursor: 'pointer',
+                    transition: 'color 0.15s ease',
+                  },
+                }}
+              />
+            )}
+            <Box
+              component="button"
+              type="button"
+              onClick={() => setStsOverviewModalOpen(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 28,
+                height: 28,
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <XClose style={{ width: 18, height: 18, color: '#888F9E' }} />
+            </Box>
+          </Box>
+        </Box>
+        <Box style={{ padding: '0 20px 20px 20px' }}>
+          {renderStsHero(stsEventShipIds, {
+            height: 300,
+            marginBottom: 16,
+            onPinClick: (idx) => {
+              const sid = stsEventShipIds[idx]
+              if (!sid) return
+              openStsVesselTab(sid, activeTab)
+              setStsOverviewModalOpen(false)
+            },
+          })}
+          <Text
+            style={{
+              color: '#888F9E',
+              fontSize: 11,
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              marginBottom: 8,
+            }}
+          >
+            Vessels in event
+          </Text>
+          <Box style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {stsEventShipIds.map((sid, idx) => {
+              const s = ships[sid]
+              if (!s) return null
+              const active = activeShipTab === sid
+              return (
+                <Box
+                  key={sid}
+                  component="button"
+                  type="button"
+                  onClick={() => {
+                    if (!active) openStsVesselTab(sid, activeTab)
+                    setStsOverviewModalOpen(false)
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 4,
+                    border: `1px solid ${active ? '#0094FF' : '#393C56'}`,
+                    background: active ? 'rgba(0, 148, 255, 0.12)' : '#181926',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      background: '#24263C',
+                      border: '1px solid #393C56',
+                      color: '#fff',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {idx + 1}
+                  </Box>
+                  <Text
+                    style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}
+                  >
+                    {s.name}
+                  </Text>
+                  {s.flag && <Text style={{ fontSize: 14 }}>{s.flag}</Text>}
+                  <Box style={{ flex: 1 }} />
+                  {active ? (
+                    <Text
+                      style={{ color: '#888F9E', fontSize: 12, fontWeight: 500 }}
+                    >
+                      Viewing
+                    </Text>
+                  ) : (
+                    <Text
+                      style={{ color: '#0094FF', fontSize: 12, fontWeight: 600 }}
+                    >
+                      View
+                    </Text>
+                  )}
+                </Box>
+              )
+            })}
+          </Box>
+        </Box>
       </Modal>
     </Box>
   )
