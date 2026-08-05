@@ -309,7 +309,7 @@ export const DataTable = ({
               borderRadius: 0,
               background:
                 isInteractive && resolvedActiveRowId === String(row.id)
-                  ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #181926'
+                  ? '#002B56'
                   : isInteractive && hoveredRowId === String(row.id)
                     ? '#0056AC'
                     : '#181926',
@@ -523,7 +523,7 @@ export const BookmarkCardList = ({
               borderRadius: 4,
               border: `1px solid ${isActive ? '#006CD7' : '#393C56'}`,
               background: isActive
-                ? 'linear-gradient(0deg, rgba(0,108,215,0.16), rgba(0,108,215,0.16)), #24263C'
+                ? '#002B56'
                 : '#24263C',
               cursor: isInteractive ? 'pointer' : 'default',
             }}

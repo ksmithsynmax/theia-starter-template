@@ -9,6 +9,7 @@ import {
   Star01,
 } from '@untitledui/icons'
 import SatelliteIcon from '../custom-icons/SatelliteIcon'
+import AnchorIcon from '../custom-icons/AnchorIcon.svg'
 import OsintIcon from '../custom-icons/OsintIcon'
 import AlertIcon from '../custom-icons/AlertIcon'
 import SimilarSearchIcon from '../custom-icons/SimilarSearchIcon'
@@ -26,6 +27,7 @@ const LeftNav = ({
   watchlistVersion = 'grouped',
   forYouPrototype = 'proto1',
   forYouActive = false,
+  portsActive = false,
 }) => {
   const location = useLocation()
   const isVersion2 = watchlistVersion === 'version2'
@@ -54,7 +56,9 @@ const LeftNav = ({
   // /myships as part of the watchlist section unless we're in the For You flow.
   const onWatchlistRoute =
     location.pathname === '/watchlist' || location.pathname === '/myships'
-  const bookmarksActive = !forYouActive && onWatchlistRoute
+  // A port opened from the Ports nav lives on /myships too; keep the highlight on
+  // Ports (not Favorites/Watchlist) in that case.
+  const bookmarksActive = !forYouActive && !portsActive && onWatchlistRoute
   const primaryNavItems = [
     {
       icon: <Signal01 color="white" size={20} />,
@@ -67,6 +71,19 @@ const LeftNav = ({
       to: '/watchlist',
       label: bookmarksLabel,
       active: bookmarksActive,
+    },
+    {
+      icon: (
+        <Box
+          component="img"
+          src={AnchorIcon}
+          alt=""
+          style={{ width: 20, height: 20, display: 'block' }}
+        />
+      ),
+      to: '/ports',
+      label: 'Ports',
+      active: portsActive || location.pathname === '/ports',
     },
     {
       icon: <PolygonIcon style={{ width: 20, height: 20 }} />,

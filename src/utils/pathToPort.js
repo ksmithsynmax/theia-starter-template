@@ -157,4 +157,41 @@ export const formatDistanceNm = (distanceNm) => {
 
 // Preset speeds (knots) offered by the speed control across all versions.
 export const PATH_TO_PORT_SPEEDS = [8, 12, 16, 20]
-export const DEFAULT_PATH_TO_PORT_SPEED = 12
+export const DEFAULT_PATH_TO_PORT_SPEED = 8
+
+// Forecast horizon (hours) for the optional "projected position" marker: where
+// the vessel would be after this many hours travelling at the selected speed.
+export const PROJECTED_HORIZON_HOURS = 24
+
+// Adaptive horizon (hours) so the projected marker stays meaningful on short
+// routes. Capped at PROJECTED_HORIZON_HOURS, but shortened so the fastest preset
+// speed still lands short of the port (never clamps to the anchor). This keeps
+// each speed's projected position distinct instead of piling up at the port.
+export const projectedHorizonHours = (totalNm) => {
+  if (!Number.isFinite(totalNm) || totalNm <= 0) return PROJECTED_HORIZON_HOURS
+  const maxSpeed = Math.max(...PATH_TO_PORT_SPEEDS)
+  // 0.85 leaves the fastest preset at ~85% of the route.
+  const fitHours = (totalNm / maxSpeed) * 0.85
+  return Math.min(PROJECTED_HORIZON_HOURS, fitHours)
+}
+
+// Point [lng,lat] a given distance (nm) along a path of [lng,lat] points.
+// Linearly interpolates between the dense great-circle points and clamps to the
+// path endpoints.
+export const pointAlongPath = (path, distanceNm) => {
+  if (!Array.isArray(path) || path.length === 0) return null
+  if (!Number.isFinite(distanceNm) || distanceNm <= 0) return path[0]
+  let remaining = distanceNm
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = { lng: path[i][0], lat: path[i][1] }
+    const b = { lng: path[i + 1][0], lat: path[i + 1][1] }
+    const seg = haversineNm(a, b) || 0
+    if (seg === 0) continue
+    if (remaining <= seg) {
+      const f = remaining / seg
+      return [a.lng + (b.lng - a.lng) * f, a.lat + (b.lat - a.lat) * f]
+    }
+    remaining -= seg
+  }
+  return path[path.length - 1]
+}

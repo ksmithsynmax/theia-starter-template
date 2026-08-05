@@ -35,6 +35,8 @@ import {
   Anchor,
 } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
+import SatelliteIcon from '../custom-icons/SatelliteIcon'
+import ShipPathPanelButton from '../components/ShipDetails/ShipPathPanelButton'
 import AisIcon from '../custom-icons/AisIcon'
 import LightShipIcon from '../custom-icons/LighShipIcon'
 import DarkShipIcon from '../custom-icons/DarkShipIcon'
@@ -317,9 +319,11 @@ function Myships() {
     setSelectedBerth,
     pathToPortRoute,
     setPathToPortRoute,
+    setPathToPortRoutes,
     pathToPortSpeed,
     setPathToPortSpeed,
-    startPathToPort,
+    arrivalsOverlayOn,
+    setArrivalsOverlayOn,
     clearPathToPort,
     stsConnectorData,
     setStsConnectorData,
@@ -517,8 +521,10 @@ function Myships() {
         : { port: null, rows: [] },
     [isPortTab, activeTab, runtimeDetections, pathToPortSpeed]
   )
-  const [expandedArrivalId, setExpandedArrivalId] = useState(null)
-
+  // v3 Path to Port: ids of Expected Arrivals rows whose inline card is open.
+  // A Set so more than one card can be expanded at once.
+  const [expandedArrivalIds, setExpandedArrivalIds] = useState(() => new Set())
+  const [arrivalsIntroDismissed, setArrivalsIntroDismissed] = useState(false)
   // Distance / ETA for the currently-active Path to Port route (the vessel the
   // user drilled into from Expected Arrivals). Drives the v1 map panel and v2
   // vessel-panel readouts. Recomputes with the selected speed.
@@ -3315,67 +3321,6 @@ function Myships() {
             overflowX: 'hidden',
           }}
         >
-          {pathToPortVersion === 'v2' &&
-            !isStsTab &&
-            activePathToPort &&
-            activePathToPort.shipId === activeShipId && (
-              <Box
-                style={{
-                  margin: '16px 20px 4px 20px',
-                  padding: 16,
-                  background: '#24263C',
-                  border: '1px solid #393C56',
-                  borderRadius: 4,
-                }}
-              >
-                <Box
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 12,
-                  }}
-                >
-                  <Box style={{ minWidth: 0 }}>
-                    <Text
-                      style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}
-                    >
-                      Path to Port
-                    </Text>
-                    <Text
-                      style={{
-                        color: '#888F9E',
-                        fontSize: 12,
-                        marginTop: 2,
-                      }}
-                    >
-                      {activePathToPort.shipName} to{' '}
-                      {activePathToPort.portName}
-                    </Text>
-                  </Box>
-                  <Box
-                    component="button"
-                    type="button"
-                    onClick={() => clearPathToPort()}
-                    style={{
-                      height: 28,
-                      padding: '0 12px',
-                      borderRadius: 4,
-                      border: '1px solid #393C56',
-                      background: 'transparent',
-                      color: '#888F9E',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    Clear route
-                  </Box>
-                </Box>
-                {renderPathToPortReadout(activePathToPort)}
-              </Box>
-            )}
           {isStsTab &&
             (stsVersion === 'v2' ||
               stsVersion === 'v8' ||
@@ -7454,6 +7399,7 @@ function Myships() {
             </Box>
           </Box>
 
+          {/* Temporarily hidden: "Port shape visible on map" banner
           {portShapeControlEnabled &&
             (portVisibilityBehavior === 'strict-layer-toggle' ||
               portVisibilityBehavior === 'strict-layer-toggle-v2' ||
@@ -7508,6 +7454,7 @@ function Myships() {
                 </Box>
               </Box>
             )}
+          */}
 
           <Box
             style={{
@@ -7541,6 +7488,57 @@ function Myships() {
               value="Inland waterway, rail, road, sea"
             />
           </Box>
+
+          {!isTopSummaryCollapsed && (
+            <Box
+              style={{
+                marginTop: 20,
+                padding: 12,
+                background: '#24263C',
+                border: '1px solid #393C56',
+                borderRadius: 4,
+                display: 'flex',
+                gap: 6,
+              }}
+            >
+              <ShipPathPanelButton
+                fullWidth
+                singleLineLabel
+                label="Create Alert"
+                icon={<AlertIcon />}
+                onClick={() => {}}
+              />
+              <ShipPathPanelButton
+                fullWidth
+                singleLineLabel
+                label="Task Satellite Imagery"
+                icon={<SatelliteIcon />}
+                onClick={() => {}}
+              />
+              {pathToPortVersion === 'v5' && (
+                <ShipPathPanelButton
+                  fullWidth
+                  singleLineLabel
+                  active={arrivalsOverlayOn}
+                  label={
+                    arrivalsOverlayOn ? 'Hide Path to Port' : 'Path to Port'
+                  }
+                  icon={
+                    <Anchor style={{ width: 20, height: 20, color: '#fff' }} />
+                  }
+                  onClick={() =>
+                    setArrivalsOverlayOn((v) => {
+                      const next = !v
+                      // Turning the overlay on clears any single-vessel focus so
+                      // the two views stay mutually exclusive.
+                      if (next) clearPathToPort()
+                      return next
+                    })
+                  }
+                />
+              )}
+            </Box>
+          )}
 
           <Box
             style={{
@@ -8319,40 +8317,123 @@ function Myships() {
                 <Box
                   style={{
                     flex: 1,
-                    overflowY: 'auto',
+                    minHeight: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
                     marginLeft: -20,
                     marginRight: -20,
                   }}
                 >
-                  <Text
+                  {!arrivalsIntroDismissed && (
+                  <Box
                     style={{
-                      color: '#888F9E',
-                      fontSize: 12,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
                       margin: '16px 20px 0 20px',
+                      padding: '8px 10px',
+                      background: '#24263C',
+                      border: '1px solid #393C56',
+                      borderRadius: 4,
                     }}
                   >
-                    Vessels expected at {activeTab?.name || 'this port'}. Select a
-                    vessel to jump to its current position and preview the
-                    predicted path to port.
-                  </Text>
+                    <Box
+                      style={{
+                        width: 40,
+                        height: 40,
+                        flexShrink: 0,
+                        borderRadius: 4,
+                        background: '#181926',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Anchor size={20} color="#FFFFFF" />
+                    </Box>
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        lineHeight: '16px',
+                        fontWeight: 500,
+                        textAlign: 'left',
+                      }}
+                    >
+                      Select a vessel in the table below to jump to its current
+                      position and preview the predicted path to port.
+                    </Text>
+                    <Box
+                      component="button"
+                      type="button"
+                      aria-label="Dismiss"
+                      onClick={() => setArrivalsIntroDismissed(true)}
+                      style={{
+                        marginLeft: 'auto',
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'transparent',
+                        border: 'none',
+                        padding: 4,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <XClose size={16} color="#888F9E" />
+                    </Box>
+                  </Box>
+                  )}
+
+                  {pathToPortVersion === 'v2' && activePathToPort && (
+                    <Box
+                      style={{
+                        margin: '8px 20px 4px 20px',
+                        padding: 16,
+                        background: '#24263C',
+                        border: '1px solid #393C56',
+                        borderRadius: 4,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#fff',
+                          fontSize: 15,
+                          fontWeight: 600,
+                          marginBottom: 16,
+                        }}
+                      >
+                        Path to {activePathToPort.portName} —{' '}
+                        {activePathToPort.shipName}
+                      </Text>
+                      {renderPathToPortReadout(activePathToPort)}
+                    </Box>
+                  )}
+
+                  {/* Table header stays fixed with the intro/card above it. */}
                   <Box
                     style={{
                       display: 'grid',
                       gridTemplateColumns:
-                        'minmax(0, 1.4fr) 34px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 0.9fr)',
+                        'minmax(0, 1.3fr) 24px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 0.8fr) 44px',
                       columnGap: 10,
                       alignItems: 'center',
                       padding: '6px 10px',
                       background: '#24263C',
                       borderRadius: '4px',
                       margin: '12px 20px 8px 20px',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1,
+                      flexShrink: 0,
                     }}
                   >
-                    {['Name', 'Ctry', 'Type', 'IMO', 'ETA', 'Dist'].map(
-                      (heading) => (
+                    {[
+                      'Name',
+                      'Ctry',
+                      'Type',
+                      'IMO',
+                      'ETA',
+                      'Dist',
+                      '',
+                    ].map((heading) => (
                         <Text
                           key={heading}
                           style={{
@@ -8362,6 +8443,7 @@ function Myships() {
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
+                            textAlign: heading === 'View' ? 'right' : 'left',
                           }}
                         >
                           {heading}
@@ -8370,6 +8452,14 @@ function Myships() {
                     )}
                   </Box>
 
+                  {/* Only the rows scroll. */}
+                  <Box
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflowY: 'auto',
+                    }}
+                  >
                   {expectedArrivalsData.rows.length === 0 && (
                     <Text
                       style={{
@@ -8387,7 +8477,11 @@ function Myships() {
                       pathToPortRoute?.shipId === row.shipId
                     const isExpanded =
                       pathToPortVersion === 'v3' &&
-                      expandedArrivalId === row.id
+                      expandedArrivalIds.has(row.id)
+                    // v3 highlights every expanded row (multiple can be open);
+                    // other versions highlight the single active route.
+                    const isRowActive =
+                      pathToPortVersion === 'v3' ? isExpanded : isActiveRoute
                     const etaShort = row.etaDate
                       ? row.etaDate.toLocaleString('en-US', {
                           month: 'short',
@@ -8402,47 +8496,91 @@ function Myships() {
                       <Box key={row.id}>
                         <Box
                           onClick={() => {
+                            // Every version stays on the port detail panel:
+                            // clicking an arrival draws the route + frames the map
+                            // without switching to the vessel tab.
                             if (pathToPortVersion === 'v3') {
-                              // Inline version stays on the port panel: draw the
-                              // route + frame the map without switching to the
-                              // vessel tab, and toggle the inline readout.
-                              if (expandedArrivalId === row.id) {
-                                setExpandedArrivalId(null)
-                                clearPathToPort()
-                              } else {
-                                setExpandedArrivalId(row.id)
-                                setPathToPortRoute({
-                                  shipId: row.shipId,
-                                  detectionId: row.detectionId ?? null,
-                                  portId: activeTab?.id,
-                                  portName: activeTab?.name || null,
-                                })
+                              // Inline version toggles the in-row readout; more
+                              // than one card can be open at once, and each open
+                              // card draws its own route on the map.
+                              const willExpand = !expandedArrivalIds.has(row.id)
+                              setExpandedArrivalIds((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(row.id)) next.delete(row.id)
+                                else next.add(row.id)
+                                return next
+                              })
+                              const descriptor = {
+                                shipId: row.shipId,
+                                detectionId: row.detectionId ?? null,
+                                portId: activeTab?.id,
+                                portName: activeTab?.name || null,
                               }
+                              setPathToPortRoutes((prev) => {
+                                const others = prev.filter(
+                                  (r) => r.shipId !== row.shipId
+                                )
+                                return willExpand
+                                  ? [...others, descriptor]
+                                  : others
+                              })
+                              // Keep the single route in sync (last expanded) so
+                              // framing / any single-route consumers still work.
+                              if (willExpand) {
+                                setPathToPortRoute(descriptor)
+                              } else if (pathToPortRoute?.shipId === row.shipId) {
+                                setPathToPortRoute(null)
+                              }
+                            } else if (isActiveRoute) {
+                              // v1/v2/v4 show the readout in the floating map panel.
+                              // Clicking the active row again clears it.
+                              clearPathToPort()
                             } else {
-                              // v1/v2 drill into the vessel's current position.
-                              startPathToPort(row, activeTab)
+                              // In v4/v5, focusing a single vessel turns off the
+                              // "show all arrivals" overlay so the two stay
+                              // mutually exclusive (and can each be re-entered).
+                              if (
+                                pathToPortVersion === 'v4' ||
+                                pathToPortVersion === 'v5'
+                              ) {
+                                setArrivalsOverlayOn(false)
+                              }
+                              setPathToPortRoute({
+                                shipId: row.shipId,
+                                detectionId: row.detectionId ?? null,
+                                portId: activeTab?.id,
+                                portName: activeTab?.name || null,
+                              })
                             }
                           }}
                           style={{
                             display: 'grid',
                             gridTemplateColumns:
-                              'minmax(0, 1.4fr) 34px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 0.9fr)',
+                              'minmax(0, 1.3fr) 24px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 0.8fr) 44px',
                             columnGap: 10,
                             alignItems: 'center',
                             padding: '8px 10px',
-                            margin: '0 20px',
-                            borderBottom: '1px solid #393C56',
+                            // When active, pull up 1px so the solid highlight
+                            // covers the previous row's bottom border (no line
+                            // showing across the top of the active row).
+                            margin: isRowActive
+                              ? '-1px 20px 0 20px'
+                              : '0 20px',
+                            position: isRowActive ? 'relative' : 'static',
+                            borderBottom: isRowActive
+                              ? 'none'
+                              : '1px solid #393C56',
                             cursor: 'pointer',
-                            background: isActiveRoute
-                              ? 'rgba(0, 148, 255, 0.1)'
+                            background: isRowActive
+                              ? '#002B56'
                               : 'transparent',
                           }}
                           onMouseEnter={(e) => {
-                            if (!isActiveRoute)
+                            if (!isRowActive)
                               e.currentTarget.style.background = '#24263C'
                           }}
                           onMouseLeave={(e) => {
-                            if (!isActiveRoute)
+                            if (!isRowActive)
                               e.currentTarget.style.background = 'transparent'
                           }}
                         >
@@ -8502,27 +8640,75 @@ function Myships() {
                           >
                             {formatDistanceNm(row.distanceNm)}
                           </Text>
+                          {pathToPortVersion === 'v3' ? (
+                            <Box
+                              style={{
+                                justifySelf: 'end',
+                                width: 26,
+                                height: 26,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: 4,
+                                border: `1px solid ${
+                                  isExpanded ? '#0094ff' : '#393C56'
+                                }`,
+                                background: isExpanded
+                                  ? 'rgba(0, 148, 255, 0.12)'
+                                  : '#24263C',
+                              }}
+                            >
+                              {isExpanded ? (
+                                <XClose size={14} color="#fff" />
+                              ) : (
+                                <List
+                                  style={{
+                                    width: 14,
+                                    height: 14,
+                                    color: '#fff',
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          ) : (
+                            <Text
+                              style={{
+                                color: isActiveRoute ? '#fff' : '#0094ff',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                textAlign: 'right',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              View
+                            </Text>
+                          )}
                         </Box>
                         {isExpanded && (
                           <Box
                             style={{
+                              position: 'relative',
                               margin: '10px 20px 14px 20px',
                               padding: 14,
-                              background: '#181926',
+                              background: '#24263C',
                               border: '1px solid #393C56',
-                              borderRadius: 8,
+                              borderRadius: 4,
                             }}
                           >
-                            <Text
+                            {/* Caret pointing up to the row's toggle button. */}
+                            <Box
                               style={{
-                                color: '#fff',
-                                fontSize: 13,
-                                fontWeight: 600,
-                                marginBottom: 12,
+                                position: 'absolute',
+                                top: -6,
+                                right: 12,
+                                width: 10,
+                                height: 10,
+                                background: '#24263C',
+                                borderLeft: '1px solid #393C56',
+                                borderTop: '1px solid #393C56',
+                                transform: 'rotate(45deg)',
                               }}
-                            >
-                              Path to {activeTab?.name || 'port'} — {row.name}
-                            </Text>
+                            />
                             {renderPathToPortReadout({
                               distanceNm: row.distanceNm,
                               etaDate: row.etaDate,
@@ -8533,6 +8719,7 @@ function Myships() {
                       </Box>
                     )
                   })}
+                  </Box>
                 </Box>
               )}
 

@@ -46,9 +46,20 @@ export function ShipProvider({ children }) {
   // { shipId, detectionId, portId, portName }. pathToPortSpeed (knots) drives
   // the ETA/duration output shared across all prototype versions.
   const [pathToPortRoute, setPathToPortRoute] = useState(null)
+  // Path to Port v3: the inline version lets more than one Expected Arrival be
+  // expanded at once, so we track an array of route descriptors (same shape as
+  // pathToPortRoute) and draw one line per entry on the map.
+  const [pathToPortRoutes, setPathToPortRoutes] = useState([])
   const [pathToPortSpeed, setPathToPortSpeed] = useState(
     DEFAULT_PATH_TO_PORT_SPEED
   )
+  // Path to Port v4: whether the "all arrivals" overlay is on. Lives in context
+  // so the map toggle and the Expected Arrivals table can keep it mutually
+  // exclusive with a single-vessel selection (pathToPortRoute).
+  const [arrivalsOverlayOn, setArrivalsOverlayOn] = useState(false)
+  // Path to Port v5: how many inbound vessels/paths to render at once (top N by
+  // soonest ETA). Driven by the density slider on the map.
+  const [pathToPortTopN, setPathToPortTopN] = useState(6)
 
   // Shape drawing / bookmarked shapes state
   // shapeDrawMode: null | 'polygon' (active drawing tool on the map)
@@ -441,7 +452,10 @@ export function ShipProvider({ children }) {
     [runtimeDetections, selectDetection, openShipTab]
   )
 
-  const clearPathToPort = useCallback(() => setPathToPortRoute(null), [])
+  const clearPathToPort = useCallback(() => {
+    setPathToPortRoute(null)
+    setPathToPortRoutes([])
+  }, [])
 
   const closeShipTab = useCallback(
     (id) => {
@@ -669,8 +683,14 @@ export function ShipProvider({ children }) {
         setSelectedBerth,
         pathToPortRoute,
         setPathToPortRoute,
+        pathToPortRoutes,
+        setPathToPortRoutes,
         pathToPortSpeed,
         setPathToPortSpeed,
+        arrivalsOverlayOn,
+        setArrivalsOverlayOn,
+        pathToPortTopN,
+        setPathToPortTopN,
         startPathToPort,
         clearPathToPort,
         shapeDrawMode,

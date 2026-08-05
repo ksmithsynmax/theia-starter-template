@@ -12,6 +12,7 @@ import {
   BarChart01,
   ChevronDown,
   Save01,
+  Sliders02,
 } from '@untitledui/icons'
 
 import TheiaLogo from '../assets/TheiaLogo.svg'
@@ -106,7 +107,9 @@ const TopNav = ({
   const [isEditingCalendarDate, setIsEditingCalendarDate] = useState(false)
   const [typedDate, setTypedDate] = useState('')
   const [typedDateError, setTypedDateError] = useState(null)
+  const [prototypesOpen, setPrototypesOpen] = useState(false)
   const calendarRef = useRef(null)
+  const prototypesRef = useRef(null)
   const selectedDate = parseDateFromKey(mapDate) || new Date()
   const selectedDateKey = formatDateKey(selectedDate)
   const selectedDateToolbarLabel = selectedDateKey.replace(/-/g, '/')
@@ -126,6 +129,17 @@ const TopNav = ({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [calendarOpen])
+
+  useEffect(() => {
+    if (!prototypesOpen) return
+    const handleClickOutside = (e) => {
+      if (prototypesRef.current && !prototypesRef.current.contains(e.target)) {
+        setPrototypesOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [prototypesOpen])
 
   useEffect(() => {
     setTypedDate(selectedDateKey.replace(/-/g, '/'))
@@ -193,143 +207,176 @@ const TopNav = ({
         </Box>
         <Box style={{ flex: 1 }}></Box>
         <Box
+          ref={prototypesRef}
           style={{
+            position: 'relative',
             display: 'flex',
             alignItems: 'center',
             marginRight: 8,
-            gap: 8,
           }}
         >
-          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Marker style</Text>
           <Box
-            component="select"
-            value={markerMode}
-            onChange={(event) => onMarkerModeChange?.(event.currentTarget.value)}
+            component="button"
+            type="button"
+            onClick={() => setPrototypesOpen((prev) => !prev)}
             style={{
               height: 32,
-              background: '#24263C',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: prototypesOpen ? '#2E3150' : '#24263C',
               border: '1px solid #393C56',
               color: '#FFFFFF',
               borderRadius: 4,
-              padding: '0 32px 0 10px',
-              minWidth: 150,
+              padding: '0 12px',
               fontSize: 12,
               outline: 'none',
               cursor: 'pointer',
             }}
           >
-            <option value="pulse">Pulsing rings</option>
-            <option value="pulse-icon">Pulsing icons</option>
-            <option value="pulse-button">Pulsing button</option>
-            <option value="pulse-button-double">Pulsing button (double)</option>
-            <option value="ring">Custom ring</option>
+            <Sliders02 style={{ color: '#fff', width: 16, height: 16 }} />
+            <Text style={{ color: '#fff', fontSize: 12 }}>Prototypes</Text>
+            <ChevronDown color="#A7AEC2" size={16} />
           </Box>
-          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>For You</Text>
-          <Box
-            component="select"
-            value={forYouVersion}
-            onChange={(event) =>
-              onForYouVersionChange?.(event.currentTarget.value)
-            }
-            style={{
-              height: 32,
-              background: '#24263C',
-              border: '1px solid #393C56',
-              color: '#FFFFFF',
-              borderRadius: 4,
-              padding: '0 32px 0 10px',
-              minWidth: 150,
-              fontSize: 12,
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="v2">Maritime Briefing</option>
-            <option value="v1">For You</option>
-          </Box>
-          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Ship-to-Ship</Text>
-          <Box
-            component="select"
-            value={stsVersion}
-            onChange={(event) => onStsVersionChange?.(event.currentTarget.value)}
-            style={{
-              height: 32,
-              background: '#24263C',
-              border: '1px solid #393C56',
-              color: '#FFFFFF',
-              borderRadius: 4,
-              padding: '0 32px 0 10px',
-              minWidth: 150,
-              fontSize: 12,
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="v1">Ship-to-Ship v1</option>
-            <option value="v2">Ship-to-Ship v2</option>
-            <option value="v4">Ship-to-Ship v4</option>
-            <option value="v7">Ship-to-Ship v7</option>
-            <option value="v8">Ship-to-Ship v8</option>
-            <option value="v9">Ship-to-Ship v9</option>
-            <option value="v10">Ship-to-Ship v10</option>
-            <option value="v11">Ship-to-Ship v11</option>
-            <option value="v12">Ship-to-Ship v12</option>
-            <option value="v13">Ship-to-Ship v13</option>
-            <option value="v16">Ship-to-Ship v16</option>
-            <option value="v17">Ship-to-Ship v17</option>
-            <option value="v18">Ship-to-Ship v18 — Cap at 5</option>
-            <option value="v19">Ship-to-Ship v19 — Scale to N</option>
-          </Box>
-          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Path to Port</Text>
-          <Box
-            component="select"
-            value={pathToPortVersion}
-            onChange={(event) =>
-              onPathToPortVersionChange?.(event.currentTarget.value)
-            }
-            style={{
-              height: 32,
-              background: '#24263C',
-              border: '1px solid #393C56',
-              color: '#FFFFFF',
-              borderRadius: 4,
-              padding: '0 32px 0 10px',
-              minWidth: 150,
-              fontSize: 12,
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="v1">Path to Port v1 — Map panel</option>
-            <option value="v2">Path to Port v2 — Vessel panel</option>
-            <option value="v3">Path to Port v3 — Inline row</option>
-            <option value="v4">Path to Port v4 — All arrivals</option>
-          </Box>
-          {/* Favorites dropdown hidden while focusing on the For You feature.
-          <Text style={{ color: '#A7AEC2', fontSize: 12 }}>Favorites</Text>
-          <Box
-            component="select"
-            value={favoritesVersion}
-            onChange={(event) =>
-              onFavoritesVersionChange?.(event.currentTarget.value)
-            }
-            style={{
-              height: 32,
-              background: '#24263C',
-              border: '1px solid #393C56',
-              color: '#FFFFFF',
-              borderRadius: 4,
-              padding: '0 32px 0 10px',
-              minWidth: 150,
-              fontSize: 12,
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="v1">Favorites v1</option>
-            <option value="v2">Favorites v2</option>
-          </Box>
-          */}
+          {prototypesOpen && (
+            <Box
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: 8,
+                width: 320,
+                background: '#24263C',
+                border: '1px solid #393C56',
+                borderRadius: 8,
+                zIndex: 1000,
+              }}
+            >
+              <Box
+                style={{
+                  padding: '14px 16px',
+                  borderBottom: '1px solid #393C56',
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
+                  Prototypes
+                </Text>
+                <Text style={{ color: '#A7AEC2', fontSize: 11, marginTop: 2 }}>
+                  Switch experimental variants
+                </Text>
+              </Box>
+              <Box
+                style={{
+                  padding: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                }}
+              >
+                {[
+                  {
+                    label: 'Marker style',
+                    value: markerMode,
+                    onChange: onMarkerModeChange,
+                    options: [
+                      ['pulse', 'Pulsing rings'],
+                      ['pulse-icon', 'Pulsing icons'],
+                      ['pulse-button', 'Pulsing button'],
+                      ['pulse-button-double', 'Pulsing button (double)'],
+                      ['ring', 'Custom ring'],
+                    ],
+                  },
+                  {
+                    label: 'For You',
+                    value: forYouVersion,
+                    onChange: onForYouVersionChange,
+                    options: [
+                      ['v2', 'Maritime Briefing'],
+                      ['v1', 'For You'],
+                    ],
+                  },
+                  {
+                    label: 'Ship-to-Ship',
+                    value: stsVersion,
+                    onChange: onStsVersionChange,
+                    options: [
+                      ['v1', 'Ship-to-Ship v1'],
+                      ['v2', 'Ship-to-Ship v2'],
+                      ['v4', 'Ship-to-Ship v4'],
+                      ['v7', 'Ship-to-Ship v7'],
+                      ['v8', 'Ship-to-Ship v8'],
+                      ['v9', 'Ship-to-Ship v9'],
+                      ['v10', 'Ship-to-Ship v10'],
+                      ['v11', 'Ship-to-Ship v11'],
+                      ['v12', 'Ship-to-Ship v12'],
+                      ['v13', 'Ship-to-Ship v13'],
+                      ['v16', 'Ship-to-Ship v16'],
+                      ['v17', 'Ship-to-Ship v17'],
+                      ['v18', 'Ship-to-Ship v18 — Cap at 5'],
+                      ['v19', 'Ship-to-Ship v19 — Scale to N'],
+                    ],
+                  },
+                  {
+                    label: 'Path to Port',
+                    value: pathToPortVersion,
+                    onChange: onPathToPortVersionChange,
+                    options: [
+                      ['v1', 'Path to Port v1 — Map panel'],
+                      ['v2', 'Path to Port v2 — Vessel panel'],
+                      ['v3', 'Path to Port v3 — Inline row'],
+                      ['v4', 'Path to Port v4 — All arrivals'],
+                      ['v5', 'Path to Port v5 — Arrivals board'],
+                    ],
+                  },
+                ].map((group) => (
+                  <Box key={group.label}>
+                    <Text
+                      style={{
+                        color: '#A7AEC2',
+                        fontSize: 11,
+                        marginBottom: 6,
+                      }}
+                    >
+                      {group.label}
+                    </Text>
+                    <Box
+                      component="select"
+                      value={group.value}
+                      onChange={(event) =>
+                        group.onChange?.(event.currentTarget.value)
+                      }
+                      style={{
+                        height: 32,
+                        width: '100%',
+                        backgroundColor: '#181926',
+                        backgroundImage:
+                          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A7AEC2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 12px center',
+                        backgroundSize: '12px',
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none',
+                        border: '1px solid #393C56',
+                        color: '#FFFFFF',
+                        borderRadius: 4,
+                        padding: '0 34px 0 10px',
+                        fontSize: 12,
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {group.options.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
         </Box>
         <Box component="button" type="button" className="topnav-icon-btn">
           <Bell02 color="white" size={20} />

@@ -152,7 +152,7 @@ const formatShapeArea = (km2) =>
     ? '—'
     : km2.toLocaleString(undefined, { maximumFractionDigits: 0 })
 
-const getColumnsByTab = (tabId) => {
+export const getColumnsByTab = (tabId) => {
   if (tabId === 'ships') {
     return [
       { key: 'name', label: 'Name', width: 'minmax(0, 1.3fr)' },
@@ -209,7 +209,7 @@ const getColumnsByTab = (tabId) => {
   ]
 }
 
-const DataTable = ({
+export const DataTable = ({
   rows,
   columns,
   emptyMessage,
@@ -421,7 +421,7 @@ const DataTable = ({
               borderRadius: 0,
               background:
                 isInteractive && resolvedActiveRowId === String(row.id)
-                  ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #181926'
+                  ? '#002B56'
                   : isInteractive && hoveredRowId === String(row.id)
                     ? '#0056AC'
                     : '#181926',
@@ -565,7 +565,7 @@ const BookmarkCardList = ({
               borderRadius: 4,
               border: `1px solid ${isActive ? '#006CD7' : '#393C56'}`,
               background: isActive
-                ? 'linear-gradient(0deg, rgba(0,108,215,0.16), rgba(0,108,215,0.16)), #24263C'
+                ? '#002B56'
                 : '#24263C',
               cursor: isInteractive ? 'pointer' : 'default',
             }}

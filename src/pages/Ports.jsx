@@ -1,11 +1,8 @@
-import { Box, Text, Title } from '@mantine/core'
-
+// The Ports destination renders its UI in the Ports secondary nav
+// (PortsSecondaryNav), not the slide panel. The route page itself is
+// intentionally empty so no blank detail panel shows.
 function Ports() {
-  return(
-    <Box style={{ padding: "8px 12px" }}>   
-        <Title order={4} style={{ color: "white" }}>Ports</Title></Box>
-
-  )
+  return null
 }
 
-export default Ports;
+export default Ports

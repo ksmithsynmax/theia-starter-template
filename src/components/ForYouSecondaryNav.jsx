@@ -1874,7 +1874,7 @@ function ForYouSecondaryNav({
                         gap: 8,
                         padding: 8,
                         background: isActive
-                          ? 'linear-gradient(0deg, rgba(0,108,215,0.16), rgba(0,108,215,0.16)), #24263C'
+                          ? '#002B56'
                           : isHovered
                             ? 'linear-gradient(0deg, rgba(0,108,215,0.24), rgba(0,108,215,0.24)), #24263C'
                             : '#24263C',

@@ -581,6 +581,86 @@ button:active,
   pointer-events: auto;
 }
 
+/* v4 Expected Arrivals callout: dark card with a built-in tip anchored to the
+   hovered detection marker. */
+.arrivals-card-popup {
+  pointer-events: none;
+  /* Sit above detection DOM markers (z-index up to 6) so they don't cover the card. */
+  z-index: 20;
+  /* Outline the whole silhouette (card + tip) as one continuous shape. The card
+     and tip have no border of their own; these 1px drop-shadows trace only the
+     outer perimeter of the combined alpha, so the border wraps around the
+     triangle without a seam cutting across its base. */
+  filter:
+    drop-shadow(1px 0 0 #393C56)
+    drop-shadow(-1px 0 0 #393C56)
+    drop-shadow(0 1px 0 #393C56)
+    drop-shadow(0 -1px 0 #393C56);
+}
+
+.arrivals-card-popup .mapboxgl-popup-content {
+  background: #0d0f17;
+  border: none;
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Color only the border facing the card so the tip renders as a clean triangle. */
+.arrivals-card-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
+.arrivals-card-popup.mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
+.arrivals-card-popup.mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip {
+  border-bottom-color: #0d0f17;
+}
+
+.arrivals-card-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+.arrivals-card-popup.mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
+.arrivals-card-popup.mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip {
+  border-top-color: #0d0f17;
+}
+
+.arrivals-card-popup.mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
+  border-right-color: #0d0f17;
+}
+
+.arrivals-card-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
+  border-left-color: #0d0f17;
+}
+
+/* Path to Port v5 density slider — matches the app's timeline slider thumb
+   (white circle with a blue ring) over a gradient-filled track. */
+.ptp-density-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  border: none;
+  cursor: pointer;
+}
+.ptp-density-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  box-shadow: 0 0 0 5px #0094ff;
+  cursor: pointer;
+  margin-top: -1px;
+}
+.ptp-density-range::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 5px solid #0094ff;
+  box-shadow: none;
+  cursor: pointer;
+}
+
 .port-hover-card-scroll-region {
   padding-right: 4px;
   scrollbar-gutter: stable;

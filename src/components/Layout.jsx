@@ -12,6 +12,7 @@ import MapLayersPanel from './MapLayersPanel'
 import { useShipContext } from '../context/ShipContext'
 import SecondaryNav from './SecondaryNav'
 import ForYouSecondaryNav from './ForYouSecondaryNav'
+import PortsSecondaryNav from './PortsSecondaryNav'
 import StsPeekPanel from './StsPeekPanel'
 
 function Layout() {
@@ -67,6 +68,10 @@ function Layout() {
   // Keeps the For You list panel visible after drilling into a ship/port detail
   // (which lives on the /myships route). Starts true since we land on For You.
   const [forYouContext, setForYouContext] = useState(true)
+  // Mirror of forYouContext for the Ports destination: keeps the Ports secondary
+  // nav visible after drilling into a port detail (which lives on /myships), so
+  // clicking a port while browsing Ports doesn't kick over to the For You nav.
+  const [portsContext, setPortsContext] = useState(false)
   const [forceHideSelectedPortContext, setForceHideSelectedPortContext] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(true)
@@ -155,6 +160,18 @@ function Layout() {
     }
   }, [forYouContext, shipTabs, location.pathname, navigate])
 
+  // Same idea for the Ports context: once the port detail closes, return to the
+  // canonical /ports route so we never sit on /myships showing the Ports nav.
+  useEffect(() => {
+    if (
+      portsContext &&
+      shipTabs.length === 0 &&
+      location.pathname === '/myships'
+    ) {
+      navigate('/ports', { replace: true })
+    }
+  }, [portsContext, shipTabs, location.pathname, navigate])
+
   const handleDetectionClick = useCallback(
     (detection) => {
       if (location.pathname === '/timeline') {
@@ -233,8 +250,9 @@ function Layout() {
   const handleNavClick = useCallback(
     (to) => {
       // Leaving For You via the left nav exits the For You context; returning to
-      // it re-enters.
+      // it re-enters. The Ports context is tracked the same way.
       setForYouContext(to === '/for-you')
+      setPortsContext(to === '/ports')
       if (location.pathname === to) {
         if (to === '/timeline') {
           setTimelinePanelOpen(true)
@@ -327,11 +345,23 @@ function Layout() {
     [navigate, openPortTab]
   )
 
+  // Opening a port from the Ports nav keeps the Ports context so the nav stays
+  // put after we drill into the port detail on /myships.
+  const handlePortSelectFromPorts = useCallback(
+    (port) => {
+      setPortsContext(true)
+      setForYouContext(false)
+      handlePortSelectFromBookmarks(port)
+    },
+    [handlePortSelectFromBookmarks]
+  )
+
   const handleForYouShipSelect = useCallback(
     (item) => {
       if (!item?.shipId) return
       // Stay in the For You context so the list panel doesn't switch to Watchlist.
       setForYouContext(true)
+      setPortsContext(false)
       handleShipSelectFromBookmarks(item.shipId)
     },
     [handleShipSelectFromBookmarks]
@@ -341,6 +371,7 @@ function Layout() {
     (item) => {
       if (!item?.portId) return
       setForYouContext(true)
+      setPortsContext(false)
       // Clear any open ship/detection first; a lingering detection selection
       // would otherwise make the map fly back to that ship instead of the port.
       closeAllTabs()
@@ -370,6 +401,7 @@ function Layout() {
     (item) => {
       if (!item?.id) return
       setForYouContext(true)
+      setPortsContext(false)
       // Ships/shapes are mutually exclusive, so clear any open ship/port detail
       // first, then (re-)show the saved area. This also re-enables a shape that
       // was closed via the map label's "x" while its For You ring stayed on.
@@ -411,13 +443,23 @@ function Layout() {
   const showForYouNav =
     location.pathname === '/for-you' ||
     (forYouContext && location.pathname.startsWith('/myships'))
+  // Show the Ports nav on /ports, and keep it up while viewing a port detail that
+  // was opened from the Ports context (which lives on /myships).
+  const showPortsNav =
+    location.pathname === '/ports' ||
+    (portsContext && location.pathname.startsWith('/myships'))
   // The bare For You list view (/for-you) has no detail content — its route
   // renders null. Any leftover open ship/port panel from a previous view would
   // show as an empty blank panel here, so suppress the slide panel entirely.
   const isForYouListView = location.pathname === '/for-you'
+  // The Ports route is a list-only destination (its content lives in the Ports
+  // secondary nav); its page renders nothing, so suppress the slide panel the
+  // same way For You does to avoid a blank "Ports" panel.
+  const isPortsListView = location.pathname === '/ports'
+  const isListOnlyView = isForYouListView || isPortsListView
   const showPanelExpand =
-    !panelOpen && shipTabs.length > 0 && !isForYouListView
-  const slidePanelClass = isForYouListView
+    !panelOpen && shipTabs.length > 0 && !isListOnlyView
+  const slidePanelClass = isListOnlyView
     ? ''
     : panelOpen
       ? 'slide-panel--open'
@@ -459,7 +501,7 @@ function Layout() {
     return timelineSortOrder === 'asc' ? sorted : sorted.reverse()
   }, [timelineSortOrder, visibleTimelineEvents])
   const secondaryNavInset = secondaryNavOpen ? 386 : 32
-  const detailPanelInset = isForYouListView
+  const detailPanelInset = isListOnlyView
     ? 0
     : panelOpen
       ? 500
@@ -489,6 +531,12 @@ function Layout() {
           ref={mapRef}
           onDetectionClick={handleDetectionClick}
           onPortClick={(port) => {
+            // If the user is browsing Ports, keep them in the Ports context so the
+            // secondary nav stays on Ports instead of falling back to For You.
+            if (showPortsNav) {
+              setPortsContext(true)
+              setForYouContext(false)
+            }
             openPortTab(port)
             // The detail panel only mounts on /myships (or /watchlist). Without
             // this navigation, clicking a port from another route (e.g. For You)
@@ -674,7 +722,11 @@ function Layout() {
         <Box
           style={{
             position: 'relative',
-            zIndex: 1,
+            // Above the map's DOM markers/popups (which range up to z-index 12) so
+            // the solid nav rail and detail panel cover any port/ship marker that
+            // sits behind them. Transparent regions of this overlay still let
+            // on-map hover cards show through.
+            zIndex: 15,
             display: 'flex',
             height: '100%',
             pointerEvents: 'none',
@@ -685,6 +737,7 @@ function Layout() {
             watchlistVersion={watchlistVersion}
             forYouPrototype={forYouPrototype}
             forYouActive={showForYouNav}
+            portsActive={showPortsNav}
           />
           {!isTimelineView && (
             <>
@@ -696,7 +749,7 @@ function Layout() {
                 watchlistVersion={watchlistVersion}
                 forYouPrototype={forYouPrototype}
                 favoritesVersion={favoritesVersion}
-                forceHidden={showForYouNav}
+                forceHidden={showForYouNav || showPortsNav}
                 onShipSelect={handleShipSelectFromBookmarks}
                 onPortSelect={handlePortSelectFromBookmarks}
               />
@@ -720,6 +773,15 @@ function Layout() {
                 onShipSelect={handleForYouShipSelect}
                 onPortSelect={handleForYouPortSelect}
                 onItemActivate={focusForYouItem}
+              />
+              <PortsSecondaryNav
+                isOpen={secondaryNavOpen}
+                onOpen={() => setSecondaryNavOpen(true)}
+                onClose={() => setSecondaryNavOpen(false)}
+                active={showPortsNav}
+                onPortSelect={handlePortSelectFromPorts}
+                portsLayerVisible={portsLayerVisible}
+                onPortsLayerVisibleChange={setPortsLayerVisible}
               />
 
               <Box className={`slide-panel ${slidePanelClass}`}>
