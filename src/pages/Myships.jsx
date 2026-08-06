@@ -63,6 +63,7 @@ import {
   computeEta,
   haversineNm,
   PATH_TO_PORT_SPEEDS,
+  resolveShipSpeedKn,
 } from '../utils/pathToPort'
 import satImageA from '../assets/HAfSz3HbAAA34GM.jpeg'
 import satImageB from '../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
@@ -325,6 +326,8 @@ function Myships() {
     setPathToPortRoutes,
     pathToPortSpeed,
     setPathToPortSpeed,
+    pathToPortSpeedsByShip,
+    setPathToPortSpeedsByShip,
     arrivalsOverlayOn,
     setArrivalsOverlayOn,
     clearPathToPort,
@@ -526,18 +529,33 @@ function Myships() {
   // Path to Port: expected arrivals for the active port, with distance/ETA
   // derived at the currently selected speed. Recomputes when the port, speed, or
   // detections change.
-  const expectedArrivalsData = useMemo(
-    () =>
-      isPortTab
-        ? buildExpectedArrivals({
-            portTab: activeTab,
-            ships,
-            detections: runtimeDetections,
-            speed: pathToPortSpeed,
-          })
-        : { port: null, rows: [] },
-    [isPortTab, activeTab, runtimeDetections, pathToPortSpeed]
-  )
+  const expectedArrivalsData = useMemo(() => {
+    if (!isPortTab) return { port: null, rows: [] }
+    const result = buildExpectedArrivals({
+      portTab: activeTab,
+      ships,
+      detections: runtimeDetections,
+      speed: pathToPortSpeed,
+    })
+    if (pathToPortVersion !== 'v6') return result
+    return {
+      ...result,
+      rows: result.rows.map((row) => {
+        const speed =
+          pathToPortSpeedsByShip[row.shipId] ??
+          resolveShipSpeedKn(ships[row.shipId])
+        const { hours, etaDate } = computeEta(row.distanceNm, speed)
+        return { ...row, etaHours: hours, etaDate }
+      }),
+    }
+  }, [
+    isPortTab,
+    activeTab,
+    runtimeDetections,
+    pathToPortSpeed,
+    pathToPortVersion,
+    pathToPortSpeedsByShip,
+  ])
   // v3 Path to Port: ids of Expected Arrivals rows whose inline card is open.
   // A Set so more than one card can be expanded at once.
   const [expandedArrivalIds, setExpandedArrivalIds] = useState(() => new Set())
@@ -579,7 +597,7 @@ function Myships() {
     }
   }, [pathToPortRoute, pathToPortSpeed, runtimeDetections])
 
-  // Speed selector shared by every Path to Port version.
+  // Speed selector shared by Path to Port v1-v5.
   const renderPathToPortSpeedChips = () => (
     <Box style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       {PATH_TO_PORT_SPEEDS.map((speed) => {
@@ -609,6 +627,61 @@ function Myships() {
     </Box>
   )
 
+  // V6 uses a continuous speed control so the projected position and ETA can be
+  // explored across the full 0-50 knot range.
+  const renderPathToPortSpeedSlider = (shipId) => {
+    const speed =
+      pathToPortSpeedsByShip[shipId] ?? resolveShipSpeedKn(ships[shipId])
+    const progress = (speed / 50) * 100
+    return (
+      <Box>
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ color: '#fff', fontSize: 12 }}>Speed</Text>
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
+            {speed} kn
+          </Text>
+        </Box>
+        <Box
+          component="input"
+          className="ptp-density-range"
+          type="range"
+          min={0}
+          max={50}
+          step={1}
+          value={speed}
+          onChange={(event) => {
+            const nextSpeed = Number(event.currentTarget.value)
+            setPathToPortSpeedsByShip((current) => ({
+              ...current,
+              [shipId]: nextSpeed,
+            }))
+          }}
+          style={{
+            width: '100%',
+            background: `linear-gradient(to right, #0094FF ${progress}%, #393C56 ${progress}%)`,
+          }}
+        />
+        <Box
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginTop: 8,
+          }}
+        >
+          <Text style={{ color: '#888F9E', fontSize: 11 }}>0 kn</Text>
+          <Text style={{ color: '#888F9E', fontSize: 11 }}>50 kn</Text>
+        </Box>
+      </Box>
+    )
+  }
+
   // Distance / ETA / Duration readout shared by every Path to Port version.
   const renderPathToPortReadout = (data) => {
     if (!data) return null
@@ -631,10 +704,14 @@ function Myships() {
           />
           <KeyValuePair keyName="ETA" value={formatEta(data.etaDate)} />
         </Box>
-        <Box style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Text style={{ color: '#fff', fontSize: 12 }}>Speed</Text>
-          {renderPathToPortSpeedChips()}
-        </Box>
+        {pathToPortVersion === 'v6' ? (
+          renderPathToPortSpeedSlider(data.shipId)
+        ) : (
+          <Box style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Text style={{ color: '#fff', fontSize: 12 }}>Speed</Text>
+            {renderPathToPortSpeedChips()}
+          </Box>
+        )}
       </Box>
     )
   }
@@ -7736,7 +7813,8 @@ function Myships() {
                 icon={<SatelliteIcon />}
                 onClick={() => {}}
               />
-              {pathToPortVersion === 'v5' && (
+              {(pathToPortVersion === 'v5' ||
+                pathToPortVersion === 'v6') && (
                 <ShipPathPanelButton
                   fullWidth
                   singleLineLabel
@@ -7752,7 +7830,10 @@ function Myships() {
                       const next = !v
                       // Turning the overlay on clears any single-vessel focus so
                       // the two views stay mutually exclusive.
-                      if (next) clearPathToPort()
+                      if (next) {
+                        clearPathToPort()
+                        setExpandedArrivalIds(new Set())
+                      }
                       return next
                     })
                   }
@@ -8696,13 +8777,15 @@ function Myships() {
                   {expectedArrivalsData.rows.map((row) => {
                     const isActiveRoute =
                       pathToPortRoute?.shipId === row.shipId
+                    const usesInlineArrivals =
+                      pathToPortVersion === 'v3' ||
+                      pathToPortVersion === 'v6'
                     const isExpanded =
-                      pathToPortVersion === 'v3' &&
-                      expandedArrivalIds.has(row.id)
-                    // v3 highlights every expanded row (multiple can be open);
+                      usesInlineArrivals && expandedArrivalIds.has(row.id)
+                    // v3/v6 highlight every expanded row (multiple can be open);
                     // other versions highlight the single active route.
                     const isRowActive =
-                      pathToPortVersion === 'v3' ? isExpanded : isActiveRoute
+                      usesInlineArrivals ? isExpanded : isActiveRoute
                     const etaShort = row.etaDate
                       ? row.etaDate.toLocaleString('en-US', {
                           month: 'short',
@@ -8720,10 +8803,13 @@ function Myships() {
                             // Every version stays on the port detail panel:
                             // clicking an arrival draws the route + frames the map
                             // without switching to the vessel tab.
-                            if (pathToPortVersion === 'v3') {
+                            if (usesInlineArrivals) {
                               // Inline version toggles the in-row readout; more
                               // than one card can be open at once, and each open
                               // card draws its own route on the map.
+                              if (pathToPortVersion === 'v6') {
+                                setArrivalsOverlayOn(false)
+                              }
                               const willExpand = !expandedArrivalIds.has(row.id)
                               setExpandedArrivalIds((prev) => {
                                 const next = new Set(prev)
@@ -8861,7 +8947,7 @@ function Myships() {
                           >
                             {formatDistanceNm(row.distanceNm)}
                           </Text>
-                          {pathToPortVersion === 'v3' ? (
+                          {usesInlineArrivals ? (
                             <Box
                               style={{
                                 justifySelf: 'end',
@@ -8931,6 +9017,7 @@ function Myships() {
                               }}
                             />
                             {renderPathToPortReadout({
+                              shipId: row.shipId,
                               distanceNm: row.distanceNm,
                               etaDate: row.etaDate,
                               etaHours: row.etaHours,

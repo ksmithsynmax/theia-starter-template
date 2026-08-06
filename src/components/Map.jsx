@@ -31,6 +31,7 @@ import {
   pointAlongPath,
   projectedHorizonHours,
   PATH_TO_PORT_SPEEDS,
+  resolveShipSpeedKn,
 } from '../utils/pathToPort'
 import { buildExpectedArrivals } from '../data/mockExpectedArrivals'
 
@@ -774,6 +775,7 @@ const Map = forwardRef(function Map(
     pathToPortRoute,
     pathToPortRoutes,
     pathToPortSpeed,
+    pathToPortSpeedsByShip,
     setPathToPortSpeed,
     arrivalsOverlayOn,
     setArrivalsOverlayOn,
@@ -944,10 +946,10 @@ const Map = forwardRef(function Map(
     }
   }, [pathToPortRoute, pathToPortSpeed, runtimeDetections])
 
-  // Path to Port v5: total number of inbound vessels for the open port, used as
-  // the density slider's max.
+  // Path to Port v5/v6: total number of inbound vessels for the open port, used
+  // as the density slider's max.
   const arrivalsTotal = useMemo(() => {
-    if (pathToPortVersion !== 'v5') return 0
+    if (pathToPortVersion !== 'v5' && pathToPortVersion !== 'v6') return 0
     const activeTab = shipTabs.find((t) => t.id === activeShipTab)
     if (activeTab?.type !== 'port') return 0
     const { port, rows } = buildExpectedArrivals({
@@ -2918,9 +2920,13 @@ const Map = forwardRef(function Map(
     const source = m.getSource('vessel-route')
     if (!source) return
 
-    // v4/v5 render their route(s) through the arrivals overlay (with the on-hover
-    // callout card), so the shared single-route layer stays empty in those modes.
-    if (pathToPortVersion === 'v4' || pathToPortVersion === 'v5') {
+    // v4/v5 render through the arrivals overlay. v6 uses that overlay only when
+    // its all-arrivals button is on; otherwise it keeps v3's inline routes.
+    if (
+      pathToPortVersion === 'v4' ||
+      pathToPortVersion === 'v5' ||
+      (pathToPortVersion === 'v6' && arrivalsOverlayOn)
+    ) {
       source.setData(EMPTY_FEATURE_COLLECTION)
       lastFitRouteKeyRef.current = null
       return
@@ -2998,12 +3004,21 @@ const Map = forwardRef(function Map(
 
       // Optional projected-position marker: where the vessel would be after the
       // forecast horizon at the selected speed. Clamped to the destination port.
-      if (projectedPositionOn) {
+      if (pathToPortVersion === 'v6' || projectedPositionOn) {
+        const projectionSpeed =
+          pathToPortVersion === 'v6'
+            ? (pathToPortSpeedsByShip[routeDesc.shipId] ??
+              resolveShipSpeedKn(shipsById[routeDesc.shipId]))
+            : pathToPortSpeed
         const totalNm = haversineNm(
           { lng: vesselCoord[0], lat: vesselCoord[1] },
           { lng: portCoord[0], lat: portCoord[1] }
         )
-        const horizonNm = pathToPortSpeed * projectedHorizonHours(totalNm)
+        const projectionHours =
+          pathToPortVersion === 'v6' && Number.isFinite(totalNm) && totalNm > 0
+            ? Math.min(24, (totalNm / 50) * 0.85)
+            : projectedHorizonHours(totalNm)
+        const horizonNm = projectionSpeed * projectionHours
         const projectedNm = Math.min(horizonNm, totalNm ?? horizonNm)
         const projectedCoord = pointAlongPath(path, projectedNm)
         if (projectedCoord) {
@@ -3012,7 +3027,7 @@ const Map = forwardRef(function Map(
             geometry: { type: 'Point', coordinates: projectedCoord },
             properties: {
               role: 'projected',
-              label: `${pathToPortSpeed} kn`,
+              label: `${projectionSpeed} kn`,
             },
           })
         }
@@ -3021,10 +3036,10 @@ const Map = forwardRef(function Map(
       return { features: routeFeatures, vesselCoord, portCoord }
     }
 
-    // v3 draws one line per expanded Expected Arrival (multiple at once); the
+    // v3/v6 draw one line per expanded Expected Arrival (multiple at once); the
     // other single-route versions draw just pathToPortRoute.
     const routeList =
-      pathToPortVersion === 'v3'
+      pathToPortVersion === 'v3' || pathToPortVersion === 'v6'
         ? Array.isArray(pathToPortRoutes)
           ? pathToPortRoutes
           : []
@@ -3076,12 +3091,14 @@ const Map = forwardRef(function Map(
     pathToPortRoute,
     pathToPortRoutes,
     pathToPortVersion,
+    arrivalsOverlayOn,
     runtimeDetections,
     panelAwareFocusPadding,
     shipTabs,
     activeShipTab,
     projectedPositionOn,
     pathToPortSpeed,
+    pathToPortSpeedsByShip,
   ])
 
   // Path to Port v4 ("All arrivals"): draw every expected arrival's predicted
@@ -3130,10 +3147,25 @@ const Map = forwardRef(function Map(
           source: 'arrivals-routes',
           filter: ['==', ['geometry-type'], 'Point'],
           paint: {
-            'circle-radius': 4,
+            'circle-radius': [
+              'case',
+              ['==', ['get', 'role'], 'projected'],
+              6,
+              4,
+            ],
             'circle-color': '#0094FF',
-            'circle-stroke-color': '#0A0E19',
-            'circle-stroke-width': 1.5,
+            'circle-stroke-color': [
+              'case',
+              ['==', ['get', 'role'], 'projected'],
+              '#FFFFFF',
+              '#0A0E19',
+            ],
+            'circle-stroke-width': [
+              'case',
+              ['==', ['get', 'role'], 'projected'],
+              2,
+              1.5,
+            ],
           },
         },
         arrivalsBeforeId
@@ -3203,6 +3235,7 @@ const Map = forwardRef(function Map(
     const activeTab = shipTabs.find((t) => t.id === activeShipTab)
     const isV4 = pathToPortVersion === 'v4'
     const isV5 = pathToPortVersion === 'v5'
+    const isV6 = pathToPortVersion === 'v6'
     // v4 & v5: clicking a row in the Expected Arrivals table focuses a single
     // vessel (no floating panel). When the "all arrivals" overlay is off, that
     // single selection drives what's drawn.
@@ -3211,7 +3244,7 @@ const Map = forwardRef(function Map(
         ? pathToPortRoute.shipId
         : null
     const active =
-      (isV4 || isV5) &&
+      (isV4 || isV5 || isV6) &&
       (arrivalsOverlayOn || singleShipId) &&
       activeTab?.type === 'port' &&
       showPorts
@@ -3233,14 +3266,17 @@ const Map = forwardRef(function Map(
     })
     const portCoord = port ? [port.lng, port.lat] : null
     // Enrich + rank all inbound vessels by soonest ETA, then cap the count:
-    // v4 shows up to 6 (or a single focused vessel); v5 uses the density slider.
+    // v4 shows up to 6 (or a single focused vessel); v5/v6 use the density slider.
     let arrivals = (singleShipId
       ? rows.filter((row) => row.shipId === singleShipId)
       : rows
     )
       .filter((row) => row.position && portCoord)
       .map((row) => {
-        const speed = syntheticSpeedKn(row.mmsi || row.shipId)
+        const speed = isV6
+          ? (pathToPortSpeedsByShip[row.shipId] ??
+            resolveShipSpeedKn(shipsById[row.shipId]))
+          : syntheticSpeedKn(row.mmsi || row.shipId)
         const heading = initialBearing(row.position, {
           lng: portCoord[0],
           lat: portCoord[1],
@@ -3253,7 +3289,7 @@ const Map = forwardRef(function Map(
         const tb = b.etaDate ? b.etaDate.getTime() : Infinity
         return ta - tb
       })
-    const cap = isV5
+    const cap = isV5 || isV6
       ? Math.max(1, Number(pathToPortTopN) || 1)
       : 6
     arrivals = arrivals.slice(0, cap)
@@ -3293,14 +3329,15 @@ const Map = forwardRef(function Map(
     const features = []
     arrivals.forEach((row) => {
       const coord = [row.position.lng, row.position.lat]
+      const routePath = greatCirclePath(
+        { lng: coord[0], lat: coord[1] },
+        { lng: portCoord[0], lat: portCoord[1] }
+      )
       features.push({
         type: 'Feature',
         geometry: {
           type: 'LineString',
-          coordinates: greatCirclePath(
-            { lng: coord[0], lat: coord[1] },
-            { lng: portCoord[0], lat: portCoord[1] }
-          ),
+          coordinates: routePath,
         },
         properties: {},
       })
@@ -3309,6 +3346,26 @@ const Map = forwardRef(function Map(
         geometry: { type: 'Point', coordinates: coord },
         properties: {},
       })
+      if (isV6) {
+        const projectionSpeed =
+          pathToPortSpeedsByShip[row.shipId] ??
+          resolveShipSpeedKn(shipsById[row.shipId])
+        const projectionHours =
+          Number.isFinite(row.distanceNm) && row.distanceNm > 0
+            ? Math.min(24, (row.distanceNm / 50) * 0.85)
+            : 24
+        const projectedCoord = pointAlongPath(
+          routePath,
+          Math.min(projectionSpeed * projectionHours, row.distanceNm)
+        )
+        if (projectedCoord) {
+          features.push({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: projectedCoord },
+            properties: { role: 'projected' },
+          })
+        }
+      }
     })
     source.setData({ type: 'FeatureCollection', features })
 
@@ -3394,6 +3451,7 @@ const Map = forwardRef(function Map(
     arrivalsOverlayOn,
     pathToPortRoute,
     pathToPortTopN,
+    pathToPortSpeedsByShip,
     activeShipTab,
     shipTabs,
     runtimeDetections,
@@ -5730,7 +5788,7 @@ const Map = forwardRef(function Map(
             {arrivalsOverlayOn ? 'Hide arrivals' : 'Show arrivals'}
           </Box>
         )}
-      {pathToPortVersion === 'v5' &&
+      {(pathToPortVersion === 'v5' || pathToPortVersion === 'v6') &&
         arrivalsOverlayOn &&
         showPorts &&
         arrivalsTotal > 0 &&

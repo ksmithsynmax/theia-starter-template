@@ -159,6 +159,19 @@ export const formatDistanceNm = (distanceNm) => {
 export const PATH_TO_PORT_SPEEDS = [8, 12, 16, 20]
 export const DEFAULT_PATH_TO_PORT_SPEED = 8
 
+// Best available vessel-specific speed for v6. Mock AIS values may include
+// timestamps (for example "13 (Aug 5...)"), so parse the leading number.
+export const resolveShipSpeedKn = (
+  ship,
+  fallback = DEFAULT_PATH_TO_PORT_SPEED
+) => {
+  const latest = Number.parseFloat(ship?.aisInfo?.latestSpeed)
+  if (Number.isFinite(latest)) return Math.max(0, Math.min(50, latest))
+  const average = Number.parseFloat(ship?.aisInfo?.avgSpeed)
+  if (Number.isFinite(average)) return Math.max(0, Math.min(50, average))
+  return fallback
+}
+
 // Forecast horizon (hours) for the optional "projected position" marker: where
 // the vessel would be after this many hours travelling at the selected speed.
 export const PROJECTED_HORIZON_HOURS = 24

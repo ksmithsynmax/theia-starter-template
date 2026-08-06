@@ -53,6 +53,8 @@ export function ShipProvider({ children }) {
   const [pathToPortSpeed, setPathToPortSpeed] = useState(
     DEFAULT_PATH_TO_PORT_SPEED
   )
+  // Path to Port v6 keeps an independent analyst-selected speed per vessel.
+  const [pathToPortSpeedsByShip, setPathToPortSpeedsByShip] = useState({})
   // Path to Port v4: whether the "all arrivals" overlay is on. Lives in context
   // so the map toggle and the Expected Arrivals table can keep it mutually
   // exclusive with a single-vessel selection (pathToPortRoute).
@@ -718,6 +720,8 @@ export function ShipProvider({ children }) {
         setPathToPortRoutes,
         pathToPortSpeed,
         setPathToPortSpeed,
+        pathToPortSpeedsByShip,
+        setPathToPortSpeedsByShip,
         arrivalsOverlayOn,
         setArrivalsOverlayOn,
         pathToPortTopN,
