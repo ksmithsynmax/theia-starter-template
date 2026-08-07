@@ -60,6 +60,7 @@ const eventIconMap = {
 }
 
 const ShipDetailsPanel = ({
+  version = 'v1',
   selectedEvent,
   isLatest,
   eventLabel,
@@ -69,15 +70,22 @@ const ShipDetailsPanel = ({
   onToolsVisibleChange,
   onToolAction,
   activeToolIds = [],
+  compactHeader = false,
 }) => {
   const eventType = selectedEvent?.type
-  const flashColor = unattributed
-    ? eventColorMap.unattributed
-    : eventColorMap[eventType] || null
+  const usesVersion2Experience =
+    version === 'v2' || version === 'v3' || version === 'v4'
+  const flashColor =
+    usesVersion2Experience
+      ? '#0094FF'
+      : unattributed
+        ? eventColorMap.unattributed
+        : eventColorMap[eventType] || null
+  const flashOpacity = usesVersion2Experience ? 0.08 : 0.2
   const dateDisplay = selectedEvent ? selectedEvent.date : 'No event selected'
 
   const [flashing, setFlashing] = useState(false)
-  const [toolsVisible, setToolsVisible] = useState(true)
+  const [toolsVisible, setToolsVisible] = useState(() => version !== 'v2')
   const [toolsToggleHovered, setToolsToggleHovered] = useState(false)
   const prevEventRef = useRef(selectedEvent?.id)
 
@@ -90,20 +98,25 @@ const ShipDetailsPanel = ({
       selectedEvent.id !== prevEventRef.current
     ) {
       setFlashing(true)
-      setToolsVisible(false)
+      if (version !== 'v3' && version !== 'v4') setToolsVisible(false)
       const timer = setTimeout(() => setFlashing(false), 600)
       prevEventRef.current = selectedEvent.id
       return () => clearTimeout(timer)
     }
     prevEventRef.current = selectedEvent?.id
-  }, [selectedEvent?.id, flashEnabled])
+  }, [selectedEvent?.id, flashEnabled, version])
 
   useEffect(() => {
     onToolsVisibleChange?.(toolsVisible)
   }, [toolsVisible, onToolsVisibleChange])
 
+  useEffect(() => {
+    setToolsVisible(version !== 'v2')
+  }, [version])
+
   return (
     <Box
+      data-ship-details-version={version}
       style={{
         borderRadius: '4px',
         border: `1px solid ${flashing && flashColor ? flashColor : '#393C56'}`,
@@ -120,7 +133,7 @@ const ShipDetailsPanel = ({
             position: 'absolute',
             inset: 0,
             background: flashColor,
-            opacity: flashing ? 0.2 : 0,
+            opacity: flashing ? flashOpacity : 0,
             transition: 'opacity 0.5s ease-out',
             pointerEvents: 'none',
             zIndex: 1,
@@ -130,9 +143,11 @@ const ShipDetailsPanel = ({
       <Box style={{ position: 'relative', zIndex: 0 }}>
         <Box style={{ display: 'flex', alignItems: 'center', padding: '16px' }}>
           <Box style={{ flex: 1 }}>
-            <Text style={{ color: '#898f9d', fontSize: 11, marginBottom: 4 }}>
-              Selected Event Tools
-            </Text>
+            {!compactHeader && (
+              <Text style={{ color: '#898f9d', fontSize: 11, marginBottom: 4 }}>
+                Selected Event Tools
+              </Text>
+            )}
             <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Text style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                 {dateDisplay}
@@ -147,36 +162,44 @@ const ShipDetailsPanel = ({
               )}
             </Box>
           </Box>
-          <Box
-            onClick={() => setToolsVisible((v) => !v)}
-            onMouseEnter={() => setToolsToggleHovered(true)}
-            onMouseLeave={() => setToolsToggleHovered(false)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              cursor: 'pointer',
-              flexShrink: 0,
-              border: '1px solid #fff',
-              borderRadius: 4,
-              padding: '6px 10px',
-              background: toolsToggleHovered
-                ? 'rgba(255, 255, 255, 0.14)'
-                : 'transparent',
-              transition: 'background-color 120ms ease',
-            }}
-          >
-            <Text style={{ color: '#fff', fontSize: 11, fontWeight: 600 }}>
-              {toolsVisible ? 'Hide Tools' : 'Show Tools'}
-            </Text>
-            {toolsVisible ? (
-              <ChevronUp style={{ color: '#fff', width: 14, height: 14 }} />
-            ) : (
-              <ChevronDown style={{ color: '#fff', width: 14, height: 14 }} />
-            )}
-          </Box>
+          {!compactHeader && (
+            <Box
+              onClick={() => setToolsVisible((v) => !v)}
+              onMouseEnter={() => setToolsToggleHovered(true)}
+              onMouseLeave={() => setToolsToggleHovered(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+                flexShrink: 0,
+                border: '1px solid #fff',
+                borderRadius: 4,
+                padding: '6px 10px',
+                background: toolsToggleHovered
+                  ? 'rgba(255, 255, 255, 0.14)'
+                  : 'transparent',
+                transition: 'background-color 120ms ease',
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: 600 }}>
+                {usesVersion2Experience
+                  ? toolsVisible
+                    ? 'Hide Event Tools'
+                    : 'Show Event Tools'
+                  : toolsVisible
+                    ? 'Hide Tools'
+                    : 'Show Tools'}
+              </Text>
+              {toolsVisible ? (
+                <ChevronUp style={{ color: '#fff', width: 14, height: 14 }} />
+              ) : (
+                <ChevronDown style={{ color: '#fff', width: 14, height: 14 }} />
+              )}
+            </Box>
+          )}
         </Box>
-        {toolsVisible && (
+        {(compactHeader || toolsVisible) && (
           <>
             <Box style={{ height: 1, background: '#393C56' }} />
             <Box style={{ padding: '16px' }}>

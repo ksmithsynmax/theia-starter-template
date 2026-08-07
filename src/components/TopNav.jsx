@@ -101,6 +101,8 @@ const TopNav = ({
   onStsVersionChange,
   pathToPortVersion = 'v1',
   onPathToPortVersionChange,
+  shipDetailsVersion = 'v1',
+  onShipDetailsVersionChange,
 }) => {
   const { mapDate, setMapDate } = useShipContext()
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -329,6 +331,17 @@ const TopNav = ({
                       ['v4', 'Path to Port v4 — All arrivals'],
                       ['v5', 'Path to Port v5 — Arrivals board'],
                       ['v6', 'Path to Port v6 — Inline + arrivals'],
+                    ],
+                  },
+                  {
+                    label: 'Ship Details Panel',
+                    value: shipDetailsVersion,
+                    onChange: onShipDetailsVersionChange,
+                    options: [
+                      ['v1', 'Ship Details Panel v1'],
+                      ['v2', 'Ship Details Panel v2'],
+                      ['v3', 'Ship Details Panel v3'],
+                      ['v4', 'Ship Details Panel v4'],
                     ],
                   },
                 ].map((group) => (

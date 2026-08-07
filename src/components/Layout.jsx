@@ -62,6 +62,9 @@ function Layout() {
   // version places the route output (distance / ETA / duration + speed control)
   // in a different spot; the Expected Arrivals list and map route are shared.
   const [pathToPortVersion, setPathToPortVersion] = useState('v1')
+  // Ship details panel prototype. V2 initially mirrors V1 and can diverge as the
+  // next panel iteration is developed.
+  const [shipDetailsVersion, setShipDetailsVersion] = useState('v1')
   // Width the v7 floating network panel occludes on the right of the map, so the
   // map can pad focused vessels clear of it.
   const [stsNetworkInset, setStsNetworkInset] = useState(0)
@@ -530,6 +533,8 @@ function Layout() {
         onStsVersionChange={setStsVersion}
         pathToPortVersion={pathToPortVersion}
         onPathToPortVersionChange={setPathToPortVersion}
+        shipDetailsVersion={shipDetailsVersion}
+        onShipDetailsVersionChange={setShipDetailsVersion}
       />
       <Box style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <Map
@@ -560,6 +565,7 @@ function Layout() {
           leftPanelInset={leftPanelInset}
           rightPanelInset={stsNetworkInset}
           stsVersion={stsVersion}
+          shipDetailsVersion={shipDetailsVersion}
           pathToPortVersion={pathToPortVersion}
           portVisibilityBehavior={portVisibilityBehavior}
           forceHideSelectedPortContext={forceHideSelectedPortContext}
@@ -834,6 +840,7 @@ function Layout() {
                         forYouPrototype,
                         stsVersion,
                         pathToPortVersion,
+                        shipDetailsVersion,
                         onStsNetworkPanelChange: setStsNetworkInset,
                       }}
                     />

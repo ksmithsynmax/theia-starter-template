@@ -33,6 +33,8 @@ import {
   List,
   MarkerPin01,
   Anchor,
+  Minus,
+  Browser,
 } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
 import SatelliteIcon from '../custom-icons/SatelliteIcon'
@@ -309,6 +311,8 @@ function Myships() {
     setActiveDetectionId,
     setPreviewDetectionId,
     setPanelFocusDetectionId,
+    shownOnMapDetectionIds,
+    setShownOnMapDetectionIds,
     runtimeDetections,
     setRuntimeDetections,
     openMapToolPanelsByTab,
@@ -486,6 +490,16 @@ function Myships() {
   const [portTabOverflowLeft, setPortTabOverflowLeft] = useState(false)
   const [portTabOverflowRight, setPortTabOverflowRight] = useState(false)
   const portTabScrollRef = useRef(null)
+  const [eventToolsPoppedOut, setEventToolsPoppedOut] = useState(false)
+  const [eventToolsMinimized, setEventToolsMinimized] = useState(false)
+  const [eventToolsPanelPosition, setEventToolsPanelPosition] = useState(() => ({
+    x:
+      typeof window === 'undefined'
+        ? 560
+        : Math.max(520, window.innerWidth - 560),
+    y: 120,
+  }))
+  const [eventToolsDragOffset, setEventToolsDragOffset] = useState(null)
 
   const {
     collapsePanel,
@@ -499,8 +513,45 @@ function Myships() {
     forYouPrototype = 'proto1',
     stsVersion: stsVersionRaw = 'v1',
     pathToPortVersion = 'v1',
+    shipDetailsVersion = 'v1',
     onStsNetworkPanelChange,
   } = useOutletContext() || {}
+
+  useEffect(() => {
+    if (shipDetailsVersion !== 'v4') {
+      setEventToolsPoppedOut(false)
+      setEventToolsMinimized(false)
+    }
+  }, [shipDetailsVersion])
+
+  useEffect(() => {
+    if (!eventToolsDragOffset) return
+    const handleMouseMove = (event) => {
+      setEventToolsPanelPosition({
+        x: Math.max(
+          12,
+          Math.min(
+            event.clientX - eventToolsDragOffset.x,
+            window.innerWidth - 512
+          )
+        ),
+        y: Math.max(
+          12,
+          Math.min(
+            event.clientY - eventToolsDragOffset.y,
+            window.innerHeight - 80
+          )
+        ),
+      })
+    }
+    const handleMouseUp = () => setEventToolsDragOffset(null)
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [eventToolsDragOffset])
 
   // Two overflow-design explorations sit on top of the v17 layout:
   //   v18 = "Cap at 5"   — treat >5 vessels as suspect; show 5 + an anomaly banner.
@@ -2788,7 +2839,10 @@ function Myships() {
               display: 'block',
             }}
           />
-          {list.map((sid, idx) => {
+          {shipDetailsVersion !== 'v2' &&
+            shipDetailsVersion !== 'v3' &&
+            shipDetailsVersion !== 'v4' &&
+            list.map((sid, idx) => {
             const pos = pinPos[idx] || pinPos[pinPos.length - 1]
             const s = ships[sid]
             const attributed = Boolean(s) && sid !== 'unknown'
@@ -2837,17 +2891,20 @@ function Myships() {
                 </Box>
               </Tooltip>
             )
-          })}
+            })}
         </Box>
       )
     },
-    [ships, stsVersion, stsHeroHoverIdx, stsSegmentOn]
+    [ships, stsVersion, stsHeroHoverIdx, stsSegmentOn, shipDetailsVersion]
   )
-  const selectedStsIcon =
-    (stsVersion === 'v17' ||
-      stsVersion === 'v20' ||
-      stsVersion === 'v21') &&
-    (isStsTab || isStsShipTab)
+  const selectedEventIsSts =
+    selectedDetection?.type === 'sts' ||
+    selectedDetection?.type === 'sts-ais'
+  const selectedStsIcon = selectedEventIsSts
+    ? (stsVersion === 'v17' ||
+        stsVersion === 'v20' ||
+        stsVersion === 'v21') &&
+      (isStsTab || isStsShipTab)
       ? (
           <StsV20Icon
             type={activeTab?.stsType || selectedDetection?.type}
@@ -2857,6 +2914,7 @@ function Myships() {
       : isStsTab && activeTab
         ? renderStsTabIcon(activeTab, { width: 6, height: 14, gap: 2 })
         : undefined
+    : undefined
 
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
@@ -5103,9 +5161,13 @@ function Myships() {
               <Box
                 ref={topSectionRef}
                 style={{
+                  display:
+                    shipDetailsVersion === 'v4' && eventToolsPoppedOut
+                      ? 'none'
+                      : undefined,
                   padding: isTopSummaryCollapsed
-                    ? `${isStsTab && (stsVersion === 'v10' || stsVersion === 'v11' || stsVersion === 'v12' || stsVersion === 'v13' || stsVersion === 'v16' || stsVersion === 'v17') ? 12 : 20}px 20px 8px 20px`
-                    : `${isStsTab && (stsVersion === 'v10' || stsVersion === 'v11' || stsVersion === 'v12' || stsVersion === 'v13' || stsVersion === 'v16' || stsVersion === 'v17') ? 12 : 20}px 20px 20px 20px`,
+                    ? `${isStsTab && (stsVersion === 'v10' || stsVersion === 'v11' || stsVersion === 'v12' || stsVersion === 'v13' || stsVersion === 'v16' || stsVersion === 'v17') ? 12 : 20}px 20px 0px 20px`
+                    : `${isStsTab && (stsVersion === 'v10' || stsVersion === 'v11' || stsVersion === 'v12' || stsVersion === 'v13' || stsVersion === 'v16' || stsVersion === 'v17') ? 12 : 20}px 20px 0px 20px`,
                   flexShrink: 0,
                   ...(topSectionHeight != null
                     ? { height: topSectionHeight, overflowY: 'auto' }
@@ -5463,6 +5525,47 @@ function Myships() {
                         />
                       </Box>
                     </Tooltip>
+                    {shipDetailsVersion === 'v4' && (
+                      <Tooltip
+                        label="Open event tools as map panel"
+                        withArrow
+                        openDelay={200}
+                        styles={{
+                          tooltip: {
+                            backgroundColor: '#000',
+                            color: '#fff',
+                            border: '1px solid #000',
+                          },
+                          arrow: {
+                            backgroundColor: '#000',
+                            border: '1px solid #000',
+                          },
+                        }}
+                      >
+                        <Box
+                          onClick={() => setEventToolsPoppedOut(true)}
+                          onMouseEnter={() => setHoveredTopAction('popout')}
+                          onMouseLeave={() => setHoveredTopAction(null)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 28,
+                            height: 28,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            background:
+                              hoveredTopAction === 'popout'
+                                ? '#24263C'
+                                : 'transparent',
+                          }}
+                        >
+                          <Browser
+                            style={{ width: 21, height: 21, color: '#fff' }}
+                          />
+                        </Box>
+                      </Tooltip>
+                    )}
                   </Box>
                 </Box>
                 {!isTopSummaryCollapsed && (
@@ -5830,6 +5933,7 @@ function Myships() {
                     )}
                     {!isUnattributed && (
                       <ShipDetailsPanel
+                        version={shipDetailsVersion}
                         selectedEvent={selectedDetection}
                         isLatest={isLatest}
                         eventLabel={eventLabel[selectedDetection?.type] || ''}
@@ -5840,7 +5944,8 @@ function Myships() {
                         activeToolIds={activeMapToolPanels}
                       />
                     )}
-                    {isStsShipTab && (
+                    {isStsShipTab &&
+                      (stsVersionRaw === 'v20' || stsVersionRaw === 'v21') && (
                       // Compact single-row STS switcher directly under the tools
                       // card: an Overview button + the involved vessels. Kept
                       // slim so it doesn't push the detail tabs below the fold.
@@ -5957,6 +6062,7 @@ function Myships() {
                 <>
                   <Box style={{ flexShrink: 0, padding: '20px 20px 0 20px' }}>
                     <ShipDetailsPanel
+                      version={shipDetailsVersion}
                       selectedEvent={selectedDetection}
                       isLatest
                       eventLabel={
@@ -5980,6 +6086,17 @@ function Myships() {
                     }}
                   >
                     <EventTimelineCard
+                      squareImages={shipDetailsVersion === 'v4'}
+                      showViewEventLocation={
+                        shipDetailsVersion !== 'v2' &&
+                        shipDetailsVersion !== 'v3' &&
+                        shipDetailsVersion !== 'v4'
+                      }
+                      compactActions={
+                        shipDetailsVersion === 'v2' ||
+                        shipDetailsVersion === 'v3' ||
+                        shipDetailsVersion === 'v4'
+                      }
                       date={latestDetection?.date}
                       event={
                         isStsUnattributed
@@ -6205,6 +6322,146 @@ function Myships() {
                           gap: 0,
                         }}
                       >
+                        {(shipDetailsVersion === 'v2' ||
+                          shipDetailsVersion === 'v3' ||
+                          shipDetailsVersion === 'v4') &&
+                          latestAisDetection &&
+                          (() => {
+                            const aisDate = new Date(latestAisDetection.date)
+                            const aisDateKey = `${aisDate.getFullYear()}-${String(
+                              aisDate.getMonth() + 1
+                            ).padStart(2, '0')}-${String(
+                              aisDate.getDate()
+                            ).padStart(2, '0')}`
+                            const aisLocationActive =
+                              shownOnMapDetectionIds.some(
+                                (id) =>
+                                  normalizeDetectionId(id) ===
+                                  normalizeDetectionId(latestAisDetection.id)
+                              )
+                            const toggleAisLocation = () =>
+                              setShownOnMapDetectionIds((current) =>
+                                aisLocationActive
+                                  ? current.filter(
+                                      (id) =>
+                                        normalizeDetectionId(id) !==
+                                        normalizeDetectionId(
+                                          latestAisDetection.id
+                                        )
+                                    )
+                                  : [...current, latestAisDetection.id]
+                              )
+                            return (
+                              <>
+                                <Box
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      color: '#fff',
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    AIS Data
+                                  </Text>
+                                  <Box
+                                    style={{
+                                      height: 1,
+                                      flex: 1,
+                                      background: '#393C56',
+                                    }}
+                                  />
+                                  <Box
+                                    style={{
+                                      width: 18,
+                                      height: 1,
+                                      background: '#fff',
+                                    }}
+                                  />
+                                </Box>
+                                <Box style={{ marginBottom: 8 }}>
+                                  <EventTimelineCard
+                                    squareImages={shipDetailsVersion === 'v4'}
+                                    compactActions
+                                    showDateContext={false}
+                                    showViewEventLocation={false}
+                                    date={`${latestAisDetection.date} (Latest)`}
+                                    event="AIS"
+                                    icon={<AisIcon style={{ height: 14 }} />}
+                                    selected={
+                                      normalizeDetectionId(selectedCard) ===
+                                      normalizeDetectionId(
+                                        latestAisDetection.id
+                                      )
+                                    }
+                                    locationActive={aisLocationActive}
+                                    onToggleLocation={toggleAisLocation}
+                                    onActivate={() => {
+                                      updateTabState(
+                                        'selectedCard',
+                                        latestAisDetection.id
+                                      )
+                                      setFlashEnabled(true)
+                                    }}
+                                    onSelect={() => {}}
+                                    onGoToDate={
+                                      aisDateKey !== mapDate
+                                        ? () =>
+                                            requestGoToDate(
+                                              aisDateKey,
+                                              latestAisDetection.id,
+                                              aisDate.toLocaleDateString(
+                                                'en-US',
+                                                {
+                                                  month: 'short',
+                                                  day: 'numeric',
+                                                  year: 'numeric',
+                                                }
+                                              )
+                                            )
+                                        : undefined
+                                    }
+                                    aisInfo={activeShip?.aisInfo || {}}
+                                    synMaxInfo={activeShip?.synMaxInfo}
+                                    detectionType="ais"
+                                  />
+                                </Box>
+                                <Box
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      color: '#fff',
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    Detection &amp; Other Events
+                                  </Text>
+                                  <Box
+                                    style={{
+                                      height: 1,
+                                      flex: 1,
+                                      background: '#393C56',
+                                    }}
+                                  />
+                                </Box>
+                              </>
+                            )
+                          })()}
                         <Box
                           style={{
                             display: 'flex',
@@ -6447,6 +6704,17 @@ function Myships() {
                                 }}
                               >
                                 <EventTimelineCard
+                                  squareImages={shipDetailsVersion === 'v4'}
+                                  showViewEventLocation={
+                                    shipDetailsVersion !== 'v2' &&
+                                    shipDetailsVersion !== 'v3' &&
+                                    shipDetailsVersion !== 'v4'
+                                  }
+                                  compactActions={
+                                    shipDetailsVersion === 'v2' ||
+                                    shipDetailsVersion === 'v3' ||
+                                    shipDetailsVersion === 'v4'
+                                  }
                                   date={contextEvent.dateLabel}
                                   variant={contextEvent.variant}
                                   port={contextEvent.port}
@@ -6512,6 +6780,53 @@ function Myships() {
                               }}
                             >
                               <EventTimelineCard
+                                squareImages={shipDetailsVersion === 'v4'}
+                                showViewEventLocation={
+                                  shipDetailsVersion !== 'v2' &&
+                                  shipDetailsVersion !== 'v3' &&
+                                  shipDetailsVersion !== 'v4'
+                                }
+                                compactActions={
+                                  shipDetailsVersion === 'v2' ||
+                                  shipDetailsVersion === 'v3' ||
+                                  shipDetailsVersion === 'v4'
+                                }
+                                locationActive={shownOnMapDetectionIds.some(
+                                  (id) =>
+                                    normalizeDetectionId(id) ===
+                                    normalizeDetectionId(det.id)
+                                )}
+                                onToggleLocation={
+                                  shipDetailsVersion === 'v2' ||
+                                  shipDetailsVersion === 'v3' ||
+                                  shipDetailsVersion === 'v4'
+                                    ? () =>
+                                        setShownOnMapDetectionIds((current) => {
+                                          const isShown = current.some(
+                                            (id) =>
+                                              normalizeDetectionId(id) ===
+                                              normalizeDetectionId(det.id)
+                                          )
+                                          return isShown
+                                            ? current.filter(
+                                                (id) =>
+                                                  normalizeDetectionId(id) !==
+                                                  normalizeDetectionId(det.id)
+                                              )
+                                            : [...current, det.id]
+                                        })
+                                    : undefined
+                                }
+                                onActivate={
+                                  shipDetailsVersion === 'v2' ||
+                                  shipDetailsVersion === 'v3' ||
+                                  shipDetailsVersion === 'v4'
+                                    ? () => {
+                                        updateTabState('selectedCard', det.id)
+                                        setFlashEnabled(true)
+                                      }
+                                    : undefined
+                                }
                                 date={det.date}
                                 event={eventLabel[det.type] || det.type}
                                 icon={iconMap[det.type]}
@@ -6615,7 +6930,10 @@ function Myships() {
                                   stsShipIds.length > 1
                                     ? renderStsHero(stsShipIds, {
                                         activeIdx: activeStsShipIndex,
-                                        height: 206,
+                                        height:
+                                          shipDetailsVersion === 'v4'
+                                            ? 180
+                                            : 206,
                                         width: 180,
                                         marginBottom: 0,
                                         borderRadius: 4,
@@ -9788,6 +10106,227 @@ function Myships() {
           </Box>
         </Box>
       </Modal>
+      {shipDetailsVersion === 'v4' &&
+        eventToolsPoppedOut &&
+        activeShip &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <Box
+            style={{
+              position: 'fixed',
+              top: eventToolsPanelPosition.y,
+              left: eventToolsPanelPosition.x,
+              width: 500,
+              maxHeight: 'calc(100vh - 24px)',
+              zIndex: 1200,
+              background: '#181926',
+              border: '1px solid #393C56',
+              borderRadius: 4,
+              overflow: 'hidden',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.38)',
+            }}
+          >
+            <Box
+              onMouseDown={(event) => {
+                if (event.button !== 0) return
+                setEventToolsDragOffset({
+                  x: event.clientX - eventToolsPanelPosition.x,
+                  y: event.clientY - eventToolsPanelPosition.y,
+                })
+              }}
+              style={{
+                height: 64,
+                padding: '0 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#24263C',
+                cursor: eventToolsDragOffset ? 'grabbing' : 'grab',
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 500 }}>
+                Selected Event Tools
+              </Text>
+              <Box style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <Tooltip label="Dock event tools back into timeline" withArrow>
+                  <Box
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={() => {
+                      setEventToolsPoppedOut(false)
+                      setEventToolsMinimized(false)
+                    }}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 4,
+                      color: '#fff',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Browser style={{ width: 20, height: 20 }} />
+                  </Box>
+                </Tooltip>
+                <Minus
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={() => setEventToolsMinimized((current) => !current)}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    color: '#fff',
+                    cursor: 'pointer',
+                  }}
+                />
+                <XClose
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={() => {
+                    setEventToolsPoppedOut(false)
+                    setEventToolsMinimized(false)
+                  }}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    color: '#fff',
+                    cursor: 'pointer',
+                  }}
+                />
+              </Box>
+            </Box>
+            {!eventToolsMinimized && (
+              <Box
+                style={{
+                  padding: 20,
+                  maxHeight: 'calc(100vh - 88px)',
+                  overflowY: 'auto',
+                }}
+              >
+                <Box
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    marginBottom: 16,
+                  }}
+                >
+                  <Box>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Text
+                        style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}
+                      >
+                        {activeShip.name}
+                      </Text>
+                      {activeShip.flag && (
+                        <Text style={{ fontSize: 16 }}>{activeShip.flag}</Text>
+                      )}
+                    </Box>
+                    <Box
+                      style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                    >
+                      {shouldShowLastKnownLocationButton && (
+                        <Box
+                          onClick={handleShowLastKnownLocation}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            color: '#0094FF',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <MarkerPin01 style={{ width: 14, height: 14 }} />
+                          <Text style={{ color: 'inherit', fontSize: 12 }}>
+                            Show last known location
+                          </Text>
+                        </Box>
+                      )}
+                      {showSanctionedTitle && (
+                        <>
+                          <Box
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              background: '#008B6D',
+                            }}
+                          />
+                          <Box
+                            style={{
+                              width: 1,
+                              height: 12,
+                              background: '#393C56',
+                            }}
+                          />
+                          <img
+                            src={sanctionedTitle}
+                            alt="Sanctioned"
+                            style={{ height: 12, width: 'auto' }}
+                          />
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                  <Star01
+                    onClick={() => {
+                      if (activeShip?.id) toggleFavoriteShip(activeShip.id)
+                    }}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      color: isActiveShipFavorite ? '#F7C948' : '#fff',
+                      fill: isActiveShipFavorite ? '#F7C948' : 'none',
+                      cursor: 'pointer',
+                    }}
+                  />
+                </Box>
+                <Box
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 1.7fr',
+                    gap: 16,
+                    marginBottom: 20,
+                  }}
+                >
+                  <KeyValuePair
+                    keyName="IMO"
+                    value={activeShip.imo || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="MMSI"
+                    value={activeShip.mmsi || 'No info'}
+                  />
+                  <KeyValuePair
+                    keyName="SynMax Ship ID"
+                    value={activeShip.shipId || 'No info'}
+                  />
+                </Box>
+                {!isUnattributed && (
+                  <ShipDetailsPanel
+                    version="v4"
+                    compactHeader
+                    selectedEvent={selectedDetection}
+                    isLatest={isLatest}
+                    eventLabel={eventLabel[selectedDetection?.type] || ''}
+                    eventIconOverride={selectedStsIcon}
+                    flashEnabled={flashEnabled}
+                    onToolsVisibleChange={setDetailToolsVisible}
+                    onToolAction={handleShipToolAction}
+                    activeToolIds={activeMapToolPanels}
+                  />
+                )}
+              </Box>
+            )}
+          </Box>,
+          document.body
+        )}
       <Modal
         opened={showGoToDateModal && Boolean(pendingGoToDate)}
         onClose={() => {
@@ -9953,7 +10492,11 @@ function Myships() {
         )}
       </Modal>
       <Modal
-        opened={isStsShipTab && stsOverviewModalOpen}
+        opened={
+          isStsShipTab &&
+          (stsVersionRaw === 'v20' || stsVersionRaw === 'v21') &&
+          stsOverviewModalOpen
+        }
         onClose={() => setStsOverviewModalOpen(false)}
         withCloseButton={false}
         centered
@@ -9992,35 +10535,52 @@ function Myships() {
                 counts we have traced hulls for (2–5) so the toggle is never a
                 no-op. */}
             {[2, 3, 4, 5].includes(stsEventShipIds.length) && (
-              <Switch
-                checked={stsSegmentOn}
-                onChange={toggleStsSegment}
-                label="Segment focus"
-                labelPosition="left"
-                size="xs"
-                color="#006CD7"
-                style={{ flexShrink: 0 }}
-                styles={{
-                  root: { display: 'flex' },
-                  body: { display: 'flex', alignItems: 'center' },
-                  track: {
-                    border: 'none',
-                    cursor: 'pointer',
-                    backgroundColor: stsSegmentOn ? '#0094FF' : '#4A4D6A',
-                  },
-                  thumb: { border: 'none', backgroundColor: '#FFFFFF' },
-                  label: {
+              <Box
+                onClick={toggleStsSegment}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                <Text
+                  style={{
                     color: stsSegmentOn ? '#FFFFFF' : '#8D93A8',
                     fontSize: 10,
                     fontWeight: 700,
                     letterSpacing: 0.8,
                     textTransform: 'uppercase',
-                    paddingRight: 8,
-                    cursor: 'pointer',
                     transition: 'color 0.15s ease',
-                  },
-                }}
-              />
+                  }}
+                >
+                  Segment focus
+                </Text>
+                <Box
+                  role="switch"
+                  aria-checked={stsSegmentOn}
+                  style={{
+                    width: 36,
+                    height: 20,
+                    borderRadius: 10,
+                    padding: 2,
+                    background: stsSegmentOn ? '#006CD7' : '#393C56',
+                    transition: 'background 0.15s ease',
+                    display: 'flex',
+                    justifyContent: stsSegmentOn ? 'flex-end' : 'flex-start',
+                  }}
+                >
+                  <Box
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: '50%',
+                      background: '#FFFFFF',
+                    }}
+                  />
+                </Box>
+              </Box>
             )}
             <Box
               component="button"

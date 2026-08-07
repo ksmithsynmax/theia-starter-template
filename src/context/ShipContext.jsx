@@ -31,6 +31,8 @@ export function ShipProvider({ children }) {
   const [activeDetectionId, setActiveDetectionId] = useState(null)
   const [previewDetectionId, setPreviewDetectionId] = useState(null)
   const [panelFocusDetectionId, setPanelFocusDetectionId] = useState(null)
+  // Ship Details v2 can pin multiple timeline events on the map at once.
+  const [shownOnMapDetectionIds, setShownOnMapDetectionIds] = useState([])
   const [runtimeDetections, setRuntimeDetections] = useState(seedDetections)
   const [shipFilters, setShipFilters] = useState(SHIP_FILTER_DEFAULTS)
   const [showLegendOnMap, setShowLegendOnMap] = useState(false)
@@ -696,6 +698,8 @@ export function ShipProvider({ children }) {
         setPreviewDetectionId,
         panelFocusDetectionId,
         setPanelFocusDetectionId,
+        shownOnMapDetectionIds,
+        setShownOnMapDetectionIds,
         runtimeDetections,
         setRuntimeDetections,
         shipFilters,

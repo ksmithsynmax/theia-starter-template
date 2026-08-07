@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Box, Text, Button } from '@mantine/core'
-import { ChevronDown, ChevronUp, InfoCircle, Calendar } from '@untitledui/icons'
+import { Box, Text, Button, Tooltip } from '@mantine/core'
+import {
+  ChevronDown,
+  ChevronUp,
+  InfoCircle,
+  Calendar,
+  MarkerPin01,
+} from '@untitledui/icons'
 import KeyValuePair from '../KeyValuePair'
 import stsSatImage from '../../assets/HAfSz3HbAAA34GM.jpeg'
 import shipSatImage from '../../assets/Baniyas_27-July-2021_WV2_single-ship.jpg'
@@ -9,6 +15,122 @@ import shipIllustration from '../../assets/ShipIllustration.png'
 
 const shipImages = [shipSatImage, shipSatImage2]
 const PRIMARY_BUTTON_COLOR = '#006CD7'
+
+const CompactInfoList = ({ title, items }) => (
+  <Box
+    style={{
+      minWidth: 0,
+    }}
+  >
+    {title && (
+      <Text
+        style={{
+          paddingBottom: 4,
+          color: '#B7BCC8',
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {title}
+      </Text>
+    )}
+    <Box>
+      {items.map(({ label, value }, index) => (
+        <Box
+          key={label}
+          style={{
+            minHeight: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            borderTop:
+              index > 0 ? '1px solid rgba(57, 60, 86, 0.7)' : 'none',
+          }}
+        >
+          <Text style={{ color: '#898F9D', fontSize: 10, flexShrink: 0 }}>
+            {label}
+          </Text>
+          <Text
+            title={String(value)}
+            style={{
+              minWidth: 0,
+              color: '#fff',
+              fontSize: 10.5,
+              fontWeight: 500,
+              textAlign: 'right',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {value}
+          </Text>
+        </Box>
+      ))}
+    </Box>
+  </Box>
+)
+
+const CompactInfoGrid = ({ title, items }) => (
+  <Box style={{ minWidth: 0 }}>
+    {title && (
+      <Text
+        style={{
+          paddingBottom: 4,
+          color: '#B7BCC8',
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {title}
+      </Text>
+    )}
+    <Box
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        columnGap: 16,
+      }}
+    >
+      {items.map(({ label, value, span }, index) => (
+        <Box
+          key={label}
+          style={{
+            minWidth: 0,
+            minHeight: 24,
+            gridColumn: span === 2 ? 'span 2' : undefined,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            borderTop:
+              index > 1 ? '1px solid rgba(57, 60, 86, 0.7)' : 'none',
+          }}
+        >
+          <Text style={{ color: '#898F9D', fontSize: 10, flexShrink: 0 }}>
+            {label}
+          </Text>
+          <Text
+            title={String(value)}
+            style={{
+              minWidth: 0,
+              color: '#fff',
+              fontSize: 10.5,
+              fontWeight: 500,
+              textAlign: 'right',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {value}
+          </Text>
+        </Box>
+      ))}
+    </Box>
+  </Box>
+)
 
 const formatEta = (raw) => {
   if (!raw || raw === 'No info') return 'No info'
@@ -82,10 +204,19 @@ const EventTimelineCard = ({
   synMaxInfo,
   detectionType,
   stsHeroNode,
+  showViewEventLocation = true,
+  compactActions = false,
+  locationActive = false,
+  onToggleLocation,
+  onActivate,
+  showDateContext = true,
+  squareImages = false,
+  compactListLayout = false,
 }) => {
   const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false)
   const [detailsHovered, setDetailsHovered] = useState(false)
   const [goToDateHovered, setGoToDateHovered] = useState(false)
+  const [cardHovered, setCardHovered] = useState(false)
   const expanded = Boolean(isPreviewed || (selected && !isSelectedCollapsed))
   const cardRef = useRef(null)
 
@@ -134,13 +265,19 @@ const EventTimelineCard = ({
     return (
       <Box
         ref={cardRef}
+        onClick={compactActions ? onActivate : undefined}
+        onMouseEnter={() => compactActions && setCardHovered(true)}
+        onMouseLeave={() => setCardHovered(false)}
         style={{
           position: 'relative',
-          border: selected ? '2px solid #0094FF' : '1px solid #393C56',
+          border: selected
+            ? '2px solid #0094FF'
+            : `1px solid ${cardHovered ? '#4C5070' : '#393C56'}`,
           borderRadius: 4,
-          background: '#24263C',
+          background: cardHovered ? '#2D3048' : '#24263C',
           scrollMarginTop: 80,
           overflow: 'hidden',
+          cursor: compactActions && onActivate ? 'pointer' : undefined,
         }}
       >
         {selected && (
@@ -165,7 +302,32 @@ const EventTimelineCard = ({
           }}
         >
           <Box>
-            <Text style={{ color: '#898f9d', fontSize: 12 }}>{date}</Text>
+            <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Text style={{ color: '#898f9d', fontSize: 12 }}>{date}</Text>
+              {compactActions && showDateContext && (
+                <>
+                  <Text style={{ color: '#898f9d', fontSize: 12 }}>|</Text>
+                  {onGoToDate ? (
+                    <Calendar
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onGoToDate()
+                      }}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        color: PRIMARY_BUTTON_COLOR,
+                        cursor: 'pointer',
+                      }}
+                    />
+                  ) : (
+                    <Text style={{ color: '#898f9d', fontSize: 12 }}>
+                      On selected date
+                    </Text>
+                  )}
+                </>
+              )}
+            </Box>
             <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               {icon}
               <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>
@@ -173,8 +335,11 @@ const EventTimelineCard = ({
               </Text>
             </Box>
           </Box>
-          <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {!selected && (
+          <Box
+            onClick={(event) => event.stopPropagation()}
+            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+          >
+            {!selected && showViewEventLocation && (
               <Button
                 size="xs"
                 onClick={() => {
@@ -196,7 +361,35 @@ const EventTimelineCard = ({
                 View Event Location
               </Button>
             )}
-            {selected && onGoToDate && (
+            {compactActions && onSelect && (
+              <Tooltip label="Show on map" withArrow color="#0D0F17">
+                <Box
+                  onClick={() => {
+                    if (onToggleLocation) onToggleLocation()
+                    else {
+                      onSelect?.()
+                      onViewStsShips?.()
+                    }
+                  }}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 4,
+                    border: `1px solid ${locationActive ? PRIMARY_BUTTON_COLOR : '#393C56'}`,
+                    background: locationActive
+                      ? PRIMARY_BUTTON_COLOR
+                      : '#30334D',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <MarkerPin01 style={{ color: '#fff', width: 18, height: 18 }} />
+                </Box>
+              </Tooltip>
+            )}
+            {!compactActions && selected && onGoToDate && (
               <Button
                 size="xs"
                 onClick={onGoToDate}
@@ -235,11 +428,11 @@ const EventTimelineCard = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 6,
-                padding: '0 10px',
+                gap: compactActions ? 0 : 6,
+                padding: compactActions ? 0 : '0 10px',
                 minWidth: 32,
                 height: 32,
-                border: '1px solid #fff',
+                border: compactActions ? 'none' : '1px solid #fff',
                 borderRadius: 4,
                 cursor: 'pointer',
                 background: detailsHovered
@@ -247,9 +440,11 @@ const EventTimelineCard = ({
                   : 'transparent',
               }}
             >
-              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
-                {expanded ? 'Hide Details' : 'Show Details'}
-              </Text>
+              {!compactActions && (
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
+                  {expanded ? 'Hide Details' : 'Show Details'}
+                </Text>
+              )}
               {expanded ? (
                 <ChevronUp style={{ color: '#fff', width: 16, height: 16 }} />
               ) : (
@@ -272,7 +467,14 @@ const EventTimelineCard = ({
                 { info: aisInfo, img: stsSatImage },
                 { info: partnerAisInfo || aisInfo, img: shipIllustration },
               ].map((ship, idx) => (
-                <Box key={idx} style={idx > 0 ? { marginTop: 24 } : undefined}>
+                <Box
+                  key={idx}
+                  style={
+                    idx > 0
+                      ? { marginTop: squareImages ? 12 : 24 }
+                      : undefined
+                  }
+                >
                   <Box
                     style={{
                       display: 'flex',
@@ -303,22 +505,173 @@ const EventTimelineCard = ({
                     />
                   </Box>
 
+                  {squareImages && compactListLayout ? (
+                    <>
+                      {idx === 0 ? (
+                        <>
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 12,
+                            }}
+                          >
+                            <Box style={{ width: 180, flexShrink: 0 }}>
+                              {stsHeroNode || (
+                                <img
+                                  src={ship.img}
+                                  alt="Ship-to-ship satellite imagery"
+                                  style={{
+                                    width: 180,
+                                    height: 180,
+                                    borderRadius: 4,
+                                    objectFit: 'cover',
+                                    display: 'block',
+                                  }}
+                                />
+                              )}
+                            </Box>
+                            <Box
+                              style={{
+                                flex: 1,
+                                minWidth: 0,
+                                display: 'grid',
+                                gap: 8,
+                              }}
+                            >
+                              <CompactInfoList
+                                items={[
+                                  {
+                                    label: 'Coordinates',
+                                    value: `${ship.info.latitude || 'No info'}, ${ship.info.longitude || 'No info'}`,
+                                  },
+                                  {
+                                    label: 'Heading',
+                                    value: ship.info.heading || 'No info',
+                                  },
+                                  {
+                                    label: 'Type',
+                                    value: ship.info.shipType || 'No info',
+                                  },
+                                  {
+                                    label: 'Dimensions',
+                                    value: `${ship.info.length || 'No info'} × ${ship.info.width || 'No info'}`,
+                                  },
+                                  {
+                                    label: 'Draft',
+                                    value: ship.info.draft || 'No info',
+                                  },
+                                  {
+                                    label: 'Built',
+                                    value: ship.info.buildYear || 'No info',
+                                  },
+                                  {
+                                    label: 'Latest',
+                                    value: ship.info.latestSpeed || 'No info',
+                                  },
+                                ]}
+                              />
+                            </Box>
+                          </Box>
+                          <CompactInfoGrid
+                            items={[
+                              {
+                                label: 'Average',
+                                value: ship.info.avgSpeed || 'No info',
+                              },
+                              {
+                                label: 'Destination',
+                                value: ship.info.destination || 'No info',
+                              },
+                              {
+                                label: 'Maximum',
+                                value: ship.info.maxSpeed || 'No info',
+                              },
+                              {
+                                label: 'ETA',
+                                value: formatEta(ship.info.eta),
+                              },
+                            ]}
+                          />
+                        </>
+                      ) : (
+                        <CompactInfoGrid
+                          items={[
+                            {
+                              label: 'Latitude',
+                              value: ship.info.latitude || 'No info',
+                            },
+                            {
+                              label: 'Longitude',
+                              value: ship.info.longitude || 'No info',
+                            },
+                            {
+                              label: 'Heading',
+                              value: ship.info.heading || 'No info',
+                            },
+                            {
+                              label: 'Type',
+                              value: ship.info.shipType || 'No info',
+                            },
+                            {
+                              label: 'Length',
+                              value: ship.info.length || 'No info',
+                            },
+                            {
+                              label: 'Width',
+                              value: ship.info.width || 'No info',
+                            },
+                            {
+                              label: 'Draft',
+                              value: ship.info.draft || 'No info',
+                            },
+                            {
+                              label: 'Built',
+                              value: ship.info.buildYear || 'No info',
+                            },
+                            {
+                              label: 'Average',
+                              value: ship.info.avgSpeed || 'No info',
+                            },
+                            {
+                              label: 'Maximum',
+                              value: ship.info.maxSpeed || 'No info',
+                            },
+                            {
+                              label: 'Destination',
+                              value: ship.info.destination || 'No info',
+                            },
+                            {
+                              label: 'ETA',
+                              value: formatEta(ship.info.eta),
+                            },
+                            {
+                              label: 'Latest',
+                              value: ship.info.latestSpeed || 'No info',
+                              span: 2,
+                            },
+                          ]}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <>
                   <Box style={{ display: 'flex', gap: 12 }}>
                     {idx === 0 && stsHeroNode ? (
-                      stsHeroNode
-                    ) : (
-                      <img
-                        src={ship.img}
-                        alt="Ship-to-ship satellite imagery"
-                        style={{
-                          width: 180,
-                          height: 206,
-                          borderRadius: 4,
-                          objectFit: 'cover',
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
+                        stsHeroNode
+                      ) : (
+                        <img
+                          src={ship.img}
+                          alt="Ship-to-ship satellite imagery"
+                          style={{
+                            width: 180,
+                            height: squareImages ? 180 : 206,
+                            borderRadius: 4,
+                            objectFit: 'cover',
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
 
                     <Box
                       style={{
@@ -336,23 +689,87 @@ const EventTimelineCard = ({
                       <KeyValuePair keyName="Build Year" value={ship.info.buildYear || 'No info'} />
                       <KeyValuePair keyName="Heading" value={ship.info.heading || 'No info'} />
                       <KeyValuePair keyName="Draft" value={ship.info.draft || 'No info'} />
-                      <KeyValuePair keyName="Avg. Speed" value={ship.info.avgSpeed || 'No info'} />
-                      <KeyValuePair keyName="Max Speed" value={ship.info.maxSpeed || 'No info'} />
+                      {!squareImages && (
+                        <>
+                          <KeyValuePair keyName="Avg. Speed" value={ship.info.avgSpeed || 'No info'} />
+                          <KeyValuePair keyName="Max Speed" value={ship.info.maxSpeed || 'No info'} />
+                        </>
+                      )}
                     </Box>
                   </Box>
 
-                  <Box
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '180px 1fr 1fr',
-                      gap: '0 12px',
-                      marginTop: 12,
-                    }}
-                  >
-                    <KeyValuePair keyName="Latest Speed" value={ship.info.latestSpeed || 'No info'} />
-                    <KeyValuePair keyName="Destination" value={ship.info.destination || 'No info'} />
-                    <KeyValuePair keyName="ETA" value={formatEta(ship.info.eta)} />
-                  </Box>
+                  {squareImages ? (
+                    <>
+                      {idx > 0 ? (
+                        <>
+                          <Box
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '180px 1fr 1fr',
+                              gap: '0 12px',
+                              marginTop: 12,
+                            }}
+                          >
+                            <KeyValuePair keyName="Latest Speed" value={ship.info.latestSpeed || 'No info'} />
+                            <KeyValuePair keyName="Avg. Speed" value={ship.info.avgSpeed || 'No info'} />
+                            <KeyValuePair keyName="Max Speed" value={ship.info.maxSpeed || 'No info'} />
+                          </Box>
+                          <Box
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '180px 1fr 1fr',
+                              gap: '0 12px',
+                              marginTop: 12,
+                            }}
+                          >
+                            <KeyValuePair keyName="Destination" value={ship.info.destination || 'No info'} />
+                            <KeyValuePair keyName="ETA" value={formatEta(ship.info.eta)} />
+                          </Box>
+                        </>
+                      ) : (
+                        <>
+                          <Box
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '180px 1fr 1fr',
+                              gap: '0 12px',
+                              marginTop: 12,
+                            }}
+                          >
+                            <KeyValuePair keyName="Latest Speed" value={ship.info.latestSpeed || 'No info'} />
+                            <KeyValuePair keyName="Avg. Speed" value={ship.info.avgSpeed || 'No info'} />
+                            <KeyValuePair keyName="Max Speed" value={ship.info.maxSpeed || 'No info'} />
+                          </Box>
+                          <Box
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '180px 1fr 1fr',
+                              gap: '0 12px',
+                              marginTop: 12,
+                            }}
+                          >
+                            <KeyValuePair keyName="Destination" value={ship.info.destination || 'No info'} />
+                            <KeyValuePair keyName="ETA" value={formatEta(ship.info.eta)} />
+                          </Box>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <Box
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '180px 1fr 1fr',
+                        gap: '0 12px',
+                        marginTop: 12,
+                      }}
+                    >
+                      <KeyValuePair keyName="Latest Speed" value={ship.info.latestSpeed || 'No info'} />
+                      <KeyValuePair keyName="Destination" value={ship.info.destination || 'No info'} />
+                      <KeyValuePair keyName="ETA" value={formatEta(ship.info.eta)} />
+                    </Box>
+                  )}
+                    </>
+                  )}
                 </Box>
               ))}
             </Box>
@@ -366,6 +783,7 @@ const EventTimelineCard = ({
   if (variant === 'flag') {
     return (
       <Box
+        onClick={compactActions ? onActivate : undefined}
         style={{
           border: '1px solid #393C56',
           borderRadius: 4,
@@ -388,13 +806,19 @@ const EventTimelineCard = ({
   return (
     <Box
       ref={cardRef}
+      onClick={compactActions ? onActivate : undefined}
+      onMouseEnter={() => compactActions && setCardHovered(true)}
+      onMouseLeave={() => setCardHovered(false)}
       style={{
         position: 'relative',
-        border: selected ? '2px solid #0094FF' : '1px solid #393C56',
+        border: selected
+          ? '2px solid #0094FF'
+          : `1px solid ${cardHovered ? '#4C5070' : '#393C56'}`,
         borderRadius: 4,
-        background: '#24263C',
+        background: cardHovered ? '#2D3048' : '#24263C',
         overflow: 'hidden',
         scrollMarginTop: 80,
+        cursor: compactActions && onActivate ? 'pointer' : undefined,
       }}
     >
       {selected && (
@@ -419,7 +843,32 @@ const EventTimelineCard = ({
         }}
       >
         <Box>
-          <Text style={{ color: '#898f9d', fontSize: 12 }}>{date}</Text>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Text style={{ color: '#898f9d', fontSize: 12 }}>{date}</Text>
+            {compactActions && showDateContext && (
+              <>
+                <Text style={{ color: '#898f9d', fontSize: 12 }}>|</Text>
+                {onGoToDate ? (
+                  <Calendar
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onGoToDate()
+                    }}
+                    style={{
+                      width: 16,
+                      height: 16,
+                      color: PRIMARY_BUTTON_COLOR,
+                      cursor: 'pointer',
+                    }}
+                  />
+                ) : (
+                  <Text style={{ color: '#898f9d', fontSize: 12 }}>
+                    On selected date
+                  </Text>
+                )}
+              </>
+            )}
+          </Box>
           <Box style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             {icon}
             <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>
@@ -427,8 +876,11 @@ const EventTimelineCard = ({
             </Text>
           </Box>
         </Box>
-        <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {!selected && (
+        <Box
+          onClick={(event) => event.stopPropagation()}
+          style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+        >
+          {!selected && showViewEventLocation && (
             <Button
               size="xs"
               onClick={() => {
@@ -449,7 +901,31 @@ const EventTimelineCard = ({
               View Event Location
             </Button>
           )}
-          {selected && onGoToDate && (
+          {compactActions && onSelect && (
+            <Tooltip label="Show on map" withArrow color="#0D0F17">
+              <Box
+                onClick={() =>
+                  onToggleLocation ? onToggleLocation() : onSelect?.()
+                }
+                style={{
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 4,
+                  border: `1px solid ${locationActive ? PRIMARY_BUTTON_COLOR : '#393C56'}`,
+                  background: locationActive
+                    ? PRIMARY_BUTTON_COLOR
+                    : '#30334D',
+                  cursor: 'pointer',
+                }}
+              >
+                <MarkerPin01 style={{ color: '#fff', width: 18, height: 18 }} />
+              </Box>
+            </Tooltip>
+          )}
+          {!compactActions && selected && onGoToDate && (
             <Button
               size="xs"
               onClick={onGoToDate}
@@ -488,11 +964,11 @@ const EventTimelineCard = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 6,
-              padding: '0 10px',
+              gap: compactActions ? 0 : 6,
+              padding: compactActions ? 0 : '0 10px',
               minWidth: 32,
               height: 32,
-              border: '1px solid #fff',
+              border: compactActions ? 'none' : '1px solid #fff',
               borderRadius: 4,
               cursor: 'pointer',
               background: detailsHovered
@@ -500,9 +976,11 @@ const EventTimelineCard = ({
                 : 'transparent',
             }}
           >
-            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
-              {expanded ? 'Hide Details' : 'Show Details'}
-            </Text>
+            {!compactActions && (
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
+                {expanded ? 'Hide Details' : 'Show Details'}
+              </Text>
+            )}
             {expanded ? (
               <ChevronUp style={{ color: '#fff', width: 16, height: 16 }} />
             ) : (
@@ -576,7 +1054,7 @@ const EventTimelineCard = ({
                     alt="Ship satellite imagery"
                     style={{
                       width: 180,
-                      height: 206,
+                      height: squareImages ? 180 : 206,
                       borderRadius: 4,
                       objectFit: 'cover',
                       flexShrink: 0,
@@ -650,7 +1128,7 @@ const EventTimelineCard = ({
                         alt="Ship illustration"
                         style={{
                           width: 180,
-                          height: 206,
+                          height: squareImages ? 180 : 206,
                           borderRadius: 4,
                           objectFit: 'cover',
                           flexShrink: 0,
@@ -699,7 +1177,7 @@ const EventTimelineCard = ({
                     alt="Ship illustration"
                     style={{
                       width: 180,
-                      height: 206,
+                      height: squareImages ? 180 : 206,
                       borderRadius: 4,
                       objectFit: 'cover',
                       flexShrink: 0,

@@ -367,8 +367,15 @@ textarea::placeholder {
   opacity: 1;
 }
 
+.mapboxgl-marker.shown-on-map::before {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  opacity: 1;
+}
+
 .mapboxgl-marker.active[data-historical='true']::after,
-.mapboxgl-marker.previewed[data-historical='true']::after {
+.mapboxgl-marker.previewed[data-historical='true']::after,
+.mapboxgl-marker.shown-on-map[data-historical='true']::after {
   content: attr(data-marker-date);
   opacity: 1;
 }

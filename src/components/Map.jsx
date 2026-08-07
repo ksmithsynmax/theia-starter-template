@@ -235,15 +235,12 @@ const STS_V20_AIS_COLOR = '#00EB6C'
 const STS_V20_OTHER_COLOR = '#A78BFA'
 const buildStsV20Svg = (color) =>
   `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">` +
-  `<rect x="0.473633" y="0.473633" width="8.52632" height="17.0526" fill="${color}"/>` +
-  `<rect x="9" y="0.473633" width="8.52632" height="17.0526" fill="${color}"/>` +
-  `<rect x="0.75" y="0.75" width="16.5" height="16.5" stroke="#111326" stroke-width="1.5" stroke-miterlimit="10"/>` +
+  `<rect x="0.75" y="0.75" width="16.5" height="16.5" fill="${color}" stroke="#111326" stroke-width="1.5"/>` +
   `<path d="M6.24519 6.63459L11.5379 6.63459L10.3218 5.41853C10.2261 5.32278 10.2261 5.16757 10.3218 5.07181C10.4176 4.97606 10.5728 4.97606 10.6685 5.07181L12.3031 6.70642L12.32 6.72494C12.3986 6.82124 12.3929 6.96336 12.3031 7.05314L10.6685 8.68774C10.5728 8.78349 10.4176 8.78349 10.3218 8.68774C10.2261 8.59199 10.2261 8.43678 10.3218 8.34103L11.5379 7.12497L6.24519 7.12497C6.10978 7.12497 6 7.01519 6 6.87978C6 6.74436 6.10978 6.63459 6.24519 6.63459Z" fill="black" stroke="black" stroke-width="0.3" stroke-linecap="round" stroke-linejoin="round"/>` +
   `<path d="M12.1298 11.3752L6.83714 11.3752L8.05319 12.5912C8.14895 12.687 8.14895 12.8422 8.05319 12.938C7.95744 13.0337 7.80223 13.0337 7.70648 12.938L6.07187 11.3033L6.05495 11.2848C5.97639 11.1885 5.9821 11.0464 6.07187 10.9566L7.70648 9.32202C7.80223 9.22627 7.95744 9.22627 8.05319 9.32202C8.14895 9.41778 8.14895 9.57299 8.05319 9.66874L6.83714 10.8848L12.1298 10.8848C12.2652 10.8848 12.375 10.9946 12.375 11.13C12.375 11.2654 12.2652 11.3752 12.1298 11.3752Z" fill="black" stroke="black" stroke-width="0.3" stroke-linecap="round" stroke-linejoin="round"/>` +
   `</svg>`
 
-// Directional ship markers (teardrop hulls). Spoofing (diamond) and STS chips
-// have no meaningful heading, so they stay upright.
+// Directional ship markers. STS event chips remain upright.
 const DIRECTIONAL_MARKER_TYPES = new Set([
   'ais',
   'light',
@@ -275,7 +272,11 @@ const applyMarkerRotation = (el, detection) => {
   if (!svgEl) return
   if (DIRECTIONAL_MARKER_TYPES.has(detection?.type)) {
     svgEl.style.transformOrigin = 'center'
-    svgEl.style.transform = `rotate(${getMarkerHeading(detection)}deg)`
+    const heading =
+      detection?.type === 'sts' || detection?.type === 'sts-ais'
+        ? getStsMarkerHeading(detection)
+        : getMarkerHeading(detection)
+    svgEl.style.transform = `rotate(${heading}deg)`
   } else {
     svgEl.style.transform = ''
   }
@@ -340,7 +341,7 @@ const getDateKey = (dateStr) => {
 
 const getMarkerDateLabel = (dateStr) => {
   const d = new Date(dateStr)
-  return `${d.getMonth() + 1}/${d.getDate()}`
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 const MAP_TOOL_POPUP_LAYOUT = {
@@ -709,6 +710,7 @@ const Map = forwardRef(function Map(
     leftPanelInset = 0,
     rightPanelInset = 0,
     stsVersion = 'v1',
+    shipDetailsVersion = 'v1',
     pathToPortVersion = 'v1',
     portVisibilityBehavior = 'strict-layer-toggle',
     forceHideSelectedPortContext = false,
@@ -737,6 +739,7 @@ const Map = forwardRef(function Map(
     activeDetectionId,
     previewDetectionId,
     panelFocusDetectionId,
+    shownOnMapDetectionIds,
     mapDate,
     activeShipTab,
     shipTabs,
@@ -783,6 +786,10 @@ const Map = forwardRef(function Map(
     setPathToPortTopN,
     clearPathToPort,
   } = useShipContext()
+  const usesShipDetailsV2 =
+    shipDetailsVersion === 'v2' ||
+    shipDetailsVersion === 'v3' ||
+    shipDetailsVersion === 'v4'
   const mapContainer = useRef(null)
   const map = useRef(null)
   const markersRef = useRef({})
@@ -2419,7 +2426,14 @@ const Map = forwardRef(function Map(
         el.style.display = 'none'
       }
     })
-  }, [runtimeDetections, mapDate, mapReady, enabledDetectionTypes, stsVersion])
+  }, [
+    runtimeDetections,
+    mapDate,
+    mapReady,
+    enabledDetectionTypes,
+    stsVersion,
+    shipDetailsVersion,
+  ])
 
   // Refresh marker SVGs so STS colors stay in sync.
   useEffect(() => {
@@ -2433,7 +2447,33 @@ const Map = forwardRef(function Map(
         applyMarkerRotation(el, det)
       }
     })
-  }, [mapDate, shipTabs, activeDetectionId, runtimeDetections, stsVersion])
+  }, [
+    mapDate,
+    shipTabs,
+    activeDetectionId,
+    runtimeDetections,
+    stsVersion,
+    shipDetailsVersion,
+  ])
+
+  // Ship Details v2 location buttons can highlight more than one event marker
+  // without changing the camera or replacing the primary selection.
+  useEffect(() => {
+    const shownIds =
+      usesShipDetailsV2
+        ? new Set(shownOnMapDetectionIds.map(String))
+        : new Set()
+    Object.entries(markersRef.current).forEach(([id, marker]) => {
+      marker
+        .getElement()
+        .classList.toggle('shown-on-map', shownIds.has(String(id)))
+    })
+  }, [
+    shownOnMapDetectionIds,
+    runtimeDetections,
+    mapReady,
+    shipDetailsVersion,
+  ])
 
   // When a detection is selected or previewed from timeline, highlight it and fly to it
   useEffect(() => {
@@ -2526,6 +2566,10 @@ const Map = forwardRef(function Map(
     const previewId =
       previewDetectionId == null ? null : String(previewDetectionId)
     const primaryFocusId = panelFocusId || activeId
+    const shownIds =
+      usesShipDetailsV2
+        ? new Set(shownOnMapDetectionIds.map(String))
+        : new Set()
 
     runtimeDetections.forEach((det) => {
       const marker = markersRef.current[det.id]
@@ -2534,11 +2578,15 @@ const Map = forwardRef(function Map(
       const isSelected =
         primaryFocusId != null && String(det.id) === String(primaryFocusId)
       const isPreviewed = previewId != null && String(det.id) === previewId
+      const isShownOnMap = shownIds.has(String(det.id))
       const isCurrentDate = getDateKey(det.date) === mapDate
       const isTypeEnabled = enabledDetectionTypes.has(det.type)
       el.dataset.historical = isCurrentDate ? 'false' : 'true'
       el.style.display =
-        (isCurrentDate && isTypeEnabled) || isSelected || isPreviewed
+        (isCurrentDate && isTypeEnabled) ||
+        isSelected ||
+        isPreviewed ||
+        isShownOnMap
           ? ''
           : 'none'
     })
@@ -2549,6 +2597,8 @@ const Map = forwardRef(function Map(
     activeDetectionId,
     previewDetectionId,
     runtimeDetections,
+    shownOnMapDetectionIds,
+    shipDetailsVersion,
   ])
 
   // Focus mode: when STS focus is on, push every marker that isn't part of THIS
@@ -4642,7 +4692,7 @@ const Map = forwardRef(function Map(
         // Use the detection's own icon (segmented STS chips, diamond, triangle,
         // etc.) rather than the v8 STS count/ship-hull glyph, so ships show the
         // detection instead of a generic ship icon.
-        iconWrap.innerHTML = getMarkerSvg(det)
+        iconWrap.innerHTML = getMarkerSvg(det, stsVersion)
         container.appendChild(iconWrap)
       }
 
@@ -4704,7 +4754,7 @@ const Map = forwardRef(function Map(
         iconWrap.style.transform = 'translate(-50%, -50%)'
         iconWrap.style.lineHeight = '0'
         iconWrap.style.pointerEvents = 'none'
-        iconWrap.innerHTML = getMarkerSvg(det)
+        iconWrap.innerHTML = getMarkerSvg(det, stsVersion)
         puck.appendChild(iconWrap)
       } else {
         const glyphKind =
@@ -4890,6 +4940,8 @@ const Map = forwardRef(function Map(
     visibleShapeIds,
     activeShipTab,
     leftPanelInset,
+    stsVersion,
+    shipDetailsVersion,
   ])
 
   // Explicit recenter when a For You item is clicked. Runs on every click (the
