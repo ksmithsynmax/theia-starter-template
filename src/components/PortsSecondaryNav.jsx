@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Text } from '@mantine/core'
 import { Star01 } from '@untitledui/icons'
 import CollapseButton from '../custom-icons/CollapseButton'
@@ -8,6 +8,8 @@ import { DataTable, getColumnsByTab } from './SecondaryNav'
 import { resolvePortCoords } from '../data/portCoords'
 
 const NAV_WIDTH = 386
+const NAV_MIN_WIDTH = 386
+const NAV_MAX_WIDTH = 760
 
 // Dedicated "Ports" left-nav destination. Mirrors the Favorites nav chrome and
 // reuses its working ports table (DataTable + getColumnsByTab) + row-click ->
@@ -26,6 +28,30 @@ const PortsSecondaryNav = ({
   const [activeTab, setActiveTab] = useState('my-ports')
   const [collapseHovered, setCollapseHovered] = useState(false)
   const [expandHovered, setExpandHovered] = useState(false)
+  const [navWidth, setNavWidth] = useState(NAV_WIDTH)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartXRef = useRef(0)
+  const resizeStartWidthRef = useRef(NAV_WIDTH)
+
+  useEffect(() => {
+    if (!isResizing) return undefined
+    const handleMouseMove = (event) => {
+      const deltaX = event.clientX - resizeStartXRef.current
+      setNavWidth(
+        Math.max(
+          NAV_MIN_WIDTH,
+          Math.min(NAV_MAX_WIDTH, resizeStartWidthRef.current + deltaX)
+        )
+      )
+    }
+    const handleMouseUp = () => setIsResizing(false)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
 
   const favoritePortRows = useMemo(
     () =>
@@ -79,10 +105,10 @@ const PortsSecondaryNav = ({
   return (
     <Box
       style={{
-        width: isOpen && active ? NAV_WIDTH : active ? 32 : 0,
+        width: isOpen && active ? navWidth : active ? 32 : 0,
         overflow: 'hidden',
         backgroundColor: '#181926',
-        transition: 'width 0.3s ease',
+        transition: isResizing ? 'none' : 'width 0.3s ease',
         display: 'flex',
         flexDirection: 'column',
         borderRight: active ? '1px solid #393c56' : 'none',
@@ -122,8 +148,8 @@ const PortsSecondaryNav = ({
 
       <Box
         style={{
-          width: NAV_WIDTH,
-          minWidth: NAV_WIDTH,
+          width: navWidth,
+          minWidth: navWidth,
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -217,6 +243,25 @@ const PortsSecondaryNav = ({
           )}
         </Box>
       </Box>
+      {isOpen && active && (
+        <Box
+          onMouseDown={(event) => {
+            if (event.button !== 0) return
+            resizeStartXRef.current = event.clientX
+            resizeStartWidthRef.current = navWidth
+            setIsResizing(true)
+          }}
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: 8,
+            height: '100%',
+            cursor: 'ew-resize',
+            zIndex: 9,
+          }}
+        />
+      )}
     </Box>
   )
 }

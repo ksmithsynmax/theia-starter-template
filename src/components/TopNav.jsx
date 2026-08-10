@@ -342,6 +342,13 @@ const TopNav = ({
                       ['v2', 'Ship Details Panel v2'],
                       ['v3', 'Ship Details Panel v3'],
                       ['v4', 'Ship Details Panel v4'],
+                      ['v5', 'Ship Details Panel v5'],
+                      ['v6', 'Ship Details Panel v6'],
+                      ['v7', 'Ship Details Panel v7'],
+                      ['v8', 'Ship Details Panel v8'],
+                      ['v9', 'Ship Details Panel v9'],
+                      ['v10', 'Ship Details Panel v10'],
+                      ['v11', 'Ship Details Panel v11'],
                     ],
                   },
                 ].map((group) => (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Box, Text, Button, Tooltip } from '@mantine/core'
+import { Box, Text, Button, Tooltip, Popover } from '@mantine/core'
 import {
   ChevronDown,
   ChevronUp,
@@ -15,6 +15,21 @@ import shipIllustration from '../../assets/ShipIllustration.png'
 
 const shipImages = [shipSatImage, shipSatImage2]
 const PRIMARY_BUTTON_COLOR = '#006CD7'
+
+export const EventToolsIcon = () => (
+  <svg
+    width="16"
+    height="10"
+    viewBox="0 0 16 10"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M3 6C3.5523 6 4 6.4477 4 7V9C4 9.5523 3.5523 10 3 10H1C0.4477 10 0 9.5523 0 9V7C0 6.4477 0.4477 6 1 6H3ZM9 6C9.5523 6 10 6.4477 10 7V9C10 9.5523 9.5523 10 9 10H7C6.4477 10 6 9.5523 6 9V7C6 6.4477 6.4477 6 7 6H9ZM15 6C15.5523 6 16 6.4477 16 7V9C16 9.5523 15.5523 10 15 10H13C12.4477 10 12 9.5523 12 9V7C12 6.4477 12.4477 6 13 6H15ZM3 0C3.5523 0 4 0.4477 4 1V3C4 3.5523 3.5523 4 3 4H1C0.4477 4 0 3.5523 0 3V1C0 0.4477 0.4477 0 1 0H3ZM9 0C9.5523 0 10 0.4477 10 1V3C10 3.5523 9.5523 4 9 4H7C6.4477 4 6 3.5523 6 3V1C6 0.4477 6.4477 0 7 0H9ZM15 0C15.5523 0 16 0.4477 16 1V3C16 3.5523 15.5523 4 15 4H13C12.4477 4 12 3.5523 12 3V1C12 0.4477 12.4477 0 13 0H15Z"
+      fill="white"
+    />
+  </svg>
+)
 
 const CompactInfoList = ({ title, items }) => (
   <Box
@@ -212,11 +227,15 @@ const EventTimelineCard = ({
   showDateContext = true,
   squareImages = false,
   compactListLayout = false,
+  showEventToolsButton = false,
+  eventToolsContent,
+  eventToolsScrollCloseDelay = 400,
 }) => {
   const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false)
   const [detailsHovered, setDetailsHovered] = useState(false)
   const [goToDateHovered, setGoToDateHovered] = useState(false)
   const [cardHovered, setCardHovered] = useState(false)
+  const [eventToolsOpen, setEventToolsOpen] = useState(false)
   const expanded = Boolean(isPreviewed || (selected && !isSelectedCollapsed))
   const cardRef = useRef(null)
 
@@ -237,6 +256,18 @@ const EventTimelineCard = ({
       return () => clearTimeout(timer)
     }
   }, [selected])
+
+  useEffect(() => {
+    if (!eventToolsOpen) return
+    const closeOnScroll = () => setEventToolsOpen(false)
+    const timer = setTimeout(() => {
+      window.addEventListener('scroll', closeOnScroll, true)
+    }, eventToolsScrollCloseDelay)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('scroll', closeOnScroll, true)
+    }
+  }, [eventToolsOpen, eventToolsScrollCloseDelay])
 
   if (variant === 'port') {
     return (
@@ -339,6 +370,65 @@ const EventTimelineCard = ({
             onClick={(event) => event.stopPropagation()}
             style={{ display: 'flex', alignItems: 'center', gap: 8 }}
           >
+            {showEventToolsButton && onActivate && eventToolsContent && (
+              <Popover
+                opened={eventToolsOpen}
+                onChange={setEventToolsOpen}
+                position="top-end"
+                offset={{ mainAxis: 24, crossAxis: 92 }}
+                withinPortal
+                shadow="xl"
+                zIndex={2000}
+              >
+                <Popover.Target>
+                  <Box
+                    title="Open event tools"
+                    onClick={() => {
+                      onActivate()
+                      setEventToolsOpen((current) => !current)
+                    }}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 4,
+                      background: eventToolsOpen ? '#006CD7' : '#30334D',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <EventToolsIcon />
+                  </Box>
+                </Popover.Target>
+                <Popover.Dropdown
+                  p={8}
+                  style={{
+                    width: 460,
+                    background: '#181926',
+                    border: '1px solid #393C56',
+                    borderRadius: 4,
+                    boxShadow: '0 16px 40px rgba(0, 0, 0, 0.45)',
+                    overflow: 'visible',
+                  }}
+                >
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      right: 100,
+                      bottom: -7,
+                      width: 14,
+                      height: 14,
+                      background: '#181926',
+                      borderRight: '1px solid #393C56',
+                      borderBottom: '1px solid #393C56',
+                      transform: 'rotate(45deg)',
+                    }}
+                  />
+                  {eventToolsContent}
+                </Popover.Dropdown>
+              </Popover>
+            )}
             {!selected && showViewEventLocation && (
               <Button
                 size="xs"
@@ -880,6 +970,65 @@ const EventTimelineCard = ({
           onClick={(event) => event.stopPropagation()}
           style={{ display: 'flex', alignItems: 'center', gap: 8 }}
         >
+          {showEventToolsButton && onActivate && eventToolsContent && (
+            <Popover
+              opened={eventToolsOpen}
+              onChange={setEventToolsOpen}
+              position="top-end"
+              offset={{ mainAxis: 24, crossAxis: 92 }}
+              withinPortal
+              shadow="xl"
+              zIndex={2000}
+            >
+              <Popover.Target>
+                <Box
+                  title="Open event tools"
+                  onClick={() => {
+                    onActivate()
+                      setEventToolsOpen((current) => !current)
+                  }}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 4,
+                      background: eventToolsOpen ? '#006CD7' : '#30334D',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <EventToolsIcon />
+                </Box>
+              </Popover.Target>
+              <Popover.Dropdown
+                p={8}
+                style={{
+                  width: 460,
+                  background: '#181926',
+                  border: '1px solid #393C56',
+                  borderRadius: 4,
+                  boxShadow: '0 16px 40px rgba(0, 0, 0, 0.45)',
+                  overflow: 'visible',
+                }}
+              >
+                <Box
+                  style={{
+                    position: 'absolute',
+                    right: 100,
+                    bottom: -7,
+                    width: 14,
+                    height: 14,
+                    background: '#181926',
+                    borderRight: '1px solid #393C56',
+                    borderBottom: '1px solid #393C56',
+                    transform: 'rotate(45deg)',
+                  }}
+                />
+                {eventToolsContent}
+              </Popover.Dropdown>
+            </Popover>
+          )}
           {!selected && showViewEventLocation && (
             <Button
               size="xs"

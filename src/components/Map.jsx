@@ -9,7 +9,13 @@ import {
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { Box, Text, Tooltip } from '@mantine/core'
-import { XClose, Minus, ArrowRight } from '@untitledui/icons'
+import {
+  XClose,
+  Minus,
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+} from '@untitledui/icons'
 import ExtendedPathPanel from './ExtendedPathPanel'
 import FuturePathPanel from './FuturePathPanel'
 import EstimatedLocationPanel from './EstimatedLocationPanel'
@@ -789,7 +795,14 @@ const Map = forwardRef(function Map(
   const usesShipDetailsV2 =
     shipDetailsVersion === 'v2' ||
     shipDetailsVersion === 'v3' ||
-    shipDetailsVersion === 'v4'
+    shipDetailsVersion === 'v4' ||
+    shipDetailsVersion === 'v5' ||
+    shipDetailsVersion === 'v6' ||
+    shipDetailsVersion === 'v7' ||
+    shipDetailsVersion === 'v11' ||
+    shipDetailsVersion === 'v8' ||
+    shipDetailsVersion === 'v9' ||
+    shipDetailsVersion === 'v10'
   const mapContainer = useRef(null)
   const map = useRef(null)
   const markersRef = useRef({})
@@ -865,24 +878,56 @@ const Map = forwardRef(function Map(
   // Path to Port v4: whether the "all arrivals" overlay (routes + on-map cards)
   // is shown. Default off so opening a port keeps the normal port behavior; the
   // analyst turns the overlay on via the map toggle.
-  // Path to Port: optional "projected position" marker. When on, a second marker
-  // slides along the route to where the vessel would be after a fixed horizon at
-  // the selected speed (higher speed -> farther toward the port).
-  const [projectedPositionOn, setProjectedPositionOn] = useState(false)
+  // Path to Port projected-position markers are always shown.
   // Path to Port v5 density slider card: collapsed (header only) state.
   const [densityMinimized, setDensityMinimized] = useState(false)
   const [popupPositions, setPopupPositions] = useState({})
   const [dragState, setDragState] = useState(null)
+  const [v8DockPosition, setV8DockPosition] = useState(null)
+  const [v8DockDragState, setV8DockDragState] = useState(null)
+  const v8DockDidDragRef = useRef(false)
   const [mapDimensions, setMapDimensions] = useState({
     width: 1280,
     height: 800,
   })
+  const v8DockX =
+    v8DockPosition?.x ?? Math.max(12, mapDimensions.width - 450 - 24)
+  const v8DockY = v8DockPosition?.y ?? 48
   const popupPositionsRef = useRef({})
   onDetectionClickRef.current = onDetectionClick
   onPortClickRef.current = onPortClick
   closeShipTabRef.current = closeShipTab
   activeShipTabRef.current = activeShipTab
   const openToolPanels = openMapToolPanelsByTab['__global__'] || []
+  const [v8ExpandedToolIds, setV8ExpandedToolIds] = useState([])
+  const previousV8ToolPanelsRef = useRef([])
+
+  useEffect(() => {
+    if (shipDetailsVersion !== 'v8' && shipDetailsVersion !== 'v9') {
+      setV8ExpandedToolIds([])
+      previousV8ToolPanelsRef.current = openToolPanels
+      return
+    }
+
+    const previous = previousV8ToolPanelsRef.current
+    const newlyOpenedTool = openToolPanels.find(
+      (toolId) => !previous.includes(toolId)
+    )
+    setV8ExpandedToolIds((current) => {
+      const stillOpen = current.filter((toolId) =>
+        openToolPanels.includes(toolId)
+      )
+      if (newlyOpenedTool) {
+        return [newlyOpenedTool]
+      }
+      if (shipDetailsVersion === 'v9' && stillOpen.length > 1) {
+        return [stillOpen.at(-1)]
+      }
+      return stillOpen
+    })
+    previousV8ToolPanelsRef.current = openToolPanels
+  }, [openToolPanels, shipDetailsVersion])
+
   const isStrictLayerMode =
     portVisibilityBehavior === 'strict-layer-toggle' ||
     portVisibilityBehavior === 'strict-layer-toggle-v2' ||
@@ -3052,9 +3097,9 @@ const Map = forwardRef(function Map(
         // don't draw a competing circle over it.
       ]
 
-      // Optional projected-position marker: where the vessel would be after the
+      // Projected-position marker: where the vessel would be after the
       // forecast horizon at the selected speed. Clamped to the destination port.
-      if (pathToPortVersion === 'v6' || projectedPositionOn) {
+      {
         const projectionSpeed =
           pathToPortVersion === 'v6'
             ? (pathToPortSpeedsByShip[routeDesc.shipId] ??
@@ -3146,7 +3191,6 @@ const Map = forwardRef(function Map(
     panelAwareFocusPadding,
     shipTabs,
     activeShipTab,
-    projectedPositionOn,
     pathToPortSpeed,
     pathToPortSpeedsByShip,
   ])
@@ -3396,17 +3440,22 @@ const Map = forwardRef(function Map(
         geometry: { type: 'Point', coordinates: coord },
         properties: {},
       })
-      if (isV6) {
-        const projectionSpeed =
-          pathToPortSpeedsByShip[row.shipId] ??
-          resolveShipSpeedKn(shipsById[row.shipId])
-        const projectionHours =
-          Number.isFinite(row.distanceNm) && row.distanceNm > 0
+      {
+        const projectionSpeed = isV6
+          ? (pathToPortSpeedsByShip[row.shipId] ??
+            resolveShipSpeedKn(shipsById[row.shipId]))
+          : resolveShipSpeedKn(shipsById[row.shipId])
+        const projectionHours = isV6
+          ? Number.isFinite(row.distanceNm) && row.distanceNm > 0
             ? Math.min(24, (row.distanceNm / 50) * 0.85)
             : 24
+          : projectedHorizonHours(row.distanceNm)
+        const projectedDistance = Number.isFinite(row.distanceNm)
+          ? Math.min(projectionSpeed * projectionHours, row.distanceNm)
+          : projectionSpeed * projectionHours
         const projectedCoord = pointAlongPath(
           routePath,
-          Math.min(projectionSpeed * projectionHours, row.distanceNm)
+          projectedDistance
         )
         if (projectedCoord) {
           features.push({
@@ -5561,6 +5610,46 @@ const Map = forwardRef(function Map(
     }
   }, [dragState])
 
+  useEffect(() => {
+    if (!v8DockDragState) return undefined
+
+    const handleMouseMove = (event) => {
+      if (
+        Math.abs(event.clientX - v8DockDragState.startX) > 3 ||
+        Math.abs(event.clientY - v8DockDragState.startY) > 3
+      ) {
+        v8DockDidDragRef.current = true
+      }
+      const mapBounds = mapContainer.current?.getBoundingClientRect()
+      const pointerX = event.clientX - (mapBounds?.left || 0)
+      const pointerY = event.clientY - (mapBounds?.top || 0)
+      setV8DockPosition({
+        x: Math.max(
+          12,
+          Math.min(
+            pointerX - v8DockDragState.offsetX,
+            mapDimensions.width - 462
+          )
+        ),
+        y: Math.max(
+          12,
+          Math.min(
+            pointerY - v8DockDragState.offsetY,
+            mapDimensions.height - 72
+          )
+        ),
+      })
+    }
+    const handleMouseUp = () => setV8DockDragState(null)
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [mapDimensions.height, mapDimensions.width, v8DockDragState])
+
   return (
     <>
       <div
@@ -5734,64 +5823,6 @@ const Map = forwardRef(function Map(
               })}
             </Box>
 
-            <Box
-              component="button"
-              type="button"
-              onClick={() => setProjectedPositionOn((v) => !v)}
-              style={{
-                marginTop: 16,
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                padding: '10px 12px',
-                borderRadius: 4,
-                border: '1px solid #393C56',
-                background: '#24263C',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              <Box>
-                <Text
-                  style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}
-                >
-                  Projected position
-                </Text>
-                <Text style={{ color: '#888F9E', fontSize: 11, marginTop: 2 }}>
-                  Where the vessel would be in{' '}
-                  {Math.round(
-                    projectedHorizonHours(pathToPortReadout.distanceNm)
-                  )}
-                  h at {pathToPortSpeed} kn
-                </Text>
-              </Box>
-              <Box
-                style={{
-                  flexShrink: 0,
-                  width: 36,
-                  height: 20,
-                  borderRadius: 999,
-                  background: projectedPositionOn ? '#006CD7' : '#393C56',
-                  position: 'relative',
-                  transition: 'background 0.15s ease',
-                }}
-              >
-                <Box
-                  style={{
-                    position: 'absolute',
-                    top: 2,
-                    left: projectedPositionOn ? 18 : 2,
-                    width: 16,
-                    height: 16,
-                    borderRadius: '50%',
-                    background: '#fff',
-                    transition: 'left 0.15s ease',
-                  }}
-                />
-              </Box>
-            </Box>
           </Box>
         </Box>
           )
@@ -6065,7 +6096,172 @@ const Map = forwardRef(function Map(
           zIndex: 2,
         }}
       >
-        {openToolPanels
+        {(shipDetailsVersion === 'v8' || shipDetailsVersion === 'v9') &&
+        openToolPanels.some((toolId) => MAP_TOOL_POPUP_LAYOUT[toolId]) ? (
+          <Box
+            style={{
+              position: 'absolute',
+              top: v8DockY,
+              left: v8DockX,
+              width: 450,
+              maxHeight: 'calc(100% - 72px)',
+              overflowY: 'auto',
+              borderRadius: 4,
+              background: '#181926',
+              border: '1px solid #393C56',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.38)',
+              pointerEvents: 'auto',
+              zIndex: 40,
+            }}
+          >
+            {openToolPanels
+              .filter((toolId) => MAP_TOOL_POPUP_LAYOUT[toolId])
+              .map((toolId, index) => {
+                const title = MAP_TOOL_POPUP_TITLES[toolId] || 'Tool'
+                const expanded = v8ExpandedToolIds.includes(toolId)
+                return (
+                  <Box
+                    key={toolId}
+                    style={{
+                      borderTop:
+                        index > 0 ? '1px solid #393C56' : 'none',
+                    }}
+                  >
+                    <Box
+                      onMouseDown={(event) => {
+                        if (event.button !== 0) return
+                        const mapBounds =
+                          mapContainer.current?.getBoundingClientRect()
+                        const pointerX =
+                          event.clientX - (mapBounds?.left || 0)
+                        const pointerY =
+                          event.clientY - (mapBounds?.top || 0)
+                        v8DockDidDragRef.current = false
+                        setV8DockDragState({
+                          startX: event.clientX,
+                          startY: event.clientY,
+                          offsetX: pointerX - v8DockX,
+                          offsetY: pointerY - v8DockY,
+                        })
+                      }}
+                      onClick={() => {
+                        if (v8DockDidDragRef.current) {
+                          v8DockDidDragRef.current = false
+                          return
+                        }
+                        setV8ExpandedToolIds((current) =>
+                          current.includes(toolId) ? [] : [toolId]
+                        )
+                      }}
+                      style={{
+                        minHeight: 56,
+                        padding: '0 20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: expanded ? '#2D3048' : '#24263C',
+                        cursor: v8DockDragState ? 'grabbing' : 'grab',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 14,
+                          fontWeight: expanded ? 600 : 500,
+                        }}
+                      >
+                        {title}
+                      </Text>
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 16,
+                        }}
+                      >
+                        {expanded ? (
+                          <ChevronDown
+                            aria-label={`Collapse ${title}`}
+                            title={`Collapse ${title}`}
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setV8ExpandedToolIds((current) =>
+                                current.filter((id) => id !== toolId)
+                              )
+                            }}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              color: '#FFFFFF',
+                              cursor: 'pointer',
+                            }}
+                          />
+                        ) : (
+                          <ChevronRight
+                            aria-label={
+                              shipDetailsVersion === 'v9'
+                                ? `Open ${title}`
+                                : `Open ${title} alongside other tools`
+                            }
+                            title={
+                              shipDetailsVersion === 'v9'
+                                ? `Open ${title}`
+                                : `Open ${title} alongside other tools`
+                            }
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setV8ExpandedToolIds((current) =>
+                                shipDetailsVersion === 'v9'
+                                  ? [toolId]
+                                  : [...current, toolId]
+                              )
+                            }}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              color: '#FFFFFF',
+                              cursor: 'pointer',
+                            }}
+                          />
+                        )}
+                        <XClose
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            closeMapToolPanel(toolId)
+                          }}
+                          style={{
+                            width: 20,
+                            height: 20,
+                            color: '#FFFFFF',
+                            cursor: 'pointer',
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                    <Box style={{ display: expanded ? 'block' : 'none' }}>
+                      {toolId === 'extended-path' && (
+                        <ExtendedPathPanel
+                          ship={shipTabs.find((t) => t.id === activeShipTab)}
+                        />
+                      )}
+                      {toolId === 'future-path-prediction' && (
+                        <FuturePathPanel
+                          ship={shipTabs.find((t) => t.id === activeShipTab)}
+                        />
+                      )}
+                      {toolId === 'estimated-location' && (
+                        <EstimatedLocationPanel />
+                      )}
+                    </Box>
+                  </Box>
+                )
+              })}
+          </Box>
+        ) : shipDetailsVersion === 'v10' ? null : (
+        openToolPanels
           .filter((toolId) => MAP_TOOL_POPUP_LAYOUT[toolId])
           .map((toolId) => {
             const layout = MAP_TOOL_POPUP_LAYOUT[toolId]
@@ -6162,7 +6358,7 @@ const Map = forwardRef(function Map(
                 {toolId === 'estimated-location' && <EstimatedLocationPanel />}
               </Box>
             )
-          })}
+          }))}
       </Box>
     </>
   )

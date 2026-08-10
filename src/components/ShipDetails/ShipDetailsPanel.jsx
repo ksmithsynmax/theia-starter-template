@@ -71,10 +71,27 @@ const ShipDetailsPanel = ({
   onToolAction,
   activeToolIds = [],
   compactHeader = false,
+  hideHeader = false,
 }) => {
   const eventType = selectedEvent?.type
+  const usesIconToolbar =
+    version === 'v6' || version === 'v8' || version === 'v9'
+  const usesCompactButtons =
+    version === 'v5' ||
+    version === 'v6' ||
+    version === 'v8' ||
+    version === 'v9'
   const usesVersion2Experience =
-    version === 'v2' || version === 'v3' || version === 'v4'
+    version === 'v2' ||
+    version === 'v3' ||
+    version === 'v4' ||
+    version === 'v5' ||
+    version === 'v6' ||
+    version === 'v7' ||
+    version === 'v11' ||
+    version === 'v8' ||
+    version === 'v9' ||
+    version === 'v10'
   const flashColor =
     usesVersion2Experience
       ? '#0094FF'
@@ -98,7 +115,19 @@ const ShipDetailsPanel = ({
       selectedEvent.id !== prevEventRef.current
     ) {
       setFlashing(true)
-      if (version !== 'v3' && version !== 'v4') setToolsVisible(false)
+      if (
+        version !== 'v3' &&
+        version !== 'v4' &&
+        version !== 'v5' &&
+        version !== 'v6' &&
+        version !== 'v7' &&
+        version !== 'v11' &&
+        version !== 'v8' &&
+        version !== 'v9' &&
+        version !== 'v10'
+      ) {
+        setToolsVisible(false)
+      }
       const timer = setTimeout(() => setFlashing(false), 600)
       prevEventRef.current = selectedEvent.id
       return () => clearTimeout(timer)
@@ -141,10 +170,19 @@ const ShipDetailsPanel = ({
         />
       )}
       <Box style={{ position: 'relative', zIndex: 0 }}>
-        <Box style={{ display: 'flex', alignItems: 'center', padding: '16px' }}>
+        {!hideHeader && (
+          <Box
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '16px',
+              borderBottom:
+                compactHeader || toolsVisible ? '1px solid #393C56' : 'none',
+            }}
+          >
           <Box style={{ flex: 1 }}>
             {!compactHeader && (
-              <Text style={{ color: '#898f9d', fontSize: 11, marginBottom: 4 }}>
+              <Text style={{ color: '#898f9d', fontSize: 11 }}>
                 Selected Event Tools
               </Text>
             )}
@@ -198,10 +236,10 @@ const ShipDetailsPanel = ({
               )}
             </Box>
           )}
-        </Box>
+          </Box>
+        )}
         {(compactHeader || toolsVisible) && (
           <>
-            <Box style={{ height: 1, background: '#393C56' }} />
             <Box style={{ padding: '16px' }}>
               {!unattributed && (
                 <Box
@@ -235,10 +273,26 @@ const ShipDetailsPanel = ({
                   </Radio.Group>
                 </Box>
               )}
-              <Box style={{ marginTop: unattributed ? 0 : 8 }}>
-                <Box style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+              <Box
+                style={{
+                  marginTop: unattributed ? 0 : 8,
+                  display: usesIconToolbar ? 'flex' : 'block',
+                  gap: usesIconToolbar ? 6 : undefined,
+                }}
+              >
+                <Box
+                  style={{
+                    display: usesIconToolbar ? 'contents' : 'flex',
+                    gap: 6,
+                    marginBottom: usesIconToolbar ? 0 : 6,
+                  }}
+                >
                   <ShipPathPanelButton
                     fullWidth
+                    iconOnly={usesIconToolbar}
+                    lightweight={version === 'v8' || version === 'v9'}
+                    compact={usesCompactButtons}
+                    singleLineLabel={usesCompactButtons}
                     label="View Extended Path"
                     icon={<ViewExtendedPathIcon />}
                     disabled={unattributed}
@@ -247,6 +301,10 @@ const ShipDetailsPanel = ({
                   />
                   <ShipPathPanelButton
                     fullWidth
+                    iconOnly={usesIconToolbar}
+                    lightweight={version === 'v8' || version === 'v9'}
+                    compact={usesCompactButtons}
+                    singleLineLabel={usesCompactButtons}
                     label="Future Path Prediction"
                     icon={<FuturePathPredictionIcon />}
                     active={activeToolIds.includes('future-path-prediction')}
@@ -256,6 +314,10 @@ const ShipDetailsPanel = ({
                   />
                   <ShipPathPanelButton
                     fullWidth
+                    iconOnly={usesIconToolbar}
+                    lightweight={version === 'v8' || version === 'v9'}
+                    compact={usesCompactButtons}
+                    singleLineLabel={usesCompactButtons}
                     label="View Estimated Location"
                     icon={<ViewEstimatedLocationIcon />}
                     disabled={unattributed}
@@ -263,9 +325,18 @@ const ShipDetailsPanel = ({
                     onClick={() => handleToolButtonClick('estimated-location')}
                   />
                 </Box>
-                <Box style={{ display: 'flex', gap: 6 }}>
+                <Box
+                  style={{
+                    display: usesIconToolbar ? 'contents' : 'flex',
+                    gap: 6,
+                  }}
+                >
                   <ShipPathPanelButton
                     fullWidth
+                    iconOnly={usesIconToolbar}
+                    lightweight={version === 'v8' || version === 'v9'}
+                    compact={usesCompactButtons}
+                    singleLineLabel={usesCompactButtons}
                     label="Task Satellite Imagery"
                     icon={<SatelliteIcon />}
                     disabled={unattributed}
@@ -273,6 +344,10 @@ const ShipDetailsPanel = ({
                   />
                   <ShipPathPanelButton
                     fullWidth
+                    iconOnly={usesIconToolbar}
+                    lightweight={version === 'v8' || version === 'v9'}
+                    compact={usesCompactButtons}
+                    singleLineLabel={usesCompactButtons}
                     label="Search Similar Ship"
                     icon={<SimilarSearchIcon />}
                     disabled={unattributed}
@@ -280,6 +355,10 @@ const ShipDetailsPanel = ({
                   />
                   <ShipPathPanelButton
                     fullWidth
+                    iconOnly={usesIconToolbar}
+                    lightweight={version === 'v8' || version === 'v9'}
+                    compact={usesCompactButtons}
+                    singleLineLabel={usesCompactButtons}
                     label="Create Ship Alert"
                     icon={<AlertIcon />}
                     disabled={unattributed}

@@ -157,11 +157,12 @@ function Layout() {
     if (
       forYouContext &&
       shipTabs.length === 0 &&
+      !panelOpen &&
       location.pathname === '/myships'
     ) {
       navigate('/for-you', { replace: true })
     }
-  }, [forYouContext, shipTabs, location.pathname, navigate])
+  }, [forYouContext, shipTabs, panelOpen, location.pathname, navigate])
 
   // Same idea for the Ports context: once the port detail closes, return to the
   // canonical /ports route so we never sit on /myships showing the Ports nav.
@@ -169,11 +170,12 @@ function Layout() {
     if (
       portsContext &&
       shipTabs.length === 0 &&
+      !panelOpen &&
       location.pathname === '/myships'
     ) {
       navigate('/ports', { replace: true })
     }
-  }, [portsContext, shipTabs, location.pathname, navigate])
+  }, [portsContext, shipTabs, panelOpen, location.pathname, navigate])
 
   const handleDetectionClick = useCallback(
     (detection) => {
@@ -317,7 +319,7 @@ function Layout() {
   )
 
   const handleShipSelectFromBookmarks = useCallback(
-    (shipId) => {
+    (shipId, { openSecondaryNav = true } = {}) => {
       if (!shipId) return
       const shipDetections = runtimeDetections.filter(
         (detection) => String(detection.shipId) === String(shipId)
@@ -327,7 +329,7 @@ function Layout() {
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       )[0]
       selectDetection(selectedDetection, { source: 'map', allowTabSwitch: true })
-      setSecondaryNavOpen(true)
+      if (openSecondaryNav) setSecondaryNavOpen(true)
       setPanelOpen(true)
       navigate('/myships')
     },
@@ -365,12 +367,12 @@ function Layout() {
   )
 
   const handleForYouShipSelect = useCallback(
-    (item) => {
+    (item, options) => {
       if (!item?.shipId) return
       // Stay in the For You context so the list panel doesn't switch to Watchlist.
       setForYouContext(true)
       setPortsContext(false)
-      handleShipSelectFromBookmarks(item.shipId)
+      handleShipSelectFromBookmarks(item.shipId, options)
     },
     [handleShipSelectFromBookmarks]
   )
@@ -424,12 +426,16 @@ function Layout() {
     [closeAllTabs, addBookmarkedShape, showShape]
   )
 
-  const handleForYouItemClick = useCallback(
+  const handleForYouMapItemClick = useCallback(
     (item) => {
       if (!item) return
-      if (item.kind === 'ship') handleForYouShipSelect(item)
-      else if (item.kind === 'port') handleForYouPortSelect(item)
-      else if (item.kind === 'shape') handleForYouShapeSelect(item)
+      if (item.kind === 'ship') {
+        handleForYouShipSelect(item, { openSecondaryNav: false })
+      } else if (item.kind === 'port') {
+        handleForYouPortSelect(item)
+      } else if (item.kind === 'shape') {
+        handleForYouShapeSelect(item)
+      }
       focusForYouItem(item)
     },
     [
@@ -577,7 +583,7 @@ function Layout() {
           forYouMarkersVisible={forYouMarkersVisible}
           forYouVisibleIds={forYouVisibleIds}
           forYouFocus={forYouFocus}
-          onForYouItemClick={handleForYouItemClick}
+          onForYouItemClick={handleForYouMapItemClick}
           saveShapeLabel={
             forYouPrototype === 'proto1'
               ? 'Save to Favorites'
@@ -827,6 +833,7 @@ function Layout() {
                     <Outlet
                       context={{
                         collapsePanel: closePanel,
+                        openPanel: () => setPanelOpen(true),
                         watchlistVersion,
                         portsLayerVisible,
                         onPortsLayerVisibleChange: (val) => {

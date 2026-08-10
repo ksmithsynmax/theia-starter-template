@@ -35,6 +35,10 @@ import {
   Anchor,
   Minus,
   Browser,
+  SwitchVertical01,
+  ArrowNarrowUp,
+  ArrowNarrowDown,
+  SearchMd,
 } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
 import SatelliteIcon from '../custom-icons/SatelliteIcon'
@@ -52,7 +56,12 @@ import EnlargeVerticalIcon from '../custom-icons/EnlargeVerticalIcon'
 import TransferIcon from '../custom-icons/TransferIcon.svg'
 import CollapseButton from '../custom-icons/CollapseButton'
 import ShipDetailsPanel from '../components/ShipDetails/ShipDetailsPanel'
-import EventTimelineCard from '../components/ShipDetails/EventTimelineCard'
+import EventTimelineCard, {
+  EventToolsIcon,
+} from '../components/ShipDetails/EventTimelineCard'
+import ExtendedPathPanel from '../components/ExtendedPathPanel'
+import FuturePathPanel from '../components/FuturePathPanel'
+import EstimatedLocationPanel from '../components/EstimatedLocationPanel'
 import SanctionDetailsVersionB from '../components/SanctionDetailsVersionB'
 import { useShipContext } from '../context/ShipContext'
 import { ships } from '../data/mockData'
@@ -81,7 +90,7 @@ import sanctionedTitle from '../assets/SanctionedTitle.svg'
 
 const baseDetailTabs = [
   'Event Timeline',
-  'Sat. Imagery Timeline',
+  'Imagery Timeline',
   'Ship Information',
 ]
 const tiffaniDetailTabs = [...baseDetailTabs, 'Sanctions Details']
@@ -126,6 +135,65 @@ const STS_REVIEW_DESTINATION = { kind: 'slack', target: '#maritime-sts-review' }
 const getSatTimelineDataSource = (detectionType) =>
   detectionType === 'dark' ? 'sar' : 'optical'
 const normalizeDetectionId = (id) => String(id)
+const cycleTableSort = (current, key) => {
+  if (current.key !== key) return { key, direction: 'asc' }
+  if (current.direction === 'asc') return { key, direction: 'desc' }
+  return { key: null, direction: null }
+}
+const sortTableRows = (rows, sort, valueByKey) => {
+  if (!sort.key || !sort.direction) return rows
+  const direction = sort.direction === 'asc' ? 1 : -1
+  return [...rows].sort((a, b) => {
+    const aValue = valueByKey(a, sort.key)
+    const bValue = valueByKey(b, sort.key)
+    if (aValue == null && bValue == null) return 0
+    if (aValue == null) return 1
+    if (bValue == null) return -1
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return (aValue - bValue) * direction
+    }
+    return String(aValue).localeCompare(String(bValue), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    }) * direction
+  })
+}
+const SortablePortTableHeader = ({ label, columnKey, sort, onSort }) => {
+  const active = sort.key === columnKey
+  const Icon = !active
+    ? SwitchVertical01
+    : sort.direction === 'asc'
+      ? ArrowNarrowUp
+      : ArrowNarrowDown
+  return (
+    <Box
+      onClick={() => onSort(columnKey)}
+      style={{
+        minWidth: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        color: '#fff',
+        cursor: 'pointer',
+        userSelect: 'none',
+      }}
+    >
+      <Text
+        style={{
+          color: 'inherit',
+          fontSize: 12,
+          minWidth: 0,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {label}
+      </Text>
+      <Icon size={12} color="#FFFFFF" style={{ flexShrink: 0 }} />
+    </Box>
+  )
+}
 
 // Deterministic mock UUID for prototype STS events: stable per seed (the event's
 // tab id) so the "Event ID" stays constant across re-renders. Stands in for the
@@ -305,6 +373,7 @@ function Myships() {
     selectDetection,
     selectedDetectionId,
     setSelectedDetectionId,
+    setDetailPanelOpen,
     mapDate,
     setMapDate,
     activeDetectionId,
@@ -487,11 +556,23 @@ function Myships() {
   const [detailToolsVisible, setDetailToolsVisible] = useState(true)
   const [showGoToDateModal, setShowGoToDateModal] = useState(false)
   const [activePortTab, setActivePortTab] = useState('Ships In Port')
+  const [shipsInPortSort, setShipsInPortSort] = useState({
+    key: null,
+    direction: null,
+  })
+  const [shipsInPortSearch, setShipsInPortSearch] = useState('')
+  const [expectedArrivalsSort, setExpectedArrivalsSort] = useState({
+    key: null,
+    direction: null,
+  })
+  const [expectedArrivalsSearch, setExpectedArrivalsSearch] = useState('')
   const [portTabOverflowLeft, setPortTabOverflowLeft] = useState(false)
   const [portTabOverflowRight, setPortTabOverflowRight] = useState(false)
   const portTabScrollRef = useRef(null)
   const [eventToolsPoppedOut, setEventToolsPoppedOut] = useState(false)
   const [eventToolsMinimized, setEventToolsMinimized] = useState(false)
+  const [v10OpenToolIds, setV10OpenToolIds] = useState([])
+  const [v10CollapsedToolIds, setV10CollapsedToolIds] = useState([])
   const [eventToolsPanelPosition, setEventToolsPanelPosition] = useState(() => ({
     x:
       typeof window === 'undefined'
@@ -503,6 +584,7 @@ function Myships() {
 
   const {
     collapsePanel,
+    openPanel,
     watchlistVersion,
     portsLayerVisible,
     onPortsLayerVisibleChange,
@@ -518,7 +600,12 @@ function Myships() {
   } = useOutletContext() || {}
 
   useEffect(() => {
-    if (shipDetailsVersion !== 'v4') {
+    if (
+      shipDetailsVersion !== 'v4' &&
+      shipDetailsVersion !== 'v5' &&
+      shipDetailsVersion !== 'v6' &&
+      shipDetailsVersion !== 'v10'
+    ) {
       setEventToolsPoppedOut(false)
       setEventToolsMinimized(false)
     }
@@ -607,6 +694,93 @@ function Myships() {
     pathToPortVersion,
     pathToPortSpeedsByShip,
   ])
+  const shipsInPortRows = useMemo(() => {
+    const mockShips = [
+      {
+        name: 'Invictus',
+        flag: '🇲🇭',
+        type: 'Tanker',
+        imo: '9819870',
+        mmsi: '311000686',
+      },
+      {
+        name: 'Ghinah',
+        flag: '🇸🇦',
+        type: 'Tanker Cr...',
+        imo: '9819871',
+        mmsi: '311000687',
+      },
+      {
+        name: 'Emerlad Sea',
+        flag: '🇵🇦',
+        type: 'Tanker Pr...',
+        imo: '9819872',
+        mmsi: '311000688',
+      },
+      {
+        name: 'Melodie V',
+        flag: '🇵🇦',
+        type: 'Offshore',
+        imo: '9819873',
+        mmsi: '311000689',
+      },
+      {
+        name: 'Abouzar 1...',
+        flag: '🇮🇷',
+        type: 'Other',
+        imo: '9819874',
+        mmsi: '311000690',
+      },
+    ]
+    return Array.from({ length: 15 }, (_, index) => ({
+      ...mockShips[index % mockShips.length],
+      id: `ship-in-port-${index}`,
+      reportedAt: new Date(
+        Date.UTC(2025, 8, 19, 9, 53) - index * 37 * 60 * 1000
+      ),
+    }))
+  }, [])
+  const filteredShipsInPortRows = useMemo(() => {
+    const query = shipsInPortSearch.trim().toLocaleLowerCase()
+    if (!query) return shipsInPortRows
+    return shipsInPortRows.filter((row) =>
+      [row.name, row.flag, row.type, row.imo, row.mmsi].some((value) =>
+        String(value).toLocaleLowerCase().includes(query)
+      )
+    )
+  }, [shipsInPortRows, shipsInPortSearch])
+  const sortedShipsInPortRows = useMemo(
+    () =>
+      sortTableRows(filteredShipsInPortRows, shipsInPortSort, (row, key) => {
+        if (key === 'reportedAt') return row.reportedAt.getTime()
+        if (key === 'imo' || key === 'mmsi') return Number(row[key])
+        return row[key]
+      }),
+    [filteredShipsInPortRows, shipsInPortSort]
+  )
+  const filteredExpectedArrivalRows = useMemo(() => {
+    const query = expectedArrivalsSearch.trim().toLocaleLowerCase()
+    if (!query) return expectedArrivalsData.rows
+    return expectedArrivalsData.rows.filter((row) =>
+      [row.name, row.flag, row.type, row.imo].some((value) =>
+        String(value).toLocaleLowerCase().includes(query)
+      )
+    )
+  }, [expectedArrivalsData.rows, expectedArrivalsSearch])
+  const sortedExpectedArrivalRows = useMemo(
+    () =>
+      sortTableRows(
+        filteredExpectedArrivalRows,
+        expectedArrivalsSort,
+        (row, key) => {
+          if (key === 'eta') return row.etaDate?.getTime()
+          if (key === 'distance') return row.distanceNm
+          if (key === 'imo') return Number(row.imo)
+          return row[key]
+        }
+      ),
+    [filteredExpectedArrivalRows, expectedArrivalsSort]
+  )
   // v3 Path to Port: ids of Expected Arrivals rows whose inline card is open.
   // A Set so more than one card can be expanded at once.
   const [expandedArrivalIds, setExpandedArrivalIds] = useState(() => new Set())
@@ -1929,6 +2103,41 @@ function Myships() {
   const latestDetection = activeShipDetections[0] || null
   const latestAisDetection =
     activeShipDetections.find((d) => d.type === 'ais') || null
+  const loadedTimelineLocationIds = [
+    ...(latestAisDetection ? [latestAisDetection.id] : []),
+    ...sortedFilteredTimelineItems
+      .filter((item) => item.kind === 'detection' && item.detection?.id != null)
+      .map((item) => item.detection.id),
+  ]
+  const allLoadedTimelineLocationsShown =
+    loadedTimelineLocationIds.length > 0 &&
+    loadedTimelineLocationIds.every((detectionId) =>
+      shownOnMapDetectionIds.some(
+        (shownId) =>
+          normalizeDetectionId(shownId) === normalizeDetectionId(detectionId)
+      )
+    )
+  const toggleAllLoadedTimelineLocations = () => {
+    const loadedIds = new Set(
+      loadedTimelineLocationIds.map((id) => normalizeDetectionId(id))
+    )
+    setShownOnMapDetectionIds((current) =>
+      allLoadedTimelineLocationsShown
+        ? current.filter(
+            (id) => !loadedIds.has(normalizeDetectionId(id))
+          )
+        : [
+            ...current,
+            ...loadedTimelineLocationIds.filter(
+              (id) =>
+                !current.some(
+                  (currentId) =>
+                    normalizeDetectionId(currentId) === normalizeDetectionId(id)
+                )
+            ),
+          ]
+    )
+  }
   const latestCoordinateDetection =
     activeShipDetections.find(
       (d) =>
@@ -2079,6 +2288,12 @@ function Myships() {
   const activeMapToolPanels = openMapToolPanelsByTab['__global__'] || []
 
   useEffect(() => {
+    setV10CollapsedToolIds((current) =>
+      current.filter((toolId) => v10OpenToolIds.includes(toolId))
+    )
+  }, [v10OpenToolIds])
+
+  useEffect(() => {
     setPanelFocusDetectionId(selectedDetection?.id ?? null)
   }, [selectedDetection?.id, setPanelFocusDetectionId])
 
@@ -2120,9 +2335,27 @@ function Myships() {
         return
       }
       if (!MULTI_SELECT_PANEL_TOOLS.has(toolId)) return
+      if (shipDetailsVersion === 'v10') {
+        openPanel?.()
+        setDetailPanelOpen(true)
+        setEventToolsPoppedOut(true)
+        setV10OpenToolIds((current) =>
+          current.includes(toolId)
+            ? current.filter((id) => id !== toolId)
+            : [...current, toolId]
+        )
+        return
+      }
       toggleMapToolPanel(toolId)
     },
-    [toggleMapToolPanel, navigate, selectedDetection?.id]
+    [
+      navigate,
+      openPanel,
+      selectedDetection?.id,
+      setDetailPanelOpen,
+      shipDetailsVersion,
+      toggleMapToolPanel,
+    ]
   )
 
   const navigateToDetection = (targetDetection) => {
@@ -2842,6 +3075,13 @@ function Myships() {
           {shipDetailsVersion !== 'v2' &&
             shipDetailsVersion !== 'v3' &&
             shipDetailsVersion !== 'v4' &&
+            shipDetailsVersion !== 'v5' &&
+            shipDetailsVersion !== 'v6' &&
+            shipDetailsVersion !== 'v7' &&
+            shipDetailsVersion !== 'v11' &&
+            shipDetailsVersion !== 'v8' &&
+            shipDetailsVersion !== 'v9' &&
+            shipDetailsVersion !== 'v10' &&
             list.map((sid, idx) => {
             const pos = pinPos[idx] || pinPos[pinPos.length - 1]
             const s = ships[sid]
@@ -2918,6 +3158,25 @@ function Myships() {
 
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
+  const selectedEventToolsPopoverContent =
+    shipDetailsVersion === 'v7' ||
+    shipDetailsVersion === 'v11' ||
+    shipDetailsVersion === 'v8' ||
+    shipDetailsVersion === 'v9' ? (
+      <ShipDetailsPanel
+        version={shipDetailsVersion}
+        hideHeader
+        selectedEvent={selectedDetection}
+        isLatest={isLatest}
+        eventLabel={eventLabel[selectedDetection?.type] || ''}
+        eventIconOverride={selectedStsIcon}
+        flashEnabled={false}
+        unattributed={isUnattributed}
+        onToolsVisibleChange={setDetailToolsVisible}
+        onToolAction={handleShipToolAction}
+        activeToolIds={activeMapToolPanels}
+      />
+    ) : null
   const shouldShowLastKnownLocationButton = latestKnownLocationDetection != null
   const satTimelineTimeFilterLabel =
     TIMELINE_TIME_FILTER_OPTIONS.find(
@@ -5162,7 +5421,10 @@ function Myships() {
                 ref={topSectionRef}
                 style={{
                   display:
-                    shipDetailsVersion === 'v4' && eventToolsPoppedOut
+                    (shipDetailsVersion === 'v4' ||
+                      shipDetailsVersion === 'v5' ||
+                      shipDetailsVersion === 'v6') &&
+                    eventToolsPoppedOut
                       ? 'none'
                       : undefined,
                   padding: isTopSummaryCollapsed
@@ -5481,53 +5743,9 @@ function Myships() {
                         )}
                       </Box>
                     </Tooltip>
-                    <Tooltip
-                      label="Expand/collapse"
-                      withArrow
-                      openDelay={200}
-                      styles={{
-                        tooltip: {
-                          backgroundColor: '#000',
-                          color: '#fff',
-                          border: '1px solid #000',
-                        },
-                        arrow: {
-                          backgroundColor: '#000',
-                          border: '1px solid #000',
-                        },
-                      }}
-                    >
-                      <Box
-                        onClick={handleTopSummaryToggle}
-                        onMouseEnter={() => setHoveredTopAction('resize')}
-                        onMouseLeave={() => setHoveredTopAction(null)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: 28,
-                          height: 28,
-                          borderRadius: 4,
-                          cursor: 'pointer',
-                          background: isTopSummaryCollapsed
-                            ? '#006CD7'
-                            : hoveredTopAction === 'resize'
-                              ? '#24263C'
-                              : 'transparent',
-                        }}
-                      >
-                        <EnlargeVerticalIcon
-                          width={26}
-                          height={26}
-                          style={{
-                            color: '#fff',
-                          }}
-                        />
-                      </Box>
-                    </Tooltip>
-                    {shipDetailsVersion === 'v4' && (
+                    {shipDetailsVersion !== 'v10' && (
                       <Tooltip
-                        label="Open event tools as map panel"
+                        label="Expand/collapse"
                         withArrow
                         openDelay={200}
                         styles={{
@@ -5543,7 +5761,79 @@ function Myships() {
                         }}
                       >
                         <Box
-                          onClick={() => setEventToolsPoppedOut(true)}
+                          onClick={handleTopSummaryToggle}
+                          onMouseEnter={() => setHoveredTopAction('resize')}
+                          onMouseLeave={() => setHoveredTopAction(null)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 28,
+                            height: 28,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            background: isTopSummaryCollapsed
+                              ? '#006CD7'
+                              : hoveredTopAction === 'resize'
+                                ? '#24263C'
+                                : 'transparent',
+                          }}
+                        >
+                          <EnlargeVerticalIcon
+                            width={26}
+                            height={26}
+                            style={{
+                              color: '#fff',
+                            }}
+                          />
+                        </Box>
+                      </Tooltip>
+                    )}
+                    {(shipDetailsVersion === 'v4' ||
+                      shipDetailsVersion === 'v5' ||
+                      shipDetailsVersion === 'v6' ||
+                      shipDetailsVersion === 'v10') && (
+                      <Tooltip
+                        label={
+                          shipDetailsVersion === 'v10' && eventToolsPoppedOut
+                            ? 'Close event tools map panel'
+                            : 'Open event tools as map panel'
+                        }
+                        withArrow
+                        openDelay={200}
+                        styles={{
+                          tooltip: {
+                            backgroundColor: '#000',
+                            color: '#fff',
+                            border: '1px solid #000',
+                          },
+                          arrow: {
+                            backgroundColor: '#000',
+                            border: '1px solid #000',
+                          },
+                        }}
+                      >
+                        <Box
+                          onClick={() => {
+                            if (
+                              shipDetailsVersion === 'v10' &&
+                              eventToolsPoppedOut
+                            ) {
+                              setEventToolsPoppedOut(false)
+                              setEventToolsMinimized(false)
+                              setIsTopSummaryCollapsed(false)
+                              setTopSectionHeight(null)
+                              return
+                            }
+                            setEventToolsPoppedOut(true)
+                            if (shipDetailsVersion === 'v10') {
+                              const bounds = getTopSectionBounds()
+                              if (bounds) {
+                                setTopSectionHeight(bounds.minTopHeight)
+                              }
+                              setIsTopSummaryCollapsed(true)
+                            }
+                          }}
                           onMouseEnter={() => setHoveredTopAction('popout')}
                           onMouseLeave={() => setHoveredTopAction(null)}
                           style={{
@@ -5555,14 +5845,22 @@ function Myships() {
                             borderRadius: 4,
                             cursor: 'pointer',
                             background:
-                              hoveredTopAction === 'popout'
+                              shipDetailsVersion === 'v10' &&
+                              eventToolsPoppedOut
+                                ? '#006CD7'
+                                : hoveredTopAction === 'popout'
                                 ? '#24263C'
                                 : 'transparent',
                           }}
                         >
-                          <Browser
-                            style={{ width: 21, height: 21, color: '#fff' }}
-                          />
+                          {shipDetailsVersion === 'v4' ||
+                          shipDetailsVersion === 'v10' ? (
+                            <EventToolsIcon />
+                          ) : (
+                            <Browser
+                              style={{ width: 21, height: 21, color: '#fff' }}
+                            />
+                          )}
                         </Box>
                       </Tooltip>
                     )}
@@ -5931,7 +6229,12 @@ function Myships() {
                         </Box>
                       </Box>
                     )}
-                    {!isUnattributed && (
+                    {!isUnattributed &&
+                      shipDetailsVersion !== 'v7' &&
+                      shipDetailsVersion !== 'v11' &&
+                      shipDetailsVersion !== 'v8' &&
+                      shipDetailsVersion !== 'v9' &&
+                      shipDetailsVersion !== 'v10' && (
                       <ShipDetailsPanel
                         version={shipDetailsVersion}
                         selectedEvent={selectedDetection}
@@ -6060,23 +6363,29 @@ function Myships() {
               </Box>
               {isUnattributed ? (
                 <>
-                  <Box style={{ flexShrink: 0, padding: '20px 20px 0 20px' }}>
-                    <ShipDetailsPanel
-                      version={shipDetailsVersion}
-                      selectedEvent={selectedDetection}
-                      isLatest
-                      eventLabel={
-                        isStsUnattributed
-                          ? 'Unattributed'
-                          : eventLabel[selectedDetection?.type] || ''
-                      }
-                      flashEnabled={false}
-                      unattributed
-                      onToolsVisibleChange={setDetailToolsVisible}
-                      onToolAction={handleShipToolAction}
-                      activeToolIds={activeMapToolPanels}
-                    />
-                  </Box>
+                  {shipDetailsVersion !== 'v7' &&
+                    shipDetailsVersion !== 'v11' &&
+                    shipDetailsVersion !== 'v8' &&
+                    shipDetailsVersion !== 'v9' &&
+                    shipDetailsVersion !== 'v10' && (
+                    <Box style={{ flexShrink: 0, padding: '20px 20px 0 20px' }}>
+                      <ShipDetailsPanel
+                        version={shipDetailsVersion}
+                        selectedEvent={selectedDetection}
+                        isLatest
+                        eventLabel={
+                          isStsUnattributed
+                            ? 'Unattributed'
+                            : eventLabel[selectedDetection?.type] || ''
+                        }
+                        flashEnabled={false}
+                        unattributed
+                        onToolsVisibleChange={setDetailToolsVisible}
+                        onToolAction={handleShipToolAction}
+                        activeToolIds={activeMapToolPanels}
+                      />
+                    </Box>
+                  )}
                   <Box
                     className="no-scrollbar"
                     style={{
@@ -6086,16 +6395,48 @@ function Myships() {
                     }}
                   >
                     <EventTimelineCard
-                      squareImages={shipDetailsVersion === 'v4'}
+                      showEventToolsButton={
+                        shipDetailsVersion === 'v7' ||
+                        shipDetailsVersion === 'v11' ||
+                        shipDetailsVersion === 'v8' ||
+                        shipDetailsVersion === 'v9'
+                      }
+                      eventToolsContent={selectedEventToolsPopoverContent}
+                      eventToolsScrollCloseDelay={
+                        shipDetailsVersion === 'v7' ||
+                        shipDetailsVersion === 'v11'
+                          ? 900
+                          : 400
+                      }
+                      squareImages={
+                        shipDetailsVersion === 'v4' ||
+                        shipDetailsVersion === 'v5' ||
+                        shipDetailsVersion === 'v6' ||
+                        shipDetailsVersion === 'v10'
+                      }
                       showViewEventLocation={
                         shipDetailsVersion !== 'v2' &&
                         shipDetailsVersion !== 'v3' &&
-                        shipDetailsVersion !== 'v4'
+                        shipDetailsVersion !== 'v4' &&
+                        shipDetailsVersion !== 'v5' &&
+                        shipDetailsVersion !== 'v6' &&
+                        shipDetailsVersion !== 'v7' &&
+                        shipDetailsVersion !== 'v11' &&
+                        shipDetailsVersion !== 'v8' &&
+                        shipDetailsVersion !== 'v9' &&
+                        shipDetailsVersion !== 'v10'
                       }
                       compactActions={
                         shipDetailsVersion === 'v2' ||
                         shipDetailsVersion === 'v3' ||
-                        shipDetailsVersion === 'v4'
+                        shipDetailsVersion === 'v4' ||
+                        shipDetailsVersion === 'v5' ||
+                        shipDetailsVersion === 'v6' ||
+                        shipDetailsVersion === 'v7' ||
+                        shipDetailsVersion === 'v11' ||
+                        shipDetailsVersion === 'v8' ||
+                        shipDetailsVersion === 'v9' ||
+                        shipDetailsVersion === 'v10'
                       }
                       date={latestDetection?.date}
                       event={
@@ -6106,6 +6447,14 @@ function Myships() {
                       }
                       icon={<UnattributedIcon style={{ height: 14 }} />}
                       selected
+                      onActivate={
+                        shipDetailsVersion === 'v7' ||
+                        shipDetailsVersion === 'v11' ||
+                        shipDetailsVersion === 'v8' ||
+                        shipDetailsVersion === 'v9'
+                          ? () => {}
+                          : undefined
+                      }
                       onSelect={() => {}}
                       aisInfo={{}}
                       synMaxInfo={
@@ -6324,7 +6673,14 @@ function Myships() {
                       >
                         {(shipDetailsVersion === 'v2' ||
                           shipDetailsVersion === 'v3' ||
-                          shipDetailsVersion === 'v4') &&
+                          shipDetailsVersion === 'v4' ||
+                          shipDetailsVersion === 'v5' ||
+                          shipDetailsVersion === 'v6' ||
+                          shipDetailsVersion === 'v7' ||
+                          shipDetailsVersion === 'v11' ||
+                          shipDetailsVersion === 'v8' ||
+                          shipDetailsVersion === 'v9' ||
+                          shipDetailsVersion === 'v10') &&
                           latestAisDetection &&
                           (() => {
                             const aisDate = new Date(latestAisDetection.date)
@@ -6334,6 +6690,10 @@ function Myships() {
                               aisDate.getDate()
                             ).padStart(2, '0')}`
                             const aisLocationActive =
+                              normalizeDetectionId(selectedCard) ===
+                                normalizeDetectionId(
+                                  latestAisDetection.id
+                                ) ||
                               shownOnMapDetectionIds.some(
                                 (id) =>
                                   normalizeDetectionId(id) ===
@@ -6353,6 +6713,82 @@ function Myships() {
                               )
                             return (
                               <>
+                                {shipDetailsVersion === 'v10' && (
+                                  <Box
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'flex-end',
+                                      gap: 6,
+                                      marginBottom: 3,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        color: '#FFFFFF',
+                                        fontSize: 10,
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      Show all events on map
+                                    </Text>
+                                    <Box
+                                      role="switch"
+                                      tabIndex={0}
+                                      aria-label="Show all events on map"
+                                      aria-checked={
+                                        allLoadedTimelineLocationsShown
+                                      }
+                                      onClick={
+                                        loadedTimelineLocationIds.length
+                                          ? toggleAllLoadedTimelineLocations
+                                          : undefined
+                                      }
+                                      onKeyDown={(event) => {
+                                        if (
+                                          loadedTimelineLocationIds.length &&
+                                          (event.key === 'Enter' ||
+                                            event.key === ' ')
+                                        ) {
+                                          event.preventDefault()
+                                          toggleAllLoadedTimelineLocations()
+                                        }
+                                      }}
+                                      style={{
+                                        width: 28,
+                                        height: 16,
+                                        borderRadius: 8,
+                                        padding: 2,
+                                        display: 'flex',
+                                        justifyContent:
+                                          allLoadedTimelineLocationsShown
+                                            ? 'flex-end'
+                                            : 'flex-start',
+                                        background:
+                                          allLoadedTimelineLocationsShown
+                                            ? '#006CD7'
+                                            : '#393C56',
+                                        cursor: loadedTimelineLocationIds.length
+                                          ? 'pointer'
+                                          : 'default',
+                                        opacity:
+                                          loadedTimelineLocationIds.length
+                                            ? 1
+                                            : 0.45,
+                                        transition: 'background 0.15s ease',
+                                      }}
+                                    >
+                                      <Box
+                                        style={{
+                                          width: 12,
+                                          height: 12,
+                                          borderRadius: '50%',
+                                          background: '#FFFFFF',
+                                        }}
+                                      />
+                                    </Box>
+                                  </Box>
+                                )}
                                 <Box
                                   style={{
                                     display: 'flex',
@@ -6388,7 +6824,31 @@ function Myships() {
                                 </Box>
                                 <Box style={{ marginBottom: 8 }}>
                                   <EventTimelineCard
-                                    squareImages={shipDetailsVersion === 'v4'}
+                                    showEventToolsButton={
+                                      shipDetailsVersion === 'v7' ||
+                                      shipDetailsVersion === 'v8' ||
+                                      ((shipDetailsVersion === 'v9' ||
+                                        shipDetailsVersion === 'v11') &&
+                                        normalizeDetectionId(selectedCard) ===
+                                          normalizeDetectionId(
+                                            latestAisDetection.id
+                                          ))
+                                    }
+                                    eventToolsContent={
+                                      selectedEventToolsPopoverContent
+                                    }
+                                    eventToolsScrollCloseDelay={
+                                      shipDetailsVersion === 'v7' ||
+                                      shipDetailsVersion === 'v11'
+                                        ? 900
+                                        : 400
+                                    }
+                                    squareImages={
+                                      shipDetailsVersion === 'v4' ||
+                                      shipDetailsVersion === 'v5' ||
+                                      shipDetailsVersion === 'v6' ||
+                                      shipDetailsVersion === 'v10'
+                                    }
                                     compactActions
                                     showDateContext={false}
                                     showViewEventLocation={false}
@@ -6704,16 +7164,48 @@ function Myships() {
                                 }}
                               >
                                 <EventTimelineCard
-                                  squareImages={shipDetailsVersion === 'v4'}
+                                  showEventToolsButton={
+                                    shipDetailsVersion === 'v7' ||
+                                    shipDetailsVersion === 'v8'
+                                  }
+                                  eventToolsContent={
+                                    selectedEventToolsPopoverContent
+                                  }
+                                  eventToolsScrollCloseDelay={
+                                    shipDetailsVersion === 'v7' ||
+                                    shipDetailsVersion === 'v11'
+                                      ? 900
+                                      : 400
+                                  }
+                                  squareImages={
+                                    shipDetailsVersion === 'v4' ||
+                                    shipDetailsVersion === 'v5' ||
+                                    shipDetailsVersion === 'v6' ||
+                                    shipDetailsVersion === 'v10'
+                                  }
                                   showViewEventLocation={
                                     shipDetailsVersion !== 'v2' &&
                                     shipDetailsVersion !== 'v3' &&
-                                    shipDetailsVersion !== 'v4'
+                                    shipDetailsVersion !== 'v4' &&
+                                    shipDetailsVersion !== 'v5' &&
+                                    shipDetailsVersion !== 'v6' &&
+                                    shipDetailsVersion !== 'v7' &&
+                                    shipDetailsVersion !== 'v11' &&
+                                    shipDetailsVersion !== 'v8' &&
+                                    shipDetailsVersion !== 'v9' &&
+                                    shipDetailsVersion !== 'v10'
                                   }
                                   compactActions={
                                     shipDetailsVersion === 'v2' ||
                                     shipDetailsVersion === 'v3' ||
-                                    shipDetailsVersion === 'v4'
+                                    shipDetailsVersion === 'v4' ||
+                                    shipDetailsVersion === 'v5' ||
+                                    shipDetailsVersion === 'v6' ||
+                                    shipDetailsVersion === 'v7' ||
+                                    shipDetailsVersion === 'v11' ||
+                                    shipDetailsVersion === 'v8' ||
+                                    shipDetailsVersion === 'v9' ||
+                                    shipDetailsVersion === 'v10'
                                   }
                                   date={contextEvent.dateLabel}
                                   variant={contextEvent.variant}
@@ -6780,26 +7272,73 @@ function Myships() {
                               }}
                             >
                               <EventTimelineCard
-                                squareImages={shipDetailsVersion === 'v4'}
+                                showEventToolsButton={
+                                  shipDetailsVersion === 'v7' ||
+                                  shipDetailsVersion === 'v8' ||
+                                  ((shipDetailsVersion === 'v9' ||
+                                    shipDetailsVersion === 'v11') &&
+                                    normalizeDetectionId(selectedCard) ===
+                                      normalizeDetectionId(det.id))
+                                }
+                                eventToolsContent={
+                                  selectedEventToolsPopoverContent
+                                }
+                                eventToolsScrollCloseDelay={
+                                  shipDetailsVersion === 'v7' ||
+                                  shipDetailsVersion === 'v11'
+                                    ? 900
+                                    : 400
+                                }
+                                squareImages={
+                                  shipDetailsVersion === 'v4' ||
+                                  shipDetailsVersion === 'v5' ||
+                                  shipDetailsVersion === 'v6' ||
+                                  shipDetailsVersion === 'v10'
+                                }
                                 showViewEventLocation={
                                   shipDetailsVersion !== 'v2' &&
                                   shipDetailsVersion !== 'v3' &&
-                                  shipDetailsVersion !== 'v4'
+                                  shipDetailsVersion !== 'v4' &&
+                                  shipDetailsVersion !== 'v5' &&
+                                  shipDetailsVersion !== 'v6' &&
+                                  shipDetailsVersion !== 'v7' &&
+                                  shipDetailsVersion !== 'v11' &&
+                                  shipDetailsVersion !== 'v8' &&
+                                  shipDetailsVersion !== 'v9' &&
+                                  shipDetailsVersion !== 'v10'
                                 }
                                 compactActions={
                                   shipDetailsVersion === 'v2' ||
                                   shipDetailsVersion === 'v3' ||
-                                  shipDetailsVersion === 'v4'
+                                  shipDetailsVersion === 'v4' ||
+                                  shipDetailsVersion === 'v5' ||
+                                  shipDetailsVersion === 'v6' ||
+                                  shipDetailsVersion === 'v7' ||
+                                  shipDetailsVersion === 'v11' ||
+                                  shipDetailsVersion === 'v8' ||
+                                  shipDetailsVersion === 'v9' ||
+                                  shipDetailsVersion === 'v10'
                                 }
-                                locationActive={shownOnMapDetectionIds.some(
-                                  (id) =>
-                                    normalizeDetectionId(id) ===
-                                    normalizeDetectionId(det.id)
-                                )}
+                                locationActive={
+                                  normalizeDetectionId(selectedCard) ===
+                                    normalizeDetectionId(det.id) ||
+                                  shownOnMapDetectionIds.some(
+                                    (id) =>
+                                      normalizeDetectionId(id) ===
+                                      normalizeDetectionId(det.id)
+                                  )
+                                }
                                 onToggleLocation={
                                   shipDetailsVersion === 'v2' ||
                                   shipDetailsVersion === 'v3' ||
-                                  shipDetailsVersion === 'v4'
+                                  shipDetailsVersion === 'v4' ||
+                                  shipDetailsVersion === 'v5' ||
+                                  shipDetailsVersion === 'v6' ||
+                                  shipDetailsVersion === 'v7' ||
+                                  shipDetailsVersion === 'v11' ||
+                                  shipDetailsVersion === 'v8' ||
+                                  shipDetailsVersion === 'v9' ||
+                                  shipDetailsVersion === 'v10'
                                     ? () =>
                                         setShownOnMapDetectionIds((current) => {
                                           const isShown = current.some(
@@ -6820,7 +7359,14 @@ function Myships() {
                                 onActivate={
                                   shipDetailsVersion === 'v2' ||
                                   shipDetailsVersion === 'v3' ||
-                                  shipDetailsVersion === 'v4'
+                                  shipDetailsVersion === 'v4' ||
+                                  shipDetailsVersion === 'v5' ||
+                                  shipDetailsVersion === 'v6' ||
+                                  shipDetailsVersion === 'v7' ||
+                                  shipDetailsVersion === 'v11' ||
+                                  shipDetailsVersion === 'v8' ||
+                                  shipDetailsVersion === 'v9' ||
+                                  shipDetailsVersion === 'v10'
                                     ? () => {
                                         updateTabState('selectedCard', det.id)
                                         setFlashEnabled(true)
@@ -6931,7 +7477,10 @@ function Myships() {
                                     ? renderStsHero(stsShipIds, {
                                         activeIdx: activeStsShipIndex,
                                         height:
-                                          shipDetailsVersion === 'v4'
+                                          shipDetailsVersion === 'v4' ||
+                                          shipDetailsVersion === 'v5' ||
+                                          shipDetailsVersion === 'v6' ||
+                                          shipDetailsVersion === 'v10'
                                             ? 180
                                             : 206,
                                         width: 180,
@@ -8718,6 +9267,42 @@ function Myships() {
                 >
                   <Box
                     style={{
+                      height: 36,
+                      margin: '16px 20px 8px 20px',
+                      padding: '0 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: '#0C0D14',
+                      border: '1px solid #393C56',
+                      borderRadius: 4,
+                    }}
+                  >
+                    <SearchMd size={16} color="#FFFFFF" style={{ flexShrink: 0 }} />
+                    <Box
+                      component="input"
+                      type="search"
+                      value={shipsInPortSearch}
+                      onChange={(event) =>
+                        setShipsInPortSearch(event.currentTarget.value)
+                      }
+                      placeholder="Search by ship name, flag, IMO, MMSI or ship type"
+                      aria-label="Search ships in port"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        padding: 0,
+                        color: '#FFFFFF',
+                        background: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                        fontSize: 12,
+                      }}
+                    />
+                  </Box>
+                  <Box
+                    style={{
                       display: 'grid',
                       gridTemplateColumns:
                         'minmax(0, 1.5fr) 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr)',
@@ -8726,133 +9311,49 @@ function Myships() {
                       padding: '6px 10px',
                       background: '#24263C',
                       borderRadius: '4px',
-                      margin: '16px 20px 8px 20px',
+                      margin: '0 20px 8px 20px',
                       position: 'sticky',
                       top: 0,
                       zIndex: 1,
                     }}
                   >
-                    <Text
-                      style={{
-                        color: '#fff',
-                        fontSize: 12,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      Name
-                    </Text>
-                    <Text
-                      style={{
-                        color: '#fff',
-                        fontSize: 12,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      Ctry
-                    </Text>
-                    <Text
-                      style={{
-                        color: '#fff',
-                        fontSize: 12,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      Type
-                    </Text>
-                    <Text
-                      style={{
-                        color: '#fff',
-                        fontSize: 12,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      IMO
-                    </Text>
-                    <Text
-                      style={{
-                        color: '#fff',
-                        fontSize: 12,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      MMSI
-                    </Text>
-                    <Text
-                      style={{
-                        color: '#fff',
-                        fontSize: 12,
-                        minWidth: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      Reported Time
-                    </Text>
+                    {[
+                      ['name', 'Name'],
+                      ['flag', 'Ctry'],
+                      ['type', 'Type'],
+                      ['imo', 'IMO'],
+                      ['mmsi', 'MMSI'],
+                      ['reportedAt', 'Reported Time'],
+                    ].map(([key, label]) => (
+                      <SortablePortTableHeader
+                        key={key}
+                        label={label}
+                        columnKey={key}
+                        sort={shipsInPortSort}
+                        onSort={(columnKey) =>
+                          setShipsInPortSort((current) =>
+                            cycleTableSort(current, columnKey)
+                          )
+                        }
+                      />
+                    ))}
                   </Box>
 
-                  {/* Using mock data to populate the table for the prototype */}
-                  {Array(15)
-                    .fill(0)
-                    .map((_, i) => {
-                      // Cycle through a few mock ships
-                      const mockShips = [
-                        {
-                          name: 'Invictus',
-                          flag: '🇲🇭',
-                          type: 'Tanker',
-                          imo: '9819870',
-                          mmsi: '311000686',
-                        },
-                        {
-                          name: 'Ghinah',
-                          flag: '🇸🇦',
-                          type: 'Tanker Cr...',
-                          imo: '9819870',
-                          mmsi: '311000686',
-                        },
-                        {
-                          name: 'Emerlad Sea',
-                          flag: '🇵🇦',
-                          type: 'Tanker Pr...',
-                          imo: '9819870',
-                          mmsi: '311000686',
-                        },
-                        {
-                          name: 'Melodie V',
-                          flag: '🇵🇦',
-                          type: 'Offshore',
-                          imo: '9819870',
-                          mmsi: '311000686',
-                        },
-                        {
-                          name: 'Abouzar 1...',
-                          flag: '🇮🇷',
-                          type: 'Other',
-                          imo: '9819870',
-                          mmsi: '311000686',
-                        },
-                      ]
-                      const ship = mockShips[i % mockShips.length]
-
+                  {sortedShipsInPortRows.length === 0 && (
+                    <Text
+                      style={{
+                        color: '#888F9E',
+                        fontSize: 13,
+                        margin: '16px 20px',
+                      }}
+                    >
+                      No ships match your search.
+                    </Text>
+                  )}
+                  {sortedShipsInPortRows.map((ship) => {
                       return (
                         <Box
-                          key={i}
+                          key={ship.id}
                           style={{
                             display: 'grid',
                             gridTemplateColumns:
@@ -8925,7 +9426,16 @@ function Myships() {
                               textOverflow: 'ellipsis',
                             }}
                           >
-                            Sep 19, 2025 09:53 UTC
+                            {ship.reportedAt.toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: false,
+                              timeZone: 'UTC',
+                            })}{' '}
+                            UTC
                           </Text>
                         </Box>
                       )
@@ -8944,66 +9454,68 @@ function Myships() {
                     marginRight: -20,
                   }}
                 >
-                  {!arrivalsIntroDismissed && (
-                  <Box
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      margin: '16px 20px 0 20px',
-                      padding: '8px 10px',
-                      background: '#24263C',
-                      border: '1px solid #393C56',
-                      borderRadius: 4,
-                    }}
-                  >
-                    <Box
-                      style={{
-                        width: 40,
-                        height: 40,
-                        flexShrink: 0,
-                        borderRadius: 4,
-                        background: '#181926',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Anchor size={20} color="#FFFFFF" />
-                    </Box>
-                    <Text
-                      style={{
-                        color: '#FFFFFF',
-                        fontSize: 12,
-                        lineHeight: '16px',
-                        fontWeight: 500,
-                        textAlign: 'left',
-                      }}
-                    >
-                      Select a vessel in the table below to jump to its current
-                      position and preview the predicted path to port.
-                    </Text>
-                    <Box
-                      component="button"
-                      type="button"
-                      aria-label="Dismiss"
-                      onClick={() => setArrivalsIntroDismissed(true)}
-                      style={{
-                        marginLeft: 'auto',
-                        flexShrink: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'transparent',
-                        border: 'none',
-                        padding: 4,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <XClose size={16} color="#888F9E" />
-                    </Box>
-                  </Box>
-                  )}
+                  {Number.parseInt(pathToPortVersion.slice(1), 10) < 6 &&
+                    !arrivalsIntroDismissed && (
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          margin: '16px 20px 0 20px',
+                          padding: '8px 10px',
+                          background: '#24263C',
+                          border: '1px solid #393C56',
+                          borderRadius: 4,
+                        }}
+                      >
+                        <Box
+                          style={{
+                            width: 40,
+                            height: 40,
+                            flexShrink: 0,
+                            borderRadius: 4,
+                            background: '#181926',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Anchor size={20} color="#FFFFFF" />
+                        </Box>
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 12,
+                            lineHeight: '16px',
+                            fontWeight: 500,
+                            textAlign: 'left',
+                          }}
+                        >
+                          Select a vessel in the table below to jump to its
+                          current position and preview the predicted path to
+                          port.
+                        </Text>
+                        <Box
+                          component="button"
+                          type="button"
+                          aria-label="Dismiss"
+                          onClick={() => setArrivalsIntroDismissed(true)}
+                          style={{
+                            marginLeft: 'auto',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'transparent',
+                            border: 'none',
+                            padding: 4,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <XClose size={16} color="#888F9E" />
+                        </Box>
+                      </Box>
+                    )}
 
                   {pathToPortVersion === 'v2' && activePathToPort && (
                     <Box
@@ -9030,6 +9542,48 @@ function Myships() {
                     </Box>
                   )}
 
+                  <Box
+                    style={{
+                      height: 36,
+                      margin: '12px 20px 8px 20px',
+                      padding: '0 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: '#0C0D14',
+                      border: '1px solid #393C56',
+                      borderRadius: 4,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <SearchMd
+                      size={16}
+                      color="#FFFFFF"
+                      style={{ flexShrink: 0 }}
+                    />
+                    <Box
+                      component="input"
+                      type="search"
+                      value={expectedArrivalsSearch}
+                      onChange={(event) =>
+                        setExpectedArrivalsSearch(event.currentTarget.value)
+                      }
+                      placeholder="Search by ship name, flag, IMO or ship type"
+                      aria-label="Search expected arrivals"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        padding: 0,
+                        color: '#FFFFFF',
+                        background: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                        fontSize: 12,
+                      }}
+                    />
+                  </Box>
+
                   {/* Table header stays fixed with the intro/card above it. */}
                   <Box
                     style={{
@@ -9041,35 +9595,31 @@ function Myships() {
                       padding: '6px 10px',
                       background: '#24263C',
                       borderRadius: '4px',
-                      margin: '12px 20px 8px 20px',
+                      margin: '0 20px 8px 20px',
                       flexShrink: 0,
                     }}
                   >
                     {[
-                      'Name',
-                      'Ctry',
-                      'Type',
-                      'IMO',
-                      'ETA',
-                      'Dist',
-                      '',
-                    ].map((heading) => (
-                        <Text
-                          key={heading}
-                          style={{
-                            color: '#fff',
-                            fontSize: 12,
-                            minWidth: 0,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            textAlign: heading === 'View' ? 'right' : 'left',
-                          }}
-                        >
-                          {heading}
-                        </Text>
-                      )
-                    )}
+                      ['name', 'Name'],
+                      ['flag', 'Ctry'],
+                      ['type', 'Type'],
+                      ['imo', 'IMO'],
+                      ['eta', 'ETA'],
+                      ['distance', 'Dist'],
+                    ].map(([key, label]) => (
+                      <SortablePortTableHeader
+                        key={key}
+                        label={label}
+                        columnKey={key}
+                        sort={expectedArrivalsSort}
+                        onSort={(columnKey) =>
+                          setExpectedArrivalsSort((current) =>
+                            cycleTableSort(current, columnKey)
+                          )
+                        }
+                      />
+                    ))}
+                    <Box />
                   </Box>
 
                   {/* Only the rows scroll. */}
@@ -9091,8 +9641,20 @@ function Myships() {
                       No expected arrivals for this port.
                     </Text>
                   )}
+                  {expectedArrivalsData.rows.length > 0 &&
+                    sortedExpectedArrivalRows.length === 0 && (
+                      <Text
+                        style={{
+                          color: '#888F9E',
+                          fontSize: 13,
+                          margin: '16px 20px',
+                        }}
+                      >
+                        No expected arrivals match your search.
+                      </Text>
+                    )}
 
-                  {expectedArrivalsData.rows.map((row) => {
+                  {sortedExpectedArrivalRows.map((row) => {
                     const isActiveRoute =
                       pathToPortRoute?.shipId === row.shipId
                     const usesInlineArrivals =
@@ -10106,12 +10668,17 @@ function Myships() {
           </Box>
         </Box>
       </Modal>
-      {shipDetailsVersion === 'v4' &&
+      {(shipDetailsVersion === 'v4' ||
+        shipDetailsVersion === 'v5' ||
+        shipDetailsVersion === 'v6' ||
+        shipDetailsVersion === 'v10') &&
         eventToolsPoppedOut &&
         activeShip &&
         typeof document !== 'undefined' &&
         createPortal(
           <Box
+            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
             style={{
               position: 'fixed',
               top: eventToolsPanelPosition.y,
@@ -10122,7 +10689,8 @@ function Myships() {
               background: '#181926',
               border: '1px solid #393C56',
               borderRadius: 4,
-              overflow: 'hidden',
+              overflowY: shipDetailsVersion === 'v10' ? 'auto' : 'hidden',
+              overflowX: 'hidden',
               boxShadow: '0 12px 32px rgba(0, 0, 0, 0.38)',
             }}
           >
@@ -10148,27 +10716,39 @@ function Myships() {
                 Selected Event Tools
               </Text>
               <Box style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <Tooltip label="Dock event tools back into timeline" withArrow>
-                  <Box
-                    onMouseDown={(event) => event.stopPropagation()}
-                    onClick={() => {
-                      setEventToolsPoppedOut(false)
-                      setEventToolsMinimized(false)
-                    }}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 4,
-                      color: '#fff',
-                      cursor: 'pointer',
-                    }}
+                {shipDetailsVersion !== 'v10' && (
+                  <Tooltip
+                    label="Dock Selected Event Tools back into timeline"
+                    withArrow
+                    color="#0D0F17"
+                    zIndex={2000}
+                    styles={{ tooltip: { fontSize: 12 } }}
                   >
-                    <Browser style={{ width: 20, height: 20 }} />
-                  </Box>
-                </Tooltip>
+                    <Box
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onClick={() => {
+                        setEventToolsPoppedOut(false)
+                        setEventToolsMinimized(false)
+                      }}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 4,
+                        color: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {shipDetailsVersion === 'v4' ? (
+                        <EventToolsIcon />
+                      ) : (
+                        <Browser style={{ width: 20, height: 20 }} />
+                      )}
+                    </Box>
+                  </Tooltip>
+                )}
                 <Minus
                   onMouseDown={(event) => event.stopPropagation()}
                   onClick={() => setEventToolsMinimized((current) => !current)}
@@ -10184,6 +10764,11 @@ function Myships() {
                   onClick={() => {
                     setEventToolsPoppedOut(false)
                     setEventToolsMinimized(false)
+                    if (shipDetailsVersion === 'v10') {
+                      setV10OpenToolIds([])
+                      setIsTopSummaryCollapsed(false)
+                      setTopSectionHeight(null)
+                    }
                   }}
                   style={{
                     width: 20,
@@ -10198,7 +10783,10 @@ function Myships() {
               <Box
                 style={{
                   padding: 20,
-                  maxHeight: 'calc(100vh - 88px)',
+                  maxHeight:
+                    shipDetailsVersion === 'v10'
+                      ? undefined
+                      : 'calc(100vh - 88px)',
                   overflowY: 'auto',
                 }}
               >
@@ -10310,7 +10898,7 @@ function Myships() {
                 </Box>
                 {!isUnattributed && (
                   <ShipDetailsPanel
-                    version="v4"
+                    version={shipDetailsVersion}
                     compactHeader
                     selectedEvent={selectedDetection}
                     isLatest={isLatest}
@@ -10319,11 +10907,104 @@ function Myships() {
                     flashEnabled={flashEnabled}
                     onToolsVisibleChange={setDetailToolsVisible}
                     onToolAction={handleShipToolAction}
-                    activeToolIds={activeMapToolPanels}
+                    activeToolIds={
+                      shipDetailsVersion === 'v10'
+                        ? v10OpenToolIds
+                        : activeMapToolPanels
+                    }
                   />
                 )}
               </Box>
             )}
+            {shipDetailsVersion === 'v10' &&
+              v10OpenToolIds.map((toolId) => {
+                const title =
+                  {
+                    'extended-path': 'Extended Path',
+                    'future-path-prediction': 'Future Path Prediction',
+                    'estimated-location': 'Estimated Location',
+                  }[toolId] || 'Tool'
+                const collapsed = v10CollapsedToolIds.includes(toolId)
+                return (
+                  <Box
+                    key={toolId}
+                    style={{ borderTop: '1px solid #393C56' }}
+                  >
+                    <Box
+                      onClick={() =>
+                        setV10CollapsedToolIds((current) =>
+                          collapsed
+                            ? current.filter((id) => id !== toolId)
+                            : [...current, toolId]
+                        )
+                      }
+                      style={{
+                        minHeight: 56,
+                        padding: '0 20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: collapsed ? '#24263C' : '#2D3048',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#fff',
+                          fontSize: 14,
+                          fontWeight: collapsed ? 500 : 600,
+                        }}
+                      >
+                        {title}
+                      </Text>
+                      <Box
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 16,
+                        }}
+                      >
+                        {collapsed ? (
+                          <ChevronRight
+                            style={{ width: 20, height: 20, color: '#fff' }}
+                          />
+                        ) : (
+                          <ChevronDown
+                            style={{ width: 20, height: 20, color: '#fff' }}
+                          />
+                        )}
+                        <XClose
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setV10OpenToolIds((current) =>
+                              current.filter((id) => id !== toolId)
+                            )
+                          }}
+                          style={{
+                            width: 20,
+                            height: 20,
+                            color: '#fff',
+                            cursor: 'pointer',
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                    {!collapsed && (
+                      <Box>
+                        {toolId === 'extended-path' && (
+                          <ExtendedPathPanel ship={activeShip} />
+                        )}
+                        {toolId === 'future-path-prediction' && (
+                          <FuturePathPanel ship={activeShip} />
+                        )}
+                        {toolId === 'estimated-location' && (
+                          <EstimatedLocationPanel />
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                )
+              })}
           </Box>,
           document.body
         )}

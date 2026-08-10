@@ -18,7 +18,7 @@ import { ships, detections } from '../data/mockData'
 
 const detailTabs = [
   'Event Timeline',
-  'Sat. Imagery Timeline',
+  'Imagery Timeline',
   'Ship Information',
 ]
 
@@ -251,7 +251,7 @@ function ShipDetailPanel() {
           {activeDetailTab === 1 && (
             <Box style={{ padding: 20 }}>
               <Title order={4} style={{ color: '#fff' }}>
-                Sat. Imagery Timeline
+                Imagery Timeline
               </Title>
             </Box>
           )}
