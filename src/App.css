@@ -402,6 +402,22 @@ textarea::placeholder {
   min-width: 500px;
 }
 
+/* ===== Path to Port v7 advanced-filter dropdown option states ===== */
+.arrivals-filter-option:hover,
+.arrivals-filter-option[data-combobox-active] {
+  background-color: #0056ac !important;
+  color: #fff !important;
+}
+
+.arrivals-filter-option[data-combobox-selected] {
+  background-color: #002b56 !important;
+  color: #fff !important;
+}
+
+.arrivals-filter-option[data-combobox-selected]:hover {
+  background-color: #0056ac !important;
+}
+
 /* ===== Tab scroll (hide scrollbar) ===== */
 .tab-scroll {
   overflow-x: auto;

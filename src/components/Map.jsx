@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useCallback,
   forwardRef,
   useImperativeHandle,
 } from 'react'
@@ -25,6 +26,7 @@ import KeyValuePair from './KeyValuePair'
 import { mockPortFeatures } from '../data/mockPortFeatures'
 import { PROTOTYPE_PORTS, resolvePortCoords } from '../data/portCoords'
 import { ships as shipsById } from '../data/mockData'
+import { syntheticArrivalAttrs } from '../utils/arrivalsFilters'
 import {
   greatCirclePath,
   haversineNm,
@@ -717,7 +719,7 @@ const Map = forwardRef(function Map(
     rightPanelInset = 0,
     stsVersion = 'v1',
     shipDetailsVersion = 'v1',
-    pathToPortVersion = 'v1',
+    pathToPortVersion: pathToPortVersionRaw = 'v1',
     portVisibilityBehavior = 'strict-layer-toggle',
     forceHideSelectedPortContext = false,
     portHoverCardEnabled = true,
@@ -790,8 +792,77 @@ const Map = forwardRef(function Map(
     setArrivalsOverlayOn,
     pathToPortTopN,
     setPathToPortTopN,
+    arrivalsFilters,
+    arrivalsAutoZoom,
+    requestExpandArrival,
+    arrivalsFocusedShipIds,
     clearPathToPort,
   } = useShipContext()
+  // Path to Port v7 starts as a copy of v6; alias it so every v6 branch applies,
+  // and keep a raw flag for the v7-only explorations (filters + pan/zoom toggle).
+  const pathToPortVersion =
+    pathToPortVersionRaw === 'v7' ? 'v6' : pathToPortVersionRaw
+  const isPathToPortV7 = pathToPortVersionRaw === 'v7'
+  // Holds the current click behavior for the Path to Port overlay routes/dots.
+  // Kept in a ref so the (once-registered) Mapbox layer click handlers always
+  // call the latest logic without re-binding on every dependency change.
+  const arrivalsRouteClickRef = useRef(null)
+  useEffect(() => {
+    arrivalsRouteClickRef.current = (shipId) => {
+      if (!shipId) return
+      if (!isPathToPortV7 || !arrivalsOverlayOn) return
+      requestExpandArrival(shipId)
+    }
+  }, [isPathToPortV7, arrivalsOverlayOn, requestExpandArrival])
+
+  const clearProjectedDotMarkers = useCallback((ref) => {
+    Object.values(ref.current).forEach((mk) => mk.remove())
+    ref.current = {}
+  }, [])
+
+  // Render each route's projected-position dot (and optional "kn" label) as an
+  // HTML marker so it layers above detection/STS markers. `items` is a list of
+  // { coord: [lng, lat], label?: string, shipId?: string }. `ref` stores the
+  // created markers so the owning effect can clear just its own.
+  const renderProjectedDotMarkers = useCallback(
+    (m, items, ref) => {
+      clearProjectedDotMarkers(ref)
+      if (!m) return
+      items.forEach((item, i) => {
+        if (!item?.coord) return
+        const wrap = document.createElement('div')
+        wrap.style.zIndex = '7'
+        if (item.dim) wrap.style.opacity = '0.25'
+        const dot = document.createElement('div')
+        dot.style.width = '12px'
+        dot.style.height = '12px'
+        dot.style.borderRadius = '50%'
+        dot.style.background = '#006CD7'
+        dot.style.border = '2px solid #FFFFFF'
+        dot.style.boxSizing = 'border-box'
+        wrap.appendChild(dot)
+        if (item.label) {
+          const lab = document.createElement('div')
+          lab.textContent = item.label
+          lab.style.position = 'absolute'
+          lab.style.bottom = '16px'
+          lab.style.left = '50%'
+          lab.style.transform = 'translateX(-50%)'
+          lab.style.whiteSpace = 'nowrap'
+          lab.style.fontSize = '11px'
+          lab.style.color = '#FFFFFF'
+          lab.style.textShadow = '0 0 3px #0a0f1a, 0 0 3px #0a0f1a'
+          wrap.appendChild(lab)
+        }
+        const mk = new mapboxgl.Marker({ element: wrap, anchor: 'center' })
+          .setLngLat(item.coord)
+          .addTo(m)
+        mk.getElement().style.zIndex = '7'
+        ref.current[item.shipId ?? `p${i}`] = mk
+      })
+    },
+    [clearProjectedDotMarkers]
+  )
   const usesShipDetailsV2 =
     shipDetailsVersion === 'v2' ||
     shipDetailsVersion === 'v3' ||
@@ -800,6 +871,7 @@ const Map = forwardRef(function Map(
     shipDetailsVersion === 'v6' ||
     shipDetailsVersion === 'v7' ||
     shipDetailsVersion === 'v11' ||
+    shipDetailsVersion === 'v12' ||
     shipDetailsVersion === 'v8' ||
     shipDetailsVersion === 'v9' ||
     shipDetailsVersion === 'v10'
@@ -820,6 +892,13 @@ const Map = forwardRef(function Map(
   // Path to Port v5: dedicated blue ship-arrow DOM markers per inbound vessel,
   // keyed by ship id.
   const arrivalsArrowMarkersRef = useRef({})
+  // Projected-position "knot" dots rendered as HTML markers (not GL circles) so
+  // they sit ABOVE detection/STS markers — GL canvas layers always render below
+  // HTML markers, which made the dot look buried under overlapping event icons.
+  const projectedDotMarkersRef = useRef({})
+  // Separate store for the inline (single/expanded-row) route system so it can't
+  // clobber the overlay's markers, since both route effects run independently.
+  const inlineProjectedDotMarkersRef = useRef({})
   const lastFitArrivalsKeyRef = useRef(null)
   // Detection ids whose markers we've raised for the v4 "all arrivals" overlay,
   // so they can be reset to the default z-index when the overlay clears.
@@ -871,6 +950,42 @@ const Map = forwardRef(function Map(
   const forYouFittedRef = useRef(false)
   onForYouItemClickRef.current = onForYouItemClick
   const [mapReady, setMapReady] = useState(false)
+
+  // Register clicks/hover on the Path to Port overlay routes + dots once. The
+  // handlers delegate to arrivalsRouteClickRef so a click on a vessel's line or
+  // projected dot expands that arrival's row (v7) just like clicking its marker.
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    const m = map.current
+    const layers = [
+      'arrivals-routes-line',
+      'arrivals-routes-line-solid',
+      'arrivals-routes-endpoint',
+    ]
+    const handleClick = (event) => {
+      const shipId = event.features?.[0]?.properties?.shipId
+      if (shipId != null) arrivalsRouteClickRef.current?.(shipId)
+    }
+    const handleEnter = () => {
+      if (isPathToPortV7 && arrivalsOverlayOn)
+        m.getCanvas().style.cursor = 'pointer'
+    }
+    const handleLeave = () => {
+      m.getCanvas().style.cursor = ''
+    }
+    layers.forEach((id) => {
+      m.on('click', id, handleClick)
+      m.on('mouseenter', id, handleEnter)
+      m.on('mouseleave', id, handleLeave)
+    })
+    return () => {
+      layers.forEach((id) => {
+        m.off('click', id, handleClick)
+        m.off('mouseenter', id, handleEnter)
+        m.off('mouseleave', id, handleLeave)
+      })
+    }
+  }, [mapReady, isPathToPortV7, arrivalsOverlayOn])
   // STS focus mode: dim the whole map (heavy dark overlay) so only the connected
   // event stands out. On by default when an event exposes connectors; the map
   // toggle turns both the overlay and the connector lines off.
@@ -2183,8 +2298,13 @@ const Map = forwardRef(function Map(
           event.preventDefault()
           event.stopPropagation()
 
-          // Already active — do nothing, same as ship/detection behavior
-          if (el.dataset.selected === 'true') return
+          // Re-clicking the currently active port is a no-op; any other port
+          // always opens. Gate on the real active tab (via ref) rather than the
+          // DOM `selected` flag: that flag can go stale 'true' after a port is
+          // opened then closed, which then wrongly blocks the port from
+          // reopening. Ship/detection markers have no such guard, which is why
+          // only ports intermittently failed to open.
+          if (activeShipTabRef.current === port.id) return
 
           // Deselect all other port markers
           Object.values(portMarkersRef.current).forEach((m) => {
@@ -2932,13 +3052,41 @@ const Map = forwardRef(function Map(
           id: 'vessel-route-line',
           type: 'line',
           source: 'vessel-route',
-          filter: ['==', ['geometry-type'], 'LineString'],
+          // Dashed white remainder: projected position → port (also any legacy
+          // unsegmented line).
+          filter: [
+            'all',
+            ['==', ['geometry-type'], 'LineString'],
+            ['!=', ['get', 'segment'], 'solid'],
+          ],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
-            'line-color': '#0094FF',
+            'line-color': '#006CD7',
             'line-width': 2.5,
             'line-opacity': 0.9,
-            'line-dasharray': [1.5, 1.5],
+            'line-dasharray': [1, 1.5],
+          },
+        },
+        routeBeforeId
+      )
+    }
+    if (!m.getLayer('vessel-route-line-solid')) {
+      m.addLayer(
+        {
+          id: 'vessel-route-line-solid',
+          type: 'line',
+          source: 'vessel-route',
+          // Solid primary-blue segment: current position → projected position.
+          filter: [
+            'all',
+            ['==', ['geometry-type'], 'LineString'],
+            ['==', ['get', 'segment'], 'solid'],
+          ],
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#006CD7',
+            'line-width': 3,
+            'line-opacity': 1,
           },
         },
         routeBeforeId
@@ -3007,6 +3155,9 @@ const Map = forwardRef(function Map(
       if (m.getLayer('vessel-route-line')) {
         m.moveLayer('vessel-route-line', routeBeforeId)
       }
+      if (m.getLayer('vessel-route-line-solid')) {
+        m.moveLayer('vessel-route-line-solid', routeBeforeId)
+      }
       if (m.getLayer('vessel-route-endpoint')) {
         m.moveLayer('vessel-route-endpoint', routeBeforeId)
       }
@@ -3023,6 +3174,7 @@ const Map = forwardRef(function Map(
       (pathToPortVersion === 'v6' && arrivalsOverlayOn)
     ) {
       source.setData(EMPTY_FEATURE_COLLECTION)
+      clearProjectedDotMarkers(inlineProjectedDotMarkersRef)
       lastFitRouteKeyRef.current = null
       return
     }
@@ -3081,54 +3233,75 @@ const Map = forwardRef(function Map(
         { lng: portCoord[0], lat: portCoord[1] }
       )
 
-      const routeFeatures = [
-        {
+      // Projected-position marker: where the vessel would be after the forecast
+      // horizon at the selected speed. Clamped to the destination port.
+      const projectionSpeed =
+        pathToPortVersion === 'v6'
+          ? (pathToPortSpeedsByShip[routeDesc.shipId] ??
+            resolveShipSpeedKn(shipsById[routeDesc.shipId]))
+          : pathToPortSpeed
+      const totalNm = haversineNm(
+        { lng: vesselCoord[0], lat: vesselCoord[1] },
+        { lng: portCoord[0], lat: portCoord[1] }
+      )
+      const projectionHours =
+        pathToPortVersion === 'v6' && Number.isFinite(totalNm) && totalNm > 0
+          ? Math.min(24, (totalNm / 50) * 0.85)
+          : projectedHorizonHours(totalNm)
+      const horizonNm = projectionSpeed * projectionHours
+      const projectedNm = Math.min(horizonNm, totalNm ?? horizonNm)
+      const projectedCoord = pointAlongPath(path, projectedNm)
+
+      const routeFeatures = []
+      // Split the route at the projected position: a solid primary-blue segment
+      // for the distance covered in the horizon (current → projected), then a
+      // dashed white remainder (projected → port).
+      if (projectedCoord) {
+        routeFeatures.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: greatCirclePath(
+              { lng: vesselCoord[0], lat: vesselCoord[1] },
+              { lng: projectedCoord[0], lat: projectedCoord[1] }
+            ),
+          },
+          properties: { segment: 'solid' },
+        })
+        routeFeatures.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: greatCirclePath(
+              { lng: projectedCoord[0], lat: projectedCoord[1] },
+              { lng: portCoord[0], lat: portCoord[1] }
+            ),
+          },
+          properties: { segment: 'dashed' },
+        })
+      } else {
+        routeFeatures.push({
           type: 'Feature',
           geometry: { type: 'LineString', coordinates: path },
-          properties: {},
-        },
-        {
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: vesselCoord },
-          properties: { role: 'vessel' },
-        },
-        // No 'port' endpoint dot: the destination is represented by the port's
-        // own anchor icon (a DOM marker that sits above the route line), so we
-        // don't draw a competing circle over it.
-      ]
-
-      // Projected-position marker: where the vessel would be after the
-      // forecast horizon at the selected speed. Clamped to the destination port.
-      {
-        const projectionSpeed =
-          pathToPortVersion === 'v6'
-            ? (pathToPortSpeedsByShip[routeDesc.shipId] ??
-              resolveShipSpeedKn(shipsById[routeDesc.shipId]))
-            : pathToPortSpeed
-        const totalNm = haversineNm(
-          { lng: vesselCoord[0], lat: vesselCoord[1] },
-          { lng: portCoord[0], lat: portCoord[1] }
-        )
-        const projectionHours =
-          pathToPortVersion === 'v6' && Number.isFinite(totalNm) && totalNm > 0
-            ? Math.min(24, (totalNm / 50) * 0.85)
-            : projectedHorizonHours(totalNm)
-        const horizonNm = projectionSpeed * projectionHours
-        const projectedNm = Math.min(horizonNm, totalNm ?? horizonNm)
-        const projectedCoord = pointAlongPath(path, projectedNm)
-        if (projectedCoord) {
-          routeFeatures.push({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: projectedCoord },
-            properties: {
-              role: 'projected',
-              label: `${projectionSpeed} kn`,
-            },
-          })
-        }
+          properties: { segment: 'dashed' },
+        })
       }
-
-      return { features: routeFeatures, vesselCoord, portCoord }
+      routeFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: vesselCoord },
+        properties: { role: 'vessel' },
+      })
+      // No 'port' endpoint dot: the destination is represented by the port's
+      // own anchor icon (a DOM marker that sits above the route line), so we
+      // don't draw a competing circle over it. The projected dot + label are
+      // rendered as HTML markers (below) so they layer above detection markers.
+      return {
+        features: routeFeatures,
+        vesselCoord,
+        portCoord,
+        projectedCoord: projectedCoord || null,
+        projectedLabel: projectedCoord ? `${projectionSpeed} kn` : null,
+      }
     }
 
     // v3/v6 draw one line per expanded Expected Arrival (multiple at once); the
@@ -3148,12 +3321,24 @@ const Map = forwardRef(function Map(
 
     if (built.length === 0) {
       source.setData(EMPTY_FEATURE_COLLECTION)
+      clearProjectedDotMarkers(inlineProjectedDotMarkersRef)
       lastFitRouteKeyRef.current = null
       return
     }
 
     const features = built.flatMap((b) => b.features)
     source.setData({ type: 'FeatureCollection', features })
+    renderProjectedDotMarkers(
+      m,
+      built
+        .filter((b) => b.projectedCoord)
+        .map((b) => ({
+          coord: b.projectedCoord,
+          label: b.projectedLabel,
+          shipId: b.desc.shipId,
+        })),
+      inlineProjectedDotMarkersRef
+    )
 
     // Frame all endpoints once per unique set of routes so the paths are
     // visible without re-framing on every unrelated re-render.
@@ -3221,13 +3406,43 @@ const Map = forwardRef(function Map(
           id: 'arrivals-routes-line',
           type: 'line',
           source: 'arrivals-routes',
-          filter: ['==', ['geometry-type'], 'LineString'],
+          // Dashed white remainder: projected position → port (also any legacy
+          // unsegmented line).
+          filter: [
+            'all',
+            ['==', ['geometry-type'], 'LineString'],
+            ['!=', ['get', 'segment'], 'solid'],
+          ],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
-            'line-color': '#0094FF',
+            'line-color': '#006CD7',
             'line-width': 2.5,
-            'line-opacity': 0.9,
-            'line-dasharray': [1.5, 1.5],
+            // Dim non-focused routes when the analyst has focused (expanded) one
+            // or more arrivals, so the focused route reads as active.
+            'line-opacity': ['case', ['get', 'dim'], 0.12, 0.9],
+            'line-dasharray': [1, 1.5],
+          },
+        },
+        arrivalsBeforeId
+      )
+    }
+    if (!m.getLayer('arrivals-routes-line-solid')) {
+      m.addLayer(
+        {
+          id: 'arrivals-routes-line-solid',
+          type: 'line',
+          source: 'arrivals-routes',
+          // Solid primary-blue segment: current position → projected position.
+          filter: [
+            'all',
+            ['==', ['geometry-type'], 'LineString'],
+            ['==', ['get', 'segment'], 'solid'],
+          ],
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#006CD7',
+            'line-width': 3,
+            'line-opacity': ['case', ['get', 'dim'], 0.15, 1],
           },
         },
         arrivalsBeforeId
@@ -3248,12 +3463,14 @@ const Map = forwardRef(function Map(
               4,
             ],
             'circle-color': '#0094FF',
+            'circle-opacity': ['case', ['get', 'dim'], 0.2, 1],
             'circle-stroke-color': [
               'case',
               ['==', ['get', 'role'], 'projected'],
               '#FFFFFF',
               '#0A0E19',
             ],
+            'circle-stroke-opacity': ['case', ['get', 'dim'], 0.2, 1],
             'circle-stroke-width': [
               'case',
               ['==', ['get', 'role'], 'projected'],
@@ -3269,17 +3486,49 @@ const Map = forwardRef(function Map(
     if (arrivalsBeforeId) {
       if (m.getLayer('arrivals-routes-line'))
         m.moveLayer('arrivals-routes-line', arrivalsBeforeId)
+      if (m.getLayer('arrivals-routes-line-solid'))
+        m.moveLayer('arrivals-routes-line-solid', arrivalsBeforeId)
       if (m.getLayer('arrivals-routes-endpoint'))
         m.moveLayer('arrivals-routes-endpoint', arrivalsBeforeId)
     }
-    // Keep v4 routes the same blue as the other Path to Port versions even if the
-    // layers were created in a previous session with a different color.
+    // Two-tone routes: solid primary-blue up to the projected position, dashed
+    // white for the remainder. Re-assert in case layers were created in a
+    // previous session with the old single-color styling.
     if (m.getLayer('arrivals-routes-line')) {
-      m.setPaintProperty('arrivals-routes-line', 'line-color', '#0094FF')
+      m.setPaintProperty('arrivals-routes-line', 'line-color', '#006CD7')
       m.setPaintProperty('arrivals-routes-line', 'line-width', 2.5)
+      m.setPaintProperty('arrivals-routes-line', 'line-dasharray', [1, 1.5])
+      m.setPaintProperty('arrivals-routes-line', 'line-opacity', [
+        'case',
+        ['get', 'dim'],
+        0.12,
+        0.9,
+      ])
+    }
+    if (m.getLayer('arrivals-routes-line-solid')) {
+      m.setPaintProperty('arrivals-routes-line-solid', 'line-color', '#006CD7')
+      m.setPaintProperty('arrivals-routes-line-solid', 'line-width', 3)
+      m.setPaintProperty('arrivals-routes-line-solid', 'line-opacity', [
+        'case',
+        ['get', 'dim'],
+        0.15,
+        1,
+      ])
     }
     if (m.getLayer('arrivals-routes-endpoint')) {
       m.setPaintProperty('arrivals-routes-endpoint', 'circle-color', '#0094FF')
+      m.setPaintProperty('arrivals-routes-endpoint', 'circle-opacity', [
+        'case',
+        ['get', 'dim'],
+        0.2,
+        1,
+      ])
+      m.setPaintProperty('arrivals-routes-endpoint', 'circle-stroke-opacity', [
+        'case',
+        ['get', 'dim'],
+        0.2,
+        1,
+      ])
     }
 
     const source = m.getSource('arrivals-routes')
@@ -3347,6 +3596,7 @@ const Map = forwardRef(function Map(
       source.setData(EMPTY_FEATURE_COLLECTION)
       clearArrivalCards()
       clearArrowMarkers()
+      clearProjectedDotMarkers(projectedDotMarkersRef)
       resetElevatedDetections()
       lastFitArrivalsKeyRef.current = null
       return
@@ -3383,6 +3633,64 @@ const Map = forwardRef(function Map(
         const tb = b.etaDate ? b.etaDate.getTime() : Infinity
         return ta - tb
       })
+    // v7-only: apply the exploratory facet filters to the ranked list before
+    // the density cap, so the slider still limits how many of the *matching*
+    // arrivals are drawn.
+    if (isPathToPortV7) {
+      const {
+        shipTypes,
+        etaWithinHours,
+        maxDistanceNm,
+        flags,
+        statuses,
+        terminals,
+        speedBand,
+        dataFlags,
+      } = arrivalsFilters
+      if (shipTypes.length > 0) {
+        arrivals = arrivals.filter((row) => shipTypes.includes(row.type))
+      }
+      if (flags.length > 0) {
+        arrivals = arrivals.filter((row) => flags.includes(row.flag))
+      }
+      if (etaWithinHours) {
+        const cutoff = Date.now() + etaWithinHours * 3600000
+        arrivals = arrivals.filter(
+          (row) => row.etaDate && row.etaDate.getTime() <= cutoff
+        )
+      }
+      if (maxDistanceNm) {
+        arrivals = arrivals.filter(
+          (row) =>
+            Number.isFinite(row.distanceNm) && row.distanceNm <= maxDistanceNm
+        )
+      }
+      if (speedBand) {
+        arrivals = arrivals.filter((row) => {
+          const s = Number(row.speed) || 0
+          if (speedBand === 'anchored') return s < 1
+          if (speedBand === 'slow') return s >= 1 && s <= 8
+          if (speedBand === 'cruising') return s > 8
+          return true
+        })
+      }
+      if (statuses.length > 0 || terminals.length > 0 || dataFlags.length > 0) {
+        arrivals = arrivals.filter((row) => {
+          const attrs = syntheticArrivalAttrs(row)
+          if (statuses.length > 0 && !statuses.includes(attrs.status)) {
+            return false
+          }
+          if (terminals.length > 0 && !terminals.includes(attrs.terminal)) {
+            return false
+          }
+          if (dataFlags.includes('ais-gap') && !attrs.aisGap) return false
+          if (dataFlags.includes('route-deviation') && !attrs.routeDeviation) {
+            return false
+          }
+          return true
+        })
+      }
+    }
     const cap = isV5 || isV6
       ? Math.max(1, Number(pathToPortTopN) || 1)
       : 6
@@ -3392,6 +3700,7 @@ const Map = forwardRef(function Map(
       source.setData(EMPTY_FEATURE_COLLECTION)
       clearArrivalCards()
       clearArrowMarkers()
+      clearProjectedDotMarkers(projectedDotMarkersRef)
       resetElevatedDetections()
       lastFitArrivalsKeyRef.current = null
       return
@@ -3421,52 +3730,75 @@ const Map = forwardRef(function Map(
     }
 
     const features = []
+    const projectedItems = []
+    // When one or more arrivals are focused (expanded rows), dim the rest.
+    const focusedSet = new Set(arrivalsFocusedShipIds || [])
     arrivals.forEach((row) => {
+      const dim = focusedSet.size > 0 && !focusedSet.has(row.shipId)
       const coord = [row.position.lng, row.position.lat]
       const routePath = greatCirclePath(
         { lng: coord[0], lat: coord[1] },
         { lng: portCoord[0], lat: portCoord[1] }
       )
-      features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: routePath,
-        },
-        properties: {},
-      })
+      const projectionSpeed = isV6
+        ? (pathToPortSpeedsByShip[row.shipId] ??
+          resolveShipSpeedKn(shipsById[row.shipId]))
+        : resolveShipSpeedKn(shipsById[row.shipId])
+      const projectionHours = isV6
+        ? Number.isFinite(row.distanceNm) && row.distanceNm > 0
+          ? Math.min(24, (row.distanceNm / 50) * 0.85)
+          : 24
+        : projectedHorizonHours(row.distanceNm)
+      const projectedDistance = Number.isFinite(row.distanceNm)
+        ? Math.min(projectionSpeed * projectionHours, row.distanceNm)
+        : projectionSpeed * projectionHours
+      const projectedCoord = pointAlongPath(routePath, projectedDistance)
+
+      // Split the route at the projected position: solid primary-blue for the
+      // covered distance (current → projected), dashed white for the remainder.
+      if (projectedCoord) {
+        features.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: greatCirclePath(
+              { lng: coord[0], lat: coord[1] },
+              { lng: projectedCoord[0], lat: projectedCoord[1] }
+            ),
+          },
+          properties: { shipId: row.shipId, segment: 'solid', dim },
+        })
+        features.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: greatCirclePath(
+              { lng: projectedCoord[0], lat: projectedCoord[1] },
+              { lng: portCoord[0], lat: portCoord[1] }
+            ),
+          },
+          properties: { shipId: row.shipId, segment: 'dashed', dim },
+        })
+      } else {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: routePath },
+          properties: { shipId: row.shipId, segment: 'dashed', dim },
+        })
+      }
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: coord },
-        properties: {},
+        properties: { shipId: row.shipId, dim },
       })
-      {
-        const projectionSpeed = isV6
-          ? (pathToPortSpeedsByShip[row.shipId] ??
-            resolveShipSpeedKn(shipsById[row.shipId]))
-          : resolveShipSpeedKn(shipsById[row.shipId])
-        const projectionHours = isV6
-          ? Number.isFinite(row.distanceNm) && row.distanceNm > 0
-            ? Math.min(24, (row.distanceNm / 50) * 0.85)
-            : 24
-          : projectedHorizonHours(row.distanceNm)
-        const projectedDistance = Number.isFinite(row.distanceNm)
-          ? Math.min(projectionSpeed * projectionHours, row.distanceNm)
-          : projectionSpeed * projectionHours
-        const projectedCoord = pointAlongPath(
-          routePath,
-          projectedDistance
-        )
-        if (projectedCoord) {
-          features.push({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: projectedCoord },
-            properties: { role: 'projected' },
-          })
-        }
+      if (projectedCoord) {
+        // Projected dot is drawn as an HTML marker (below) so it layers above
+        // detection/STS markers instead of being buried under them.
+        projectedItems.push({ coord: projectedCoord, shipId: row.shipId, dim })
       }
     })
     source.setData({ type: 'FeatureCollection', features })
+    renderProjectedDotMarkers(m, projectedItems, projectedDotMarkersRef)
 
     // No standalone card markers: the callout is a Mapbox Popup shown on hover
     // of the vessel's marker, so its built-in tip anchors to the marker.
@@ -3530,8 +3862,12 @@ const Map = forwardRef(function Map(
     })
 
     // Frame all vessels + the port once per port so the fan of routes reads well.
+    // v7 lets the user disable this auto pan/zoom (some analysts found the map
+    // re-framing on every slider step disorienting). When off we skip the fit
+    // entirely and leave the viewport wherever the user put it.
+    const allowAutoFit = !isPathToPortV7 || arrivalsAutoZoom
     const arrivalsKey = `${activeTab.id}|${arrivals.map((r) => r.shipId).join(',')}`
-    if (lastFitArrivalsKeyRef.current !== arrivalsKey) {
+    if (allowAutoFit && lastFitArrivalsKeyRef.current !== arrivalsKey) {
       lastFitArrivalsKeyRef.current = arrivalsKey
       const bounds = new mapboxgl.LngLatBounds(portCoord, portCoord)
       arrivals.forEach((row) =>
@@ -3556,6 +3892,10 @@ const Map = forwardRef(function Map(
     runtimeDetections,
     showPorts,
     leftPanelInset,
+    isPathToPortV7,
+    arrivalsAutoZoom,
+    arrivalsFilters,
+    arrivalsFocusedShipIds,
   ])
 
   // Keep visible saved shapes + the in-progress pending shape rendered, with a
@@ -5872,6 +6212,7 @@ const Map = forwardRef(function Map(
           </Box>
         )}
       {(pathToPortVersion === 'v5' || pathToPortVersion === 'v6') &&
+        !isPathToPortV7 &&
         arrivalsOverlayOn &&
         showPorts &&
         arrivalsTotal > 0 &&

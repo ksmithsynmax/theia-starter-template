@@ -64,6 +64,35 @@ export function ShipProvider({ children }) {
   // Path to Port v5: how many inbound vessels/paths to render at once (top N by
   // soonest ETA). Driven by the density slider on the map.
   const [pathToPortTopN, setPathToPortTopN] = useState(6)
+  // Path to Port v7: advanced filters applied to the arrivals overlay. Lifted to
+  // context so the "Advanced filters" modal (side panel) and the map overlay
+  // share one source of truth. Empty arrays / null mean "no filter on that
+  // facet". `arrivalsAutoZoom` gates the map re-framing as the set changes.
+  const [arrivalsFilters, setArrivalsFilters] = useState({
+    shipTypes: [],
+    etaWithinHours: null,
+    maxDistanceNm: null,
+    flags: [],
+    statuses: [],
+    terminals: [],
+    speedBand: null,
+    dataFlags: [],
+  })
+  const [arrivalsAutoZoom, setArrivalsAutoZoom] = useState(true)
+  // Path to Port v7: when the "Path to Port" overlay is active and the user
+  // clicks a vessel's detection/route on the map, we ask the Expected Arrivals
+  // table (Myships) to expand that vessel's row (with its speed slider) instead
+  // of opening the ship-detail panel. A nonce lets the same shipId re-fire.
+  // Shape: { shipId, nonce } | null.
+  const [arrivalsExpandSignal, setArrivalsExpandSignal] = useState(null)
+  const requestExpandArrival = useCallback((shipId) => {
+    if (!shipId) return
+    setArrivalsExpandSignal({ shipId, nonce: Date.now() })
+  }, [])
+  // Path to Port v7: shipIds of the arrivals the analyst has focused (expanded
+  // rows). When non-empty, the map highlights these routes and dims the rest so
+  // the clicked vessel reads as the "active" one while the others stay visible.
+  const [arrivalsFocusedShipIds, setArrivalsFocusedShipIds] = useState([])
 
   // Shape drawing / bookmarked shapes state
   // shapeDrawMode: null | 'polygon' (active drawing tool on the map)
@@ -730,6 +759,14 @@ export function ShipProvider({ children }) {
         setArrivalsOverlayOn,
         pathToPortTopN,
         setPathToPortTopN,
+        arrivalsFilters,
+        setArrivalsFilters,
+        arrivalsAutoZoom,
+        setArrivalsAutoZoom,
+        arrivalsExpandSignal,
+        requestExpandArrival,
+        arrivalsFocusedShipIds,
+        setArrivalsFocusedShipIds,
         startPathToPort,
         clearPathToPort,
         shapeDrawMode,

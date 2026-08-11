@@ -77,6 +77,12 @@ function Layout() {
   const [portsContext, setPortsContext] = useState(false)
   const [forceHideSelectedPortContext, setForceHideSelectedPortContext] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
+  const DETAIL_PANEL_MIN_WIDTH = 500
+  const DETAIL_PANEL_MAX_WIDTH = 900
+  const [panelWidth, setPanelWidth] = useState(DETAIL_PANEL_MIN_WIDTH)
+  const [isPanelResizing, setIsPanelResizing] = useState(false)
+  const panelResizeStartXRef = useRef(0)
+  const panelResizeStartWidthRef = useRef(DETAIL_PANEL_MIN_WIDTH)
   const [secondaryNavOpen, setSecondaryNavOpen] = useState(true)
   const [shipFiltersOpen, setShipFiltersOpen] = useState(false)
   const [mapLayersOpen, setMapLayersOpen] = useState(false)
@@ -96,6 +102,7 @@ function Layout() {
   const {
     selectDetection,
     shipTabs,
+    activeShipTab,
     enabledDetectionTypes,
     mapDate,
     runtimeDetections,
@@ -108,6 +115,8 @@ function Layout() {
     stsPeekDetectionId,
     setStsPeekDetectionId,
     setStsSelectSignal,
+    arrivalsOverlayOn,
+    requestExpandArrival,
   } =
     useShipContext()
 
@@ -150,32 +159,28 @@ function Layout() {
     if (shipTabs.length === 0) setPanelOpen(false)
   }, [shipTabs])
 
-  // While browsing For You, drilling into a ship/port moves to /myships. Once
-  // the detail closes (no tabs left), return to the canonical /for-you route so
-  // we never sit on /myships while showing the For You panel.
+  // Return to the canonical list route (For You / Ports) once a detail is fully
+  // closed. This is driven strictly off the tabs transitioning 1+ -> 0 (a real
+  // close) rather than a passive "no tabs + panel closed" condition. The old
+  // condition-based version raced the OPEN transition: while navigating from a
+  // list route into /myships, state briefly looked like "0 tabs, panel closed,
+  // on /myships", so this effect would fire and bounce the user back before the
+  // just-opened tab registered — the intermittent "clicking a ship/port doesn't
+  // open the panel" bug. Keying off the close transition means an open (0 -> 1)
+  // can never trigger a redirect.
+  const prevShipTabsLenRef = useRef(shipTabs.length)
   useEffect(() => {
-    if (
-      forYouContext &&
-      shipTabs.length === 0 &&
-      !panelOpen &&
-      location.pathname === '/myships'
-    ) {
+    const prevLen = prevShipTabsLenRef.current
+    prevShipTabsLenRef.current = shipTabs.length
+    // Only act on a genuine close (had tabs, now none).
+    if (shipTabs.length !== 0 || prevLen === 0) return
+    if (location.pathname !== '/myships') return
+    if (forYouContext) {
       navigate('/for-you', { replace: true })
-    }
-  }, [forYouContext, shipTabs, panelOpen, location.pathname, navigate])
-
-  // Same idea for the Ports context: once the port detail closes, return to the
-  // canonical /ports route so we never sit on /myships showing the Ports nav.
-  useEffect(() => {
-    if (
-      portsContext &&
-      shipTabs.length === 0 &&
-      !panelOpen &&
-      location.pathname === '/myships'
-    ) {
+    } else if (portsContext) {
       navigate('/ports', { replace: true })
     }
-  }, [portsContext, shipTabs, panelOpen, location.pathname, navigate])
+  }, [shipTabs, forYouContext, portsContext, location.pathname, navigate])
 
   const handleDetectionClick = useCallback(
     (detection) => {
@@ -222,6 +227,21 @@ function Layout() {
         setMapLayersOpen(false)
         return
       }
+      // Path to Port v7: when the all-routes overlay is active and a port panel
+      // is open, clicking a vessel on the map should drill into that vessel's
+      // Expected Arrivals row (expanding its speed slider) rather than switching
+      // the panel over to that ship's detail view.
+      const activeTab = shipTabs.find((t) => t.id === activeShipTab)
+      if (
+        pathToPortVersion === 'v7' &&
+        arrivalsOverlayOn &&
+        activeTab?.type === 'port' &&
+        detection?.shipId
+      ) {
+        requestExpandArrival(detection.shipId)
+        setPanelOpen(true)
+        return
+      }
       selectDetection(detection, {
         source: 'map',
         allowTabSwitch: true,
@@ -241,6 +261,11 @@ function Layout() {
       setPreviewDetectionId,
       setStsPeekDetectionId,
       setStsSelectSignal,
+      pathToPortVersion,
+      arrivalsOverlayOn,
+      activeShipTab,
+      shipTabs,
+      requestExpandArrival,
     ]
   )
 
@@ -518,13 +543,36 @@ function Layout() {
   const detailPanelInset = isListOnlyView
     ? 0
     : panelOpen
-      ? 500
+      ? panelWidth
       : shipTabs.length > 0
         ? 32
         : 0
   const leftPanelInset = isTimelineView
     ? 50
     : 50 + secondaryNavInset + detailPanelInset
+
+  useEffect(() => {
+    if (!isPanelResizing) return
+    const handleMouseMove = (event) => {
+      const delta = event.clientX - panelResizeStartXRef.current
+      setPanelWidth(
+        Math.max(
+          DETAIL_PANEL_MIN_WIDTH,
+          Math.min(
+            DETAIL_PANEL_MAX_WIDTH,
+            panelResizeStartWidthRef.current + delta
+          )
+        )
+      )
+    }
+    const handleMouseUp = () => setIsPanelResizing(false)
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isPanelResizing])
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -801,7 +849,19 @@ function Layout() {
                 onPortsLayerVisibleChange={setPortsLayerVisible}
               />
 
-              <Box className={`slide-panel ${slidePanelClass}`}>
+              <Box
+                className={`slide-panel ${slidePanelClass}`}
+                style={
+                  panelOpen
+                    ? {
+                        width: panelWidth,
+                        transition: isPanelResizing
+                          ? 'none'
+                          : 'width 0.3s ease',
+                      }
+                    : undefined
+                }
+              >
                   {showPanelExpand && (
                     <Box
                       onClick={() => setPanelOpen(true)}
@@ -822,10 +882,43 @@ function Layout() {
                     </Box>
                   )}
 
+                  {panelOpen && (
+                    <Box
+                      onMouseDown={(event) => {
+                        event.preventDefault()
+                        panelResizeStartXRef.current = event.clientX
+                        panelResizeStartWidthRef.current = panelWidth
+                        setIsPanelResizing(true)
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        width: 8,
+                        height: '100%',
+                        cursor: 'col-resize',
+                        zIndex: 20,
+                        pointerEvents: 'auto',
+                        background: isPanelResizing
+                          ? 'rgba(0,108,215,0.35)'
+                          : 'transparent',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isPanelResizing)
+                          e.currentTarget.style.background =
+                            'rgba(76,80,112,0.5)'
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isPanelResizing)
+                          e.currentTarget.style.background = 'transparent'
+                      }}
+                    />
+                  )}
+
                   <Box
                     className="slide-panel-content"
                     style={{
-                      minWidth: 500,
+                      minWidth: panelWidth,
                       opacity: panelOpen ? 1 : 0,
                       transition: 'opacity 0.2s ease',
                     }}

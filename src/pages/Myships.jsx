@@ -20,6 +20,8 @@ import {
   Button,
   Accordion,
   Select,
+  MultiSelect,
+  Slider,
   Switch,
 } from '@mantine/core'
 import KeyValuePair from '../components/KeyValuePair'
@@ -64,6 +66,16 @@ import FuturePathPanel from '../components/FuturePathPanel'
 import EstimatedLocationPanel from '../components/EstimatedLocationPanel'
 import SanctionDetailsVersionB from '../components/SanctionDetailsVersionB'
 import { useShipContext } from '../context/ShipContext'
+import {
+  DEFAULT_ARRIVALS_FILTERS,
+  ARRIVAL_STATUS_OPTIONS,
+  ARRIVAL_TERMINAL_OPTIONS,
+  ARRIVAL_SPEED_BANDS,
+  ARRIVAL_ETA_OPTIONS,
+  ARRIVAL_DISTANCE_OPTIONS,
+  ARRIVAL_DATA_FLAG_OPTIONS,
+  countActiveArrivalsFilters,
+} from '../utils/arrivalsFilters'
 import { ships } from '../data/mockData'
 import { buildExpectedArrivals } from '../data/mockExpectedArrivals'
 import { resolvePortCoords } from '../data/portCoords'
@@ -403,6 +415,14 @@ function Myships() {
     setPathToPortSpeedsByShip,
     arrivalsOverlayOn,
     setArrivalsOverlayOn,
+    pathToPortTopN,
+    setPathToPortTopN,
+    arrivalsFilters,
+    setArrivalsFilters,
+    arrivalsAutoZoom,
+    setArrivalsAutoZoom,
+    arrivalsExpandSignal,
+    setArrivalsFocusedShipIds,
     clearPathToPort,
     stsConnectorData,
     setStsConnectorData,
@@ -594,10 +614,59 @@ function Myships() {
     portShapeControlEnabled = true,
     forYouPrototype = 'proto1',
     stsVersion: stsVersionRaw = 'v1',
-    pathToPortVersion = 'v1',
-    shipDetailsVersion = 'v1',
+    pathToPortVersion: pathToPortVersionRaw = 'v1',
+    shipDetailsVersion: shipDetailsVersionRaw = 'v1',
     onStsNetworkPanelChange,
   } = useOutletContext() || {}
+
+  // Path to Port v7 launches as an exact copy of v6, so aliasing it to v6 here
+  // makes every existing v6 branch in this file apply verbatim. When we start
+  // iterating on v7, replace this alias with explicit `=== 'v7'` branches.
+  const pathToPortVersion =
+    pathToPortVersionRaw === 'v7' ? 'v6' : pathToPortVersionRaw
+  const isPathToPortV7 = pathToPortVersionRaw === 'v7'
+  // v7: the arrivals density + advanced filters live in a draggable floating
+  // panel (not a modal) launched from the Expected Arrivals header, so the map
+  // stays visible/interactive while the analyst tunes the filters.
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
+  const [advFiltersPos, setAdvFiltersPos] = useState(() => ({
+    x:
+      typeof window === 'undefined'
+        ? 560
+        : Math.max(24, window.innerWidth - 600),
+    y: 96,
+  }))
+  const [advFiltersDrag, setAdvFiltersDrag] = useState(null)
+  const [advFiltersMinimized, setAdvFiltersMinimized] = useState(false)
+  const arrivalsSelectStyles = {
+    label: { color: '#C4C9D6', fontSize: 12, marginBottom: 4 },
+    input: {
+      background: '#0C0D14',
+      borderColor: '#393C56',
+      color: '#fff',
+    },
+    dropdown: { background: '#181926', borderColor: '#393C56' },
+    option: { color: '#fff' },
+    pill: { background: '#24263C', color: '#fff' },
+  }
+  // Mantine v8's `styles` prop doesn't support nested `&:hover` / `&[data-*]`
+  // selectors, so option hover/selected states are styled via a scoped class
+  // in App.css (.arrivals-filter-option) instead.
+  const arrivalsSelectClassNames = { option: 'arrivals-filter-option' }
+  // The advanced-filters panel sits at z-index 1200; Mantine dropdowns portal
+  // to <body> with a much lower default z-index, so without this they open
+  // *behind* the panel and appear unclickable.
+  const arrivalsComboboxProps = { zIndex: 1400 }
+
+  // Ship Details Panel v12 launches as v7 under the hood, so every existing v7
+  // branch in this file applies verbatim. Aliasing here keeps the copy from
+  // drifting from v7; iterate via explicit `isShipDetailsV12` branches.
+  const shipDetailsVersion =
+    shipDetailsVersionRaw === 'v12' ? 'v7' : shipDetailsVersionRaw
+  // v12 diverges from v7 in one way: the timeline-card Tools button pops the
+  // Selected Event Tools out into the draggable v4-style map panel instead of
+  // opening the v7 popover.
+  const isShipDetailsV12 = shipDetailsVersionRaw === 'v12'
 
   useEffect(() => {
     if (
@@ -639,6 +708,29 @@ function Myships() {
       document.removeEventListener('mouseup', handleMouseUp)
     }
   }, [eventToolsDragOffset])
+
+  useEffect(() => {
+    if (!advFiltersDrag) return
+    const handleMouseMove = (event) => {
+      setAdvFiltersPos({
+        x: Math.max(
+          12,
+          Math.min(event.clientX - advFiltersDrag.x, window.innerWidth - 320)
+        ),
+        y: Math.max(
+          12,
+          Math.min(event.clientY - advFiltersDrag.y, window.innerHeight - 80)
+        ),
+      })
+    }
+    const handleMouseUp = () => setAdvFiltersDrag(null)
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [advFiltersDrag])
 
   // Two overflow-design explorations sit on top of the v17 layout:
   //   v18 = "Cap at 5"   — treat >5 vessels as suspect; show 5 + an anomaly banner.
@@ -694,6 +786,20 @@ function Myships() {
     pathToPortVersion,
     pathToPortSpeedsByShip,
   ])
+  // v7 Advanced filters: distinct vessel types + flags among this port's inbound
+  // vessels, for the modal's Vessel type / Flag dropdowns.
+  const arrivalsFacetOptions = useMemo(() => {
+    const types = new Set()
+    const flags = new Set()
+    expectedArrivalsData.rows.forEach((row) => {
+      if (row.type && row.type !== 'No info') types.add(row.type)
+      if (row.flag && row.flag !== '-') flags.add(row.flag)
+    })
+    return {
+      types: Array.from(types).sort(),
+      flags: Array.from(flags).sort(),
+    }
+  }, [expectedArrivalsData.rows])
   const shipsInPortRows = useMemo(() => {
     const mockShips = [
       {
@@ -784,6 +890,54 @@ function Myships() {
   // v3 Path to Port: ids of Expected Arrivals rows whose inline card is open.
   // A Set so more than one card can be expanded at once.
   const [expandedArrivalIds, setExpandedArrivalIds] = useState(() => new Set())
+  // Path to Port v7: when the user clicks a vessel on the map while the
+  // all-routes overlay is active, Layout fires `arrivalsExpandSignal` so we can
+  // expand that vessel's Expected Arrivals row (with its speed slider) and
+  // scroll it into view — instead of switching to that ship's detail panel.
+  useEffect(() => {
+    if (!arrivalsExpandSignal?.shipId) return
+    const row = expectedArrivalsData.rows.find(
+      (r) => String(r.shipId) === String(arrivalsExpandSignal.shipId)
+    )
+    if (!row) return
+    // Toggle: clicking a vessel's route/detection on the map opens its row; a
+    // second click on the same route collapses it (and unfocuses it on the map).
+    let didOpen = false
+    setExpandedArrivalIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(row.id)) {
+        next.delete(row.id)
+      } else {
+        next.add(row.id)
+        didOpen = true
+      }
+      return next
+    })
+    if (didOpen) {
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-arrival-id="${row.id}"]`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    }
+  }, [arrivalsExpandSignal, expectedArrivalsData.rows])
+
+  // v7: mirror the expanded arrivals into the shared focus set so the map can
+  // highlight the focused routes and dim the rest. Empty = no dimming.
+  useEffect(() => {
+    if (!isPathToPortV7) {
+      setArrivalsFocusedShipIds([])
+      return
+    }
+    const ids = expectedArrivalsData.rows
+      .filter((r) => expandedArrivalIds.has(r.id))
+      .map((r) => r.shipId)
+    setArrivalsFocusedShipIds(ids)
+  }, [
+    isPathToPortV7,
+    expandedArrivalIds,
+    expectedArrivalsData.rows,
+    setArrivalsFocusedShipIds,
+  ])
   const [arrivalsIntroDismissed, setArrivalsIntroDismissed] = useState(false)
   // Distance / ETA for the currently-active Path to Port route (the vessel the
   // user drilled into from Expected Arrivals). Drives the v1 map panel and v2
@@ -5423,7 +5577,8 @@ function Myships() {
                   display:
                     (shipDetailsVersion === 'v4' ||
                       shipDetailsVersion === 'v5' ||
-                      shipDetailsVersion === 'v6') &&
+                      shipDetailsVersion === 'v6' ||
+                      isShipDetailsV12) &&
                     eventToolsPoppedOut
                       ? 'none'
                       : undefined,
@@ -6402,6 +6557,14 @@ function Myships() {
                         shipDetailsVersion === 'v9'
                       }
                       eventToolsContent={selectedEventToolsPopoverContent}
+                      onEventToolsButtonClick={
+                        isShipDetailsV12
+                          ? (nextOpen) => setEventToolsPoppedOut(nextOpen)
+                          : undefined
+                      }
+                      eventToolsButtonActive={
+                        isShipDetailsV12 && eventToolsPoppedOut
+                      }
                       eventToolsScrollCloseDelay={
                         shipDetailsVersion === 'v7' ||
                         shipDetailsVersion === 'v11'
@@ -6837,6 +7000,14 @@ function Myships() {
                                     eventToolsContent={
                                       selectedEventToolsPopoverContent
                                     }
+                                    onEventToolsButtonClick={
+                                      isShipDetailsV12
+                                        ? (nextOpen) => setEventToolsPoppedOut(nextOpen)
+                                        : undefined
+                                    }
+                                    eventToolsButtonActive={
+                                      isShipDetailsV12 && eventToolsPoppedOut
+                                    }
                                     eventToolsScrollCloseDelay={
                                       shipDetailsVersion === 'v7' ||
                                       shipDetailsVersion === 'v11'
@@ -7171,6 +7342,14 @@ function Myships() {
                                   eventToolsContent={
                                     selectedEventToolsPopoverContent
                                   }
+                                  onEventToolsButtonClick={
+                                    isShipDetailsV12
+                                      ? (nextOpen) => setEventToolsPoppedOut(nextOpen)
+                                      : undefined
+                                  }
+                                  eventToolsButtonActive={
+                                    isShipDetailsV12 && eventToolsPoppedOut
+                                  }
                                   eventToolsScrollCloseDelay={
                                     shipDetailsVersion === 'v7' ||
                                     shipDetailsVersion === 'v11'
@@ -7282,6 +7461,14 @@ function Myships() {
                                 }
                                 eventToolsContent={
                                   selectedEventToolsPopoverContent
+                                }
+                                onEventToolsButtonClick={
+                                  isShipDetailsV12
+                                    ? (nextOpen) => setEventToolsPoppedOut(nextOpen)
+                                    : undefined
+                                }
+                                eventToolsButtonActive={
+                                  isShipDetailsV12 && eventToolsPoppedOut
                                 }
                                 eventToolsScrollCloseDelay={
                                   shipDetailsVersion === 'v7' ||
@@ -9542,6 +9729,76 @@ function Myships() {
                     </Box>
                   )}
 
+                  {isPathToPortV7 && (
+                    <Box
+                      style={{
+                        margin: '16px 20px 0 20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#fff',
+                          fontSize: 14,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {expectedArrivalsData.rows.length} Expected arrivals
+                      </Text>
+                      <Box
+                        onClick={() => setAdvancedFiltersOpen(true)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          cursor: 'pointer',
+                          color: '#006CD7',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          userSelect: 'none',
+                        }}
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M3 7H14M14 7C14 8.65685 15.3431 10 17 10C18.6569 10 20 8.65685 20 7C20 5.34315 18.6569 4 17 4C15.3431 4 14 5.34315 14 7ZM10 17C10 18.6569 8.65685 20 7 20C5.34315 20 4 18.6569 4 17C4 15.3431 5.34315 14 7 14C8.65685 14 10 15.3431 10 17ZM10 17H21M3 17H4M20 7H21"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        Advanced filters
+                        {countActiveArrivalsFilters(arrivalsFilters) > 0 && (
+                          <Box
+                            style={{
+                              minWidth: 18,
+                              height: 18,
+                              padding: '0 5px',
+                              borderRadius: 9,
+                              background: '#006CD7',
+                              color: '#fff',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {countActiveArrivalsFilters(arrivalsFilters)}
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+
                   <Box
                     style={{
                       height: 36,
@@ -9677,13 +9934,26 @@ function Myships() {
                         })
                       : '—'
                     return (
-                      <Box key={row.id}>
+                      <Box key={row.id} data-arrival-id={row.id}>
                         <Box
                           onClick={() => {
                             // Every version stays on the port detail panel:
                             // clicking an arrival draws the route + frames the map
                             // without switching to the vessel tab.
                             if (usesInlineArrivals) {
+                              // v7: while the "Path to Port" all-routes overlay is
+                              // active, the overlay draws every route, so toggling
+                              // a row must ONLY open/close that row's readout —
+                              // it must not turn the overlay off or clear routes.
+                              if (isPathToPortV7 && arrivalsOverlayOn) {
+                                setExpandedArrivalIds((prev) => {
+                                  const next = new Set(prev)
+                                  if (next.has(row.id)) next.delete(row.id)
+                                  else next.add(row.id)
+                                  return next
+                                })
+                                return
+                              }
                               // Inline version toggles the in-row readout; more
                               // than one card can be open at once, and each open
                               // card draws its own route on the map.
@@ -10584,6 +10854,375 @@ function Myships() {
           )}
         </Box>
       )}
+      {isPathToPortV7 &&
+        advancedFiltersOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <Box
+            onMouseDown={(event) => event.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: advFiltersPos.y,
+              left: advFiltersPos.x,
+              width: 560,
+              maxWidth: 'calc(100vw - 24px)',
+              maxHeight: 'calc(100vh - 24px)',
+              zIndex: 1200,
+              background: '#181926',
+              border: '1px solid #393C56',
+              borderRadius: 8,
+              boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <Box
+              onMouseDown={(event) => {
+                if (event.button !== 0) return
+                setAdvFiltersDrag({
+                  x: event.clientX - advFiltersPos.x,
+                  y: event.clientY - advFiltersPos.y,
+                })
+              }}
+              style={{
+                height: 56,
+                padding: '0 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#24263C',
+                borderBottom: '1px solid #393C56',
+                cursor: advFiltersDrag ? 'grabbing' : 'grab',
+                flexShrink: 0,
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 600 }}>
+                Advanced filters
+              </Text>
+              <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Box
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={() => setAdvFiltersMinimized((prev) => !prev)}
+                  title={advFiltersMinimized ? 'Expand' : 'Minimize'}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 24,
+                    height: 24,
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {advFiltersMinimized ? (
+                    <ChevronDown
+                      style={{ width: 18, height: 18, color: '#fff' }}
+                    />
+                  ) : (
+                    <Minus style={{ width: 18, height: 18, color: '#fff' }} />
+                  )}
+                </Box>
+                <XClose
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={() => setAdvancedFiltersOpen(false)}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    color: '#fff',
+                    cursor: 'pointer',
+                  }}
+                />
+              </Box>
+            </Box>
+            <Box
+              style={{
+                padding: 20,
+                overflowY: 'auto',
+                display: advFiltersMinimized ? 'none' : 'block',
+              }}
+            >
+        {/* Density */}
+        <Box style={{ marginBottom: 18 }}>
+          <Box
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              marginBottom: 8,
+            }}
+          >
+            <Text style={{ color: '#C4C9D6', fontSize: 12 }}>
+              Show top arrivals by soonest ETA
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
+              {Math.min(
+                pathToPortTopN,
+                Math.max(1, expectedArrivalsData.rows.length)
+              )}{' '}
+              of {expectedArrivalsData.rows.length}
+            </Text>
+          </Box>
+          <Slider
+            min={1}
+            max={Math.max(1, expectedArrivalsData.rows.length)}
+            value={Math.min(
+              pathToPortTopN,
+              Math.max(1, expectedArrivalsData.rows.length)
+            )}
+            onChange={setPathToPortTopN}
+            label={null}
+            color="blue"
+            styles={{
+              track: { background: '#393C56' },
+              bar: { background: '#006CD7' },
+              thumb: { borderColor: '#006CD7', background: '#fff' },
+            }}
+          />
+        </Box>
+
+        {/* Auto zoom toggle */}
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 14px',
+            background: '#24263C',
+            border: '1px solid #393C56',
+            borderRadius: 4,
+            marginBottom: 18,
+          }}
+        >
+          <Box>
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>
+              Auto zoom to fit
+            </Text>
+            <Text style={{ color: '#888F9E', fontSize: 11, marginTop: 2 }}>
+              Re-frame the map when the results change
+            </Text>
+          </Box>
+          <Box
+            role="switch"
+            tabIndex={0}
+            aria-label="Auto zoom to fit"
+            aria-checked={arrivalsAutoZoom}
+            onClick={() => setArrivalsAutoZoom((prev) => !prev)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                setArrivalsAutoZoom((prev) => !prev)
+              }
+            }}
+            style={{
+              width: 36,
+              height: 20,
+              borderRadius: 10,
+              padding: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: arrivalsAutoZoom ? 'flex-end' : 'flex-start',
+              background: arrivalsAutoZoom ? '#006CD7' : '#393C56',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
+              flexShrink: 0,
+            }}
+          >
+            <Box
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: '50%',
+                background: '#FFFFFF',
+              }}
+            />
+          </Box>
+        </Box>
+
+        {/* Filter dropdowns */}
+        <Box
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 14,
+          }}
+        >
+          <Select
+            label="ETA within"
+            placeholder="Any"
+            clearable
+            data={ARRIVAL_ETA_OPTIONS.map((o) => ({
+              value: String(o.value),
+              label: o.label,
+            }))}
+            value={
+              arrivalsFilters.etaWithinHours != null
+                ? String(arrivalsFilters.etaWithinHours)
+                : null
+            }
+            onChange={(val) =>
+              setArrivalsFilters((f) => ({
+                ...f,
+                etaWithinHours: val == null ? null : Number(val),
+              }))
+            }
+            comboboxProps={arrivalsComboboxProps}
+            classNames={arrivalsSelectClassNames}
+            styles={arrivalsSelectStyles}
+          />
+          <Select
+            label="Distance from port"
+            placeholder="Any"
+            clearable
+            data={ARRIVAL_DISTANCE_OPTIONS.map((o) => ({
+              value: String(o.value),
+              label: o.label,
+            }))}
+            value={
+              arrivalsFilters.maxDistanceNm != null
+                ? String(arrivalsFilters.maxDistanceNm)
+                : null
+            }
+            onChange={(val) =>
+              setArrivalsFilters((f) => ({
+                ...f,
+                maxDistanceNm: val == null ? null : Number(val),
+              }))
+            }
+            comboboxProps={arrivalsComboboxProps}
+            classNames={arrivalsSelectClassNames}
+            styles={arrivalsSelectStyles}
+          />
+          <Select
+            label="Speed"
+            placeholder="Any"
+            clearable
+            data={ARRIVAL_SPEED_BANDS}
+            value={arrivalsFilters.speedBand}
+            onChange={(val) =>
+              setArrivalsFilters((f) => ({ ...f, speedBand: val }))
+            }
+            comboboxProps={arrivalsComboboxProps}
+            classNames={arrivalsSelectClassNames}
+            styles={arrivalsSelectStyles}
+          />
+          <MultiSelect
+            label="Vessel type"
+            placeholder={
+              arrivalsFilters.shipTypes.length ? '' : 'Any'
+            }
+            clearable
+            searchable
+            data={arrivalsFacetOptions.types}
+            value={arrivalsFilters.shipTypes}
+            onChange={(vals) =>
+              setArrivalsFilters((f) => ({ ...f, shipTypes: vals }))
+            }
+            comboboxProps={arrivalsComboboxProps}
+            classNames={arrivalsSelectClassNames}
+            styles={arrivalsSelectStyles}
+          />
+          <MultiSelect
+            label="Flag"
+            placeholder={arrivalsFilters.flags.length ? '' : 'Any'}
+            clearable
+            searchable
+            data={arrivalsFacetOptions.flags}
+            value={arrivalsFilters.flags}
+            onChange={(vals) =>
+              setArrivalsFilters((f) => ({ ...f, flags: vals }))
+            }
+            comboboxProps={arrivalsComboboxProps}
+            classNames={arrivalsSelectClassNames}
+            styles={arrivalsSelectStyles}
+          />
+          <MultiSelect
+            label="Arrival status"
+            placeholder={
+              arrivalsFilters.statuses.length ? '' : 'Any'
+            }
+            clearable
+            data={ARRIVAL_STATUS_OPTIONS}
+            value={arrivalsFilters.statuses}
+            onChange={(vals) =>
+              setArrivalsFilters((f) => ({ ...f, statuses: vals }))
+            }
+            comboboxProps={arrivalsComboboxProps}
+            classNames={arrivalsSelectClassNames}
+            styles={arrivalsSelectStyles}
+          />
+          <MultiSelect
+            label="Destination terminal"
+            placeholder={
+              arrivalsFilters.terminals.length ? '' : 'Any'
+            }
+            clearable
+            data={ARRIVAL_TERMINAL_OPTIONS}
+            value={arrivalsFilters.terminals}
+            onChange={(vals) =>
+              setArrivalsFilters((f) => ({ ...f, terminals: vals }))
+            }
+            comboboxProps={arrivalsComboboxProps}
+            classNames={arrivalsSelectClassNames}
+            styles={arrivalsSelectStyles}
+          />
+          <MultiSelect
+            label="Data quality"
+            placeholder={
+              arrivalsFilters.dataFlags.length ? '' : 'Any'
+            }
+            clearable
+            data={ARRIVAL_DATA_FLAG_OPTIONS}
+            value={arrivalsFilters.dataFlags}
+            onChange={(vals) =>
+              setArrivalsFilters((f) => ({ ...f, dataFlags: vals }))
+            }
+            comboboxProps={arrivalsComboboxProps}
+            classNames={arrivalsSelectClassNames}
+            styles={arrivalsSelectStyles}
+          />
+        </Box>
+
+        {/* Footer */}
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 22,
+            paddingTop: 16,
+            borderTop: '1px solid #393C56',
+          }}
+        >
+          <Text
+            onClick={() => setArrivalsFilters(DEFAULT_ARRIVALS_FILTERS)}
+            style={{
+              color: '#006CD7',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            Clear all filters
+          </Text>
+          <Button
+            onClick={() => setAdvancedFiltersOpen(false)}
+            styles={{
+              root: {
+                background: '#006CD7',
+                height: 36,
+                paddingInline: 20,
+              },
+            }}
+          >
+            Done
+          </Button>
+        </Box>
+            </Box>
+          </Box>,
+          document.body
+        )}
       <Modal
         opened={showCloseAllConfirmModal}
         onClose={() => setShowCloseAllConfirmModal(false)}
@@ -10671,7 +11310,8 @@ function Myships() {
       {(shipDetailsVersion === 'v4' ||
         shipDetailsVersion === 'v5' ||
         shipDetailsVersion === 'v6' ||
-        shipDetailsVersion === 'v10') &&
+        shipDetailsVersion === 'v10' ||
+        isShipDetailsV12) &&
         eventToolsPoppedOut &&
         activeShip &&
         typeof document !== 'undefined' &&
@@ -10716,7 +11356,7 @@ function Myships() {
                 Selected Event Tools
               </Text>
               <Box style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                {shipDetailsVersion !== 'v10' && (
+                {shipDetailsVersion !== 'v10' && !isShipDetailsV12 && (
                   <Tooltip
                     label="Dock Selected Event Tools back into timeline"
                     withArrow
@@ -10741,7 +11381,7 @@ function Myships() {
                         cursor: 'pointer',
                       }}
                     >
-                      {shipDetailsVersion === 'v4' ? (
+                      {shipDetailsVersion === 'v4' || isShipDetailsV12 ? (
                         <EventToolsIcon />
                       ) : (
                         <Browser style={{ width: 20, height: 20 }} />

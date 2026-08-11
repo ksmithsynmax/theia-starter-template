@@ -331,6 +331,7 @@ const TopNav = ({
                       ['v4', 'Path to Port v4 — All arrivals'],
                       ['v5', 'Path to Port v5 — Arrivals board'],
                       ['v6', 'Path to Port v6 — Inline + arrivals'],
+                      ['v7', 'Path to Port v7 — Inline + arrivals'],
                     ],
                   },
                   {
@@ -349,6 +350,7 @@ const TopNav = ({
                       ['v9', 'Ship Details Panel v9'],
                       ['v10', 'Ship Details Panel v10'],
                       ['v11', 'Ship Details Panel v11'],
+                      ['v12', 'Ship Details Panel v12'],
                     ],
                   },
                 ].map((group) => (

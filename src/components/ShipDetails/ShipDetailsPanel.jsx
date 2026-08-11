@@ -89,6 +89,7 @@ const ShipDetailsPanel = ({
     version === 'v6' ||
     version === 'v7' ||
     version === 'v11' ||
+    version === 'v12' ||
     version === 'v8' ||
     version === 'v9' ||
     version === 'v10'
@@ -122,6 +123,7 @@ const ShipDetailsPanel = ({
         version !== 'v6' &&
         version !== 'v7' &&
         version !== 'v11' &&
+        version !== 'v12' &&
         version !== 'v8' &&
         version !== 'v9' &&
         version !== 'v10'

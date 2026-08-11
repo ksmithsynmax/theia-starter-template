@@ -230,6 +230,8 @@ const EventTimelineCard = ({
   showEventToolsButton = false,
   eventToolsContent,
   eventToolsScrollCloseDelay = 400,
+  onEventToolsButtonClick,
+  eventToolsButtonActive = false,
 }) => {
   const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false)
   const [detailsHovered, setDetailsHovered] = useState(false)
@@ -370,7 +372,43 @@ const EventTimelineCard = ({
             onClick={(event) => event.stopPropagation()}
             style={{ display: 'flex', alignItems: 'center', gap: 8 }}
           >
-            {showEventToolsButton && onActivate && eventToolsContent && (
+            {showEventToolsButton && onActivate && onEventToolsButtonClick && (
+              <Box
+                title="Open event tools"
+                onClick={() => {
+                  // Toggle: if the panel is already showing this (selected)
+                  // card, close it but leave the card active. Otherwise make
+                  // this card active and open the panel on it.
+                  if (eventToolsButtonActive && selected) {
+                    onEventToolsButtonClick(false)
+                  } else {
+                    onActivate()
+                    onEventToolsButtonClick(true)
+                  }
+                }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 4,
+                  // Only light up blue on the card whose event is actually
+                  // loaded in the popped-out panel. Gating on `selected` (not
+                  // just the global "panel is open" flag) stops every card's
+                  // Tools button from highlighting at once.
+                  background:
+                    eventToolsButtonActive && selected ? '#006CD7' : '#30334D',
+                  cursor: 'pointer',
+                }}
+              >
+                <EventToolsIcon />
+              </Box>
+            )}
+            {showEventToolsButton &&
+              onActivate &&
+              eventToolsContent &&
+              !onEventToolsButtonClick && (
               <Popover
                 opened={eventToolsOpen}
                 onChange={setEventToolsOpen}
@@ -970,7 +1008,36 @@ const EventTimelineCard = ({
           onClick={(event) => event.stopPropagation()}
           style={{ display: 'flex', alignItems: 'center', gap: 8 }}
         >
-          {showEventToolsButton && onActivate && eventToolsContent && (
+          {showEventToolsButton && onActivate && onEventToolsButtonClick && (
+            <Box
+              title="Open event tools"
+              onClick={() => {
+                if (eventToolsButtonActive && selected) {
+                  onEventToolsButtonClick(false)
+                } else {
+                  onActivate()
+                  onEventToolsButtonClick(true)
+                }
+              }}
+              style={{
+                width: 32,
+                height: 32,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 4,
+                background:
+                  eventToolsButtonActive && selected ? '#006CD7' : '#30334D',
+                cursor: 'pointer',
+              }}
+            >
+              <EventToolsIcon />
+            </Box>
+          )}
+          {showEventToolsButton &&
+            onActivate &&
+            eventToolsContent &&
+            !onEventToolsButtonClick && (
             <Popover
               opened={eventToolsOpen}
               onChange={setEventToolsOpen}
