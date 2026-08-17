@@ -16,6 +16,7 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronRight,
+  AlertCircle,
 } from '@untitledui/icons'
 import ExtendedPathPanel from './ExtendedPathPanel'
 import FuturePathPanel from './FuturePathPanel'
@@ -26,7 +27,10 @@ import KeyValuePair from './KeyValuePair'
 import { mockPortFeatures } from '../data/mockPortFeatures'
 import { PROTOTYPE_PORTS, resolvePortCoords } from '../data/portCoords'
 import { ships as shipsById } from '../data/mockData'
-import { syntheticArrivalAttrs } from '../utils/arrivalsFilters'
+import {
+  syntheticArrivalAttrs,
+  getArrivalSalience,
+} from '../utils/arrivalsFilters'
 import {
   greatCirclePath,
   haversineNm,
@@ -295,6 +299,9 @@ const getMarkerSvg = (detection, stsVersion) => {
     if (
       stsVersion === 'v20' ||
       stsVersion === 'v21' ||
+      stsVersion === 'v22' ||
+      stsVersion === 'v23' ||
+      stsVersion === 'v24' ||
       stsVersion === 'v17'
     ) {
       // Green for AIS STS, purple for all other STS events.
@@ -783,6 +790,8 @@ const Map = forwardRef(function Map(
     closeShipTab,
     forYouItems,
     stsConnectorData,
+    stsLargeTransferNotice,
+    requestStsOverview,
     pathToPortRoute,
     pathToPortRoutes,
     pathToPortSpeed,
@@ -800,9 +809,20 @@ const Map = forwardRef(function Map(
   } = useShipContext()
   // Path to Port v7 starts as a copy of v6; alias it so every v6 branch applies,
   // and keep a raw flag for the v7-only explorations (filters + pan/zoom toggle).
+  // v8 starts as an exact copy of v7, so it shares the same alias + v7 gating
+  // until it diverges.
   const pathToPortVersion =
-    pathToPortVersionRaw === 'v7' ? 'v6' : pathToPortVersionRaw
-  const isPathToPortV7 = pathToPortVersionRaw === 'v7'
+    pathToPortVersionRaw === 'v7' ||
+    pathToPortVersionRaw === 'v8' ||
+    pathToPortVersionRaw === 'v9'
+      ? 'v6'
+      : pathToPortVersionRaw
+  const isPathToPortV7 =
+    pathToPortVersionRaw === 'v7' || pathToPortVersionRaw === 'v8'
+  const isPathToPortV8 = pathToPortVersionRaw === 'v8'
+  // v9 "salience-first": the map auto-draws only the vessels that matter
+  // (watchlist + anomalies), not the whole crowd.
+  const isPathToPortV9 = pathToPortVersionRaw === 'v9'
   // Holds the current click behavior for the Path to Port overlay routes/dots.
   // Kept in a ref so the (once-registered) Mapbox layer click handlers always
   // call the latest logic without re-binding on every dependency change.
@@ -837,7 +857,7 @@ const Map = forwardRef(function Map(
         dot.style.width = '12px'
         dot.style.height = '12px'
         dot.style.borderRadius = '50%'
-        dot.style.background = '#006CD7'
+        dot.style.background = item.voi ? '#F79009' : '#006CD7'
         dot.style.border = '2px solid #FFFFFF'
         dot.style.boxSizing = 'border-box'
         wrap.appendChild(dot)
@@ -990,6 +1010,13 @@ const Map = forwardRef(function Map(
   // event stands out. On by default when an event exposes connectors; the map
   // toggle turns both the overlay and the connector lines off.
   const [stsFocusOn, setStsFocusOn] = useState(true)
+  // v22 large-transfer flow: let the analyst dismiss the on-map warning card.
+  // Reset whenever the underlying event changes (count shifts / clears) so a new
+  // overflow event re-surfaces it.
+  const [stsNoticeDismissed, setStsNoticeDismissed] = useState(false)
+  useEffect(() => {
+    setStsNoticeDismissed(false)
+  }, [stsLargeTransferNotice?.count])
   // Path to Port v4: whether the "all arrivals" overlay (routes + on-map cards)
   // is shown. Default off so opening a port keeps the normal port behavior; the
   // analyst turns the overlay on via the map toggle.
@@ -1013,7 +1040,14 @@ const Map = forwardRef(function Map(
   onPortClickRef.current = onPortClick
   closeShipTabRef.current = closeShipTab
   activeShipTabRef.current = activeShipTab
-  const openToolPanels = openMapToolPanelsByTab['__global__'] || []
+  // Keep a stable reference: `openMapToolPanelsByTab['__global__']` is often
+  // undefined (the map starts with no tools open), and falling back to a fresh
+  // `[]` on every render made this a churning useEffect dependency, which drove
+  // an infinite setState loop ("Maximum update depth exceeded").
+  const openToolPanels = useMemo(
+    () => openMapToolPanelsByTab['__global__'] || [],
+    [openMapToolPanelsByTab]
+  )
   const [v8ExpandedToolIds, setV8ExpandedToolIds] = useState([])
   const previousV8ToolPanelsRef = useRef([])
 
@@ -1124,10 +1158,18 @@ const Map = forwardRef(function Map(
       ships: shipsById,
       detections: runtimeDetections,
       speed: 12,
+      scale: isPathToPortV8 || isPathToPortV9 ? 300 : 8,
     })
     const portCoord = port ? [port.lng, port.lat] : null
     return rows.filter((row) => row.position && portCoord).length
-  }, [pathToPortVersion, shipTabs, activeShipTab, runtimeDetections])
+  }, [
+    pathToPortVersion,
+    shipTabs,
+    activeShipTab,
+    runtimeDetections,
+    isPathToPortV8,
+    isPathToPortV9,
+  ])
 
   useEffect(() => {
     detectionByIdRef.current = new globalThis.Map(
@@ -3415,7 +3457,8 @@ const Map = forwardRef(function Map(
           ],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
-            'line-color': '#006CD7',
+            // v9: watchlist (VOI) routes render amber; everything else stays blue.
+            'line-color': ['case', ['get', 'voi'], '#F79009', '#006CD7'],
             'line-width': 2.5,
             // Dim non-focused routes when the analyst has focused (expanded) one
             // or more arrivals, so the focused route reads as active.
@@ -3440,7 +3483,7 @@ const Map = forwardRef(function Map(
           ],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
-            'line-color': '#006CD7',
+            'line-color': ['case', ['get', 'voi'], '#F79009', '#006CD7'],
             'line-width': 3,
             'line-opacity': ['case', ['get', 'dim'], 0.15, 1],
           },
@@ -3462,7 +3505,7 @@ const Map = forwardRef(function Map(
               6,
               4,
             ],
-            'circle-color': '#0094FF',
+            'circle-color': ['case', ['get', 'voi'], '#F79009', '#0094FF'],
             'circle-opacity': ['case', ['get', 'dim'], 0.2, 1],
             'circle-stroke-color': [
               'case',
@@ -3495,7 +3538,12 @@ const Map = forwardRef(function Map(
     // white for the remainder. Re-assert in case layers were created in a
     // previous session with the old single-color styling.
     if (m.getLayer('arrivals-routes-line')) {
-      m.setPaintProperty('arrivals-routes-line', 'line-color', '#006CD7')
+      m.setPaintProperty('arrivals-routes-line', 'line-color', [
+        'case',
+        ['get', 'voi'],
+        '#F79009',
+        '#006CD7',
+      ])
       m.setPaintProperty('arrivals-routes-line', 'line-width', 2.5)
       m.setPaintProperty('arrivals-routes-line', 'line-dasharray', [1, 1.5])
       m.setPaintProperty('arrivals-routes-line', 'line-opacity', [
@@ -3506,7 +3554,12 @@ const Map = forwardRef(function Map(
       ])
     }
     if (m.getLayer('arrivals-routes-line-solid')) {
-      m.setPaintProperty('arrivals-routes-line-solid', 'line-color', '#006CD7')
+      m.setPaintProperty('arrivals-routes-line-solid', 'line-color', [
+        'case',
+        ['get', 'voi'],
+        '#F79009',
+        '#006CD7',
+      ])
       m.setPaintProperty('arrivals-routes-line-solid', 'line-width', 3)
       m.setPaintProperty('arrivals-routes-line-solid', 'line-opacity', [
         'case',
@@ -3516,7 +3569,12 @@ const Map = forwardRef(function Map(
       ])
     }
     if (m.getLayer('arrivals-routes-endpoint')) {
-      m.setPaintProperty('arrivals-routes-endpoint', 'circle-color', '#0094FF')
+      m.setPaintProperty('arrivals-routes-endpoint', 'circle-color', [
+        'case',
+        ['get', 'voi'],
+        '#F79009',
+        '#0094FF',
+      ])
       m.setPaintProperty('arrivals-routes-endpoint', 'circle-opacity', [
         'case',
         ['get', 'dim'],
@@ -3586,9 +3644,11 @@ const Map = forwardRef(function Map(
       (isV4 || isV5) && !arrivalsOverlayOn && pathToPortRoute?.shipId
         ? pathToPortRoute.shipId
         : null
+    // v9 auto-draws the salient subset whenever a port is open (no "draw all"
+    // button needed) — salience, not a manual toggle, decides what's on the map.
     const active =
       (isV4 || isV5 || isV6) &&
-      (arrivalsOverlayOn || singleShipId) &&
+      (arrivalsOverlayOn || singleShipId || isPathToPortV9) &&
       activeTab?.type === 'port' &&
       showPorts
 
@@ -3607,6 +3667,7 @@ const Map = forwardRef(function Map(
       ships: shipsById,
       detections: runtimeDetections,
       speed: 12,
+      scale: isPathToPortV8 || isPathToPortV9 ? 300 : 8,
     })
     const portCoord = port ? [port.lng, port.lat] : null
     // Enrich + rank all inbound vessels by soonest ETA, then cap the count:
@@ -3691,9 +3752,20 @@ const Map = forwardRef(function Map(
         })
       }
     }
-    const cap = isV5 || isV6
-      ? Math.max(1, Number(pathToPortTopN) || 1)
-      : 6
+    // v9: draw only the salient vessels (watchlist + anomalies). Tag each with
+    // its salience so the route/marker can be styled (watchlist = amber).
+    if (isPathToPortV9) {
+      arrivals = arrivals
+        .map((row) => ({ ...row, salience: getArrivalSalience(row) }))
+        .filter((row) => row.salience.isSalient)
+    }
+    const cap = isPathToPortV9
+      ? 80 // safety bound; the salient set is naturally small
+      : isPathToPortV8
+        ? Math.min(arrivals.length, 300) // v8 drops the slider: draw every match (table == map)
+        : isV5 || isV6
+          ? Math.max(1, Number(pathToPortTopN) || 1)
+          : 6
     arrivals = arrivals.slice(0, cap)
 
     if (!portCoord || arrivals.length === 0) {
@@ -3735,6 +3807,8 @@ const Map = forwardRef(function Map(
     const focusedSet = new Set(arrivalsFocusedShipIds || [])
     arrivals.forEach((row) => {
       const dim = focusedSet.size > 0 && !focusedSet.has(row.shipId)
+      // v9: watchlist vessels of interest render amber; anomaly-only stay blue.
+      const voi = !!row.salience?.watchlist
       const coord = [row.position.lng, row.position.lat]
       const routePath = greatCirclePath(
         { lng: coord[0], lat: coord[1] },
@@ -3766,7 +3840,7 @@ const Map = forwardRef(function Map(
               { lng: projectedCoord[0], lat: projectedCoord[1] }
             ),
           },
-          properties: { shipId: row.shipId, segment: 'solid', dim },
+          properties: { shipId: row.shipId, segment: 'solid', dim, voi },
         })
         features.push({
           type: 'Feature',
@@ -3777,24 +3851,29 @@ const Map = forwardRef(function Map(
               { lng: portCoord[0], lat: portCoord[1] }
             ),
           },
-          properties: { shipId: row.shipId, segment: 'dashed', dim },
+          properties: { shipId: row.shipId, segment: 'dashed', dim, voi },
         })
       } else {
         features.push({
           type: 'Feature',
           geometry: { type: 'LineString', coordinates: routePath },
-          properties: { shipId: row.shipId, segment: 'dashed', dim },
+          properties: { shipId: row.shipId, segment: 'dashed', dim, voi },
         })
       }
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: coord },
-        properties: { shipId: row.shipId, dim },
+        properties: { shipId: row.shipId, dim, voi },
       })
       if (projectedCoord) {
         // Projected dot is drawn as an HTML marker (below) so it layers above
         // detection/STS markers instead of being buried under them.
-        projectedItems.push({ coord: projectedCoord, shipId: row.shipId, dim })
+        projectedItems.push({
+          coord: projectedCoord,
+          shipId: row.shipId,
+          dim,
+          voi,
+        })
       }
     })
     source.setData({ type: 'FeatureCollection', features })
@@ -3893,6 +3972,8 @@ const Map = forwardRef(function Map(
     showPorts,
     leftPanelInset,
     isPathToPortV7,
+    isPathToPortV8,
+    isPathToPortV9,
     arrivalsAutoZoom,
     arrivalsFilters,
     arrivalsFocusedShipIds,
@@ -6381,6 +6462,117 @@ const Map = forwardRef(function Map(
             </Box>
           )
         })()}
+      {/* v22 large-transfer flow: always-visible reliability warning anchored to
+          the map (discovery surface). The full flag-for-review workflow lives in
+          the event modal, which "Review event" opens. */}
+      {stsLargeTransferNotice && !stsNoticeDismissed && (
+        <Box
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            zIndex: 30,
+            width: 320,
+            maxWidth: 'calc(100% - 24px)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            padding: '10px 12px',
+            borderRadius: 8,
+            background: 'rgba(24, 25, 38, 0.96)',
+            border: '1px solid rgba(247, 178, 74, 0.55)',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.45)',
+          }}
+        >
+          <AlertCircle
+            style={{
+              flexShrink: 0,
+              width: 18,
+              height: 18,
+              marginTop: 1,
+              color: '#F7B24A',
+            }}
+          />
+          <Box style={{ minWidth: 0, flex: 1 }}>
+            <Text
+              style={{
+                color: '#F7C67E',
+                fontSize: 12,
+                fontWeight: 700,
+                marginBottom: 2,
+              }}
+            >
+              {`Unusually large transfer — ${stsLargeTransferNotice.count} vessels`}
+            </Text>
+            <Text
+              style={{ color: '#C2C7D6', fontSize: 11, lineHeight: 1.4 }}
+            >
+              This detection may be unreliable.
+            </Text>
+            <Box
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                marginTop: 8,
+              }}
+            >
+              <Box
+                component="button"
+                type="button"
+                onClick={() => requestStsOverview?.()}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '5px 10px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  background: 'transparent',
+                  border: '1px solid rgba(247, 178, 74, 0.55)',
+                  color: '#F7C67E',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 0.3,
+                }}
+              >
+                Review event
+              </Box>
+              {stsLargeTransferNotice.flagged && (
+                <Text
+                  style={{
+                    color: '#7CE0AE',
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
+                >
+                  ✓ Flagged
+                </Text>
+              )}
+            </Box>
+          </Box>
+          <Box
+            component="button"
+            type="button"
+            onClick={() => setStsNoticeDismissed(true)}
+            aria-label="Dismiss warning"
+            style={{
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 22,
+              height: 22,
+              marginTop: -2,
+              marginRight: -4,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <XClose style={{ width: 15, height: 15, color: '#888F9E' }} />
+          </Box>
+        </Box>
+      )}
       {Boolean(stsConnectorData?.lines?.length) && (
         <Box
           onClick={() => setStsFocusOn((v) => !v)}

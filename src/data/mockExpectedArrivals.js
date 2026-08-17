@@ -5,6 +5,10 @@
 
 import { resolvePortCoords } from './portCoords'
 import { haversineNm, computeEta } from '../utils/pathToPort'
+import {
+  getRotterdamArrivalBaseRows,
+  isRotterdamPort,
+} from './mockRotterdamArrivals'
 
 export const EXPECTED_ARRIVALS = {
   'port-mumbai': [
@@ -60,8 +64,28 @@ const latestCoordinateDetection = (detections, shipId) => {
 // Build fully-derived Expected Arrivals rows for a port at the given speed.
 // Each row carries display fields plus the raw position + distance so callers
 // can draw the route without re-deriving anything.
-export const buildExpectedArrivals = ({ portTab, ships, detections, speed }) => {
+export const buildExpectedArrivals = ({
+  portTab,
+  ships,
+  detections,
+  speed,
+  scale,
+}) => {
   const port = resolvePortCoords(portTab)
+  // Rotterdam is a synthetic large-scale scenario: hundreds of inbound vessels
+  // generated with plausible positions/types/flags. `scale` caps how many rows
+  // we return (v8 = 300 for the "what if 300 ships" demo; other versions get a
+  // small handful). These rows are already fully derived, so we just attach ETA.
+  if (port && isRotterdamPort(portTab)) {
+    const base = getRotterdamArrivalBaseRows(scale ?? 300)
+    const rows = base
+      .map((row) => {
+        const { hours, etaDate } = computeEta(row.distanceNm, speed)
+        return { ...row, etaHours: hours, etaDate }
+      })
+      .sort((a, b) => (a.distanceNm ?? Infinity) - (b.distanceNm ?? Infinity))
+    return { port, rows }
+  }
   const shipIds = getExpectedArrivalShipIds(portTab)
   const rows = shipIds
     .map((shipId) => {

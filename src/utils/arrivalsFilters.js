@@ -62,9 +62,92 @@ export const syntheticArrivalAttrs = (row) => {
     status: ARRIVAL_STATUS_OPTIONS[h % ARRIVAL_STATUS_OPTIONS.length],
     terminal:
       ARRIVAL_TERMINAL_OPTIONS[(h >> 2) % ARRIVAL_TERMINAL_OPTIONS.length],
-    aisGap: h % 4 === 0,
-    routeDeviation: h % 5 === 0,
+    // Anomalies are intentionally rare so v9's "salient" set stays small (the
+    // handful worth investigating out of hundreds of routine arrivals).
+    aisGap: h % 17 === 0,
+    routeDeviation: h % 19 === 3,
+    // v9 (military "salience-first") synthetic signals:
+    loitering: h % 23 === 1,
+    // Vessel of interest / watchlist hit — the rarest, highest-priority flag.
+    watchlist: h % 29 === 2,
   }
+}
+
+// v9 salience model. A vessel is "salient" (worth drawing/surfacing) when it's on
+// the watchlist OR exhibits an anomaly (dark/AIS gap, route deviation, loitering).
+// Everything else is background traffic the analyst can ignore. Returns a stable,
+// analysis-friendly descriptor per row.
+export const ARRIVAL_ANOMALY_LABELS = {
+  aisGap: 'AIS gap',
+  routeDeviation: 'Route deviation',
+  loitering: 'Loitering',
+}
+
+export const getArrivalSalience = (row) => {
+  const attrs = syntheticArrivalAttrs(row)
+  const anomalies = []
+  if (attrs.aisGap) anomalies.push('aisGap')
+  if (attrs.routeDeviation) anomalies.push('routeDeviation')
+  if (attrs.loitering) anomalies.push('loitering')
+  const watchlist = attrs.watchlist
+  return {
+    watchlist,
+    anomalies,
+    isAnomalous: anomalies.length > 0,
+    isSalient: watchlist || anomalies.length > 0,
+  }
+}
+
+// Apply the advanced facets to a list of arrival rows. Mirrors the Map overlay's
+// inline filtering so the side panel can show an accurate "how many match" count
+// without re-running the map pipeline. Expects rows with type/flag/etaDate/
+// distanceNm/speed (from buildExpectedArrivals).
+export const filterArrivalRows = (rows, filters) => {
+  if (!filters || !Array.isArray(rows)) return rows || []
+  const {
+    shipTypes = [],
+    etaWithinHours,
+    maxDistanceNm,
+    flags = [],
+    statuses = [],
+    terminals = [],
+    speedBand,
+    dataFlags = [],
+  } = filters
+  let out = rows
+  if (shipTypes.length) out = out.filter((r) => shipTypes.includes(r.type))
+  if (flags.length) out = out.filter((r) => flags.includes(r.flag))
+  if (etaWithinHours) {
+    const cutoff = Date.now() + etaWithinHours * 3600000
+    out = out.filter((r) => r.etaDate && r.etaDate.getTime() <= cutoff)
+  }
+  if (maxDistanceNm) {
+    out = out.filter(
+      (r) => Number.isFinite(r.distanceNm) && r.distanceNm <= maxDistanceNm
+    )
+  }
+  if (speedBand) {
+    out = out.filter((r) => {
+      const s = Number(r.speed) || 0
+      if (speedBand === 'anchored') return s < 1
+      if (speedBand === 'slow') return s >= 1 && s <= 8
+      if (speedBand === 'cruising') return s > 8
+      return true
+    })
+  }
+  if (statuses.length || terminals.length || dataFlags.length) {
+    out = out.filter((r) => {
+      const attrs = syntheticArrivalAttrs(r)
+      if (statuses.length && !statuses.includes(attrs.status)) return false
+      if (terminals.length && !terminals.includes(attrs.terminal)) return false
+      if (dataFlags.includes('ais-gap') && !attrs.aisGap) return false
+      if (dataFlags.includes('route-deviation') && !attrs.routeDeviation) {
+        return false
+      }
+      return true
+    })
+  }
+  return out
 }
 
 // True when any facet is active — used to show a filter count / "clear" affordance.

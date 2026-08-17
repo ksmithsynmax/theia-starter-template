@@ -233,7 +233,7 @@ function Layout() {
       // the panel over to that ship's detail view.
       const activeTab = shipTabs.find((t) => t.id === activeShipTab)
       if (
-        pathToPortVersion === 'v7' &&
+        (pathToPortVersion === 'v7' || pathToPortVersion === 'v8') &&
         arrivalsOverlayOn &&
         activeTab?.type === 'port' &&
         detection?.shipId
@@ -245,7 +245,12 @@ function Layout() {
       selectDetection(detection, {
         source: 'map',
         allowTabSwitch: true,
-        stsAsShip: stsVersion === 'v20' || stsVersion === 'v21',
+        stsAsShip:
+          stsVersion === 'v20' ||
+          stsVersion === 'v21' ||
+          stsVersion === 'v22' ||
+          stsVersion === 'v23' ||
+          stsVersion === 'v24',
       })
       if (location.pathname !== '/myships' && location.pathname !== '/watchlist') {
         navigate('/myships')

@@ -19,7 +19,20 @@ const ShipContext = createContext()
 export function ShipProvider({ children }) {
   const [shipTabs, setShipTabs] = useState([])
   const [favoriteShipIds, setFavoriteShipIds] = useState([])
-  const [favoritePorts, setFavoritePorts] = useState([])
+  // Seed Rotterdam so it's discoverable in Ports → My Ports (the map default view
+  // is over the Arabian Sea, so the far-NW Rotterdam anchor can't be found by
+  // panning). Selecting it flies the map to the port. Used by Path to Port v8's
+  // large-scale (~300 arrivals) scenario.
+  const [favoritePorts, setFavoritePorts] = useState([
+    {
+      id: 'port-rotterdam',
+      name: 'Rotterdam',
+      country: 'Netherlands',
+      activity: 'High',
+      risk: 'Monitoring',
+      updatedAt: 'Just now',
+    },
+  ])
   const [activeShipTab, setActiveShipTab] = useState(null)
   const [openMapToolPanelsByTab, setOpenMapToolPanelsByTab] = useState({})
   const [detailPanelOpen, setDetailPanelOpen] = useState(false)
@@ -126,6 +139,18 @@ export function ShipProvider({ children }) {
   // Bridge for map marker clicks to request selecting a participant in the
   // transfer network. Nonce-keyed so repeat clicks on the same ship re-fire.
   const [stsSelectSignal, setStsSelectSignal] = useState(null)
+  // STS v22 "large-transfer" flow: Myships publishes a notice when the active
+  // STS event exceeds the expected vessel count so the map can render an
+  // always-visible reliability warning (discovery), while the full
+  // flag-for-review action stays in the event modal. Shape:
+  // { count, flagged } | null.
+  const [stsLargeTransferNotice, setStsLargeTransferNotice] = useState(null)
+  // Bridge the map's "Review event" button back to Myships to open the STS
+  // overview modal. Nonce-keyed so repeat clicks re-fire.
+  const [stsOverviewSignal, setStsOverviewSignal] = useState(null)
+  const requestStsOverview = useCallback(() => {
+    setStsOverviewSignal({ nonce: Date.now() })
+  }, [])
 
   const dismissForYouItem = useCallback((itemId) => {
     if (!itemId) return
@@ -698,6 +723,10 @@ export function ShipProvider({ children }) {
         setStsPeekDetectionId,
         stsSelectSignal,
         setStsSelectSignal,
+        stsLargeTransferNotice,
+        setStsLargeTransferNotice,
+        stsOverviewSignal,
+        requestStsOverview,
         shipTabs,
         favoriteShipIds,
         favoritePorts,

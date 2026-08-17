@@ -19,6 +19,7 @@ import {
   Modal,
   Button,
   Accordion,
+  Collapse,
   Select,
   MultiSelect,
   Slider,
@@ -41,6 +42,8 @@ import {
   ArrowNarrowUp,
   ArrowNarrowDown,
   SearchMd,
+  AlertCircle,
+  InfoCircle,
 } from '@untitledui/icons'
 import AlertIcon from '../custom-icons/AlertIcon'
 import SatelliteIcon from '../custom-icons/SatelliteIcon'
@@ -74,7 +77,10 @@ import {
   ARRIVAL_ETA_OPTIONS,
   ARRIVAL_DISTANCE_OPTIONS,
   ARRIVAL_DATA_FLAG_OPTIONS,
+  ARRIVAL_ANOMALY_LABELS,
   countActiveArrivalsFilters,
+  filterArrivalRows,
+  getArrivalSalience,
 } from '../utils/arrivalsFilters'
 import { ships } from '../data/mockData'
 import { buildExpectedArrivals } from '../data/mockExpectedArrivals'
@@ -98,6 +104,48 @@ import satRaft4 from '../assets/sts_raft_4.png'
 import satRaft5 from '../assets/sts_raft_5.png'
 import satRaft6 from '../assets/sts_raft_6.png'
 import satRaftOcean from '../assets/sts_raft_ocean.png'
+// Blurry, low-resolution satellite raft imagery (Planet/Sentinel look) for the
+// large-transfer flow (v22/v23). Deliberately hard to make out so that high
+// vessel counts read as genuinely ambiguous — the reason 6–7 need flagging.
+// One plate per vessel count, 2–7. (The crisp `sts_raft_real_*` plates are kept
+// on disk for other versions.)
+import satRaftReal2 from '../assets/sts_raft_blur_2.png'
+import satRaftReal3 from '../assets/sts_raft_blur_3.png'
+import satRaftReal4 from '../assets/sts_raft_blur_4.png'
+import satRaftReal5 from '../assets/sts_raft_blur_5.png'
+import satRaftReal6 from '../assets/sts_raft_blur_6.png'
+import satRaftReal7 from '../assets/sts_raft_blur_7.png'
+// Large-transfer flow: pre-rendered plates with the detection box baked onto a
+// single vessel. One file per boxed ship (sts_{N}ships_ship{i}, 1-based). Because
+// the box is part of the image it is always pixel-perfect; the modal swaps plates
+// on hover and the ship-panel card shows the active vessel's plate.
+import stsBox2_1 from '../assets/sts_2ships_ship1.png'
+import stsBox2_2 from '../assets/sts_2ships_ship2.png'
+import stsBox3_1 from '../assets/sts_3ships_ship1.png'
+import stsBox3_2 from '../assets/sts_3ships_ship2.png'
+import stsBox3_3 from '../assets/sts_3ships_ship3.png'
+import stsBox4_1 from '../assets/sts_4ships_ship1.png'
+import stsBox4_2 from '../assets/sts_4ships_ship2.png'
+import stsBox4_3 from '../assets/sts_4ships_ship3.png'
+import stsBox4_4 from '../assets/sts_4ships_ship4.png'
+import stsBox5_1 from '../assets/sts_5ships_ship1.png'
+import stsBox5_2 from '../assets/sts_5ships_ship2.png'
+import stsBox5_3 from '../assets/sts_5ships_ship3.png'
+import stsBox5_4 from '../assets/sts_5ships_ship4.png'
+import stsBox5_5 from '../assets/sts_5ships_ship5.png'
+import stsBox6_1 from '../assets/sts_6ships_ship1.png'
+import stsBox6_2 from '../assets/sts_6ships_ship2.png'
+import stsBox6_3 from '../assets/sts_6ships_ship3.png'
+import stsBox6_4 from '../assets/sts_6ships_ship4.png'
+import stsBox6_5 from '../assets/sts_6ships_ship5.png'
+import stsBox6_6 from '../assets/sts_6ships_ship6.png'
+import stsBox7_1 from '../assets/sts_7ships_ship1.png'
+import stsBox7_2 from '../assets/sts_7ships_ship2.png'
+import stsBox7_3 from '../assets/sts_7ships_ship3.png'
+import stsBox7_4 from '../assets/sts_7ships_ship4.png'
+import stsBox7_5 from '../assets/sts_7ships_ship5.png'
+import stsBox7_6 from '../assets/sts_7ships_ship6.png'
+import stsBox7_7 from '../assets/sts_7ships_ship7.png'
 import sanctionedTitle from '../assets/SanctionedTitle.svg'
 
 const baseDetailTabs = [
@@ -164,10 +212,12 @@ const sortTableRows = (rows, sort, valueByKey) => {
     if (typeof aValue === 'number' && typeof bValue === 'number') {
       return (aValue - bValue) * direction
     }
-    return String(aValue).localeCompare(String(bValue), undefined, {
-      numeric: true,
-      sensitivity: 'base',
-    }) * direction
+    return (
+      String(aValue).localeCompare(String(bValue), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      }) * direction
+    )
   })
 }
 const SortablePortTableHeader = ({ label, columnKey, sort, onSort }) => {
@@ -428,6 +478,8 @@ function Myships() {
     setStsConnectorData,
     setStsPeekDetectionId,
     stsSelectSignal,
+    setStsLargeTransferNotice,
+    stsOverviewSignal,
   } = useShipContext()
   const [tabState, setTabState] = useState({})
   const [flashEnabled, setFlashEnabled] = useState(false)
@@ -466,6 +518,8 @@ function Myships() {
   // v20: the "ship-first" prototype opens an STS event on the vessel's own tab
   // and exposes the event Overview through a centered modal instead of a tab.
   const [stsOverviewModalOpen, setStsOverviewModalOpen] = useState(false)
+  // Lightbox for the STS hero plate: { src, title } while open, null when closed.
+  const [stsImageLightbox, setStsImageLightbox] = useState(null)
   // v9 overview: toggle the "Vessels in event" section between the roster list
   // and an inline transfer-network graph.
   const [stsRosterView, setStsRosterView] = useState('list')
@@ -586,6 +640,9 @@ function Myships() {
     direction: null,
   })
   const [expectedArrivalsSearch, setExpectedArrivalsSearch] = useState('')
+  // v9 "salience-first" table focus: which slice of arrivals the analyst is
+  // looking at. Defaults to the priority (salient) set — watchlist + anomalies.
+  const [v9Focus, setV9Focus] = useState('priority')
   const [portTabOverflowLeft, setPortTabOverflowLeft] = useState(false)
   const [portTabOverflowRight, setPortTabOverflowRight] = useState(false)
   const portTabScrollRef = useRef(null)
@@ -593,13 +650,15 @@ function Myships() {
   const [eventToolsMinimized, setEventToolsMinimized] = useState(false)
   const [v10OpenToolIds, setV10OpenToolIds] = useState([])
   const [v10CollapsedToolIds, setV10CollapsedToolIds] = useState([])
-  const [eventToolsPanelPosition, setEventToolsPanelPosition] = useState(() => ({
-    x:
-      typeof window === 'undefined'
-        ? 560
-        : Math.max(520, window.innerWidth - 560),
-    y: 120,
-  }))
+  const [eventToolsPanelPosition, setEventToolsPanelPosition] = useState(
+    () => ({
+      x:
+        typeof window === 'undefined'
+          ? 560
+          : Math.max(520, window.innerWidth - 560),
+      y: 120,
+    })
+  )
   const [eventToolsDragOffset, setEventToolsDragOffset] = useState(null)
 
   const {
@@ -620,11 +679,27 @@ function Myships() {
   } = useOutletContext() || {}
 
   // Path to Port v7 launches as an exact copy of v6, so aliasing it to v6 here
-  // makes every existing v6 branch in this file apply verbatim. When we start
-  // iterating on v7, replace this alias with explicit `=== 'v7'` branches.
+  // makes every existing v6 branch in this file apply verbatim. v8 in turn
+  // starts as an exact copy of v7, so it shares the same alias + v7 gating until
+  // it diverges. When iterating, split these with explicit `=== 'v8'` branches.
   const pathToPortVersion =
-    pathToPortVersionRaw === 'v7' ? 'v6' : pathToPortVersionRaw
-  const isPathToPortV7 = pathToPortVersionRaw === 'v7'
+    pathToPortVersionRaw === 'v7' ||
+    pathToPortVersionRaw === 'v8' ||
+    pathToPortVersionRaw === 'v9'
+      ? 'v6'
+      : pathToPortVersionRaw
+  // v7/v8 share the exploratory advanced-filters chrome; v9 is a fresh
+  // "salience-first" direction that does NOT use that chrome, so it's excluded
+  // from the v7 gate.
+  const isPathToPortV7 =
+    pathToPortVersionRaw === 'v7' || pathToPortVersionRaw === 'v8'
+  // v8 diverges from v7 by shrinking the advanced-filters panel (compact sizing,
+  // no Speed filter — speed already lives on each arrival card).
+  const isPathToPortV8 = pathToPortVersionRaw === 'v8'
+  // v9 "salience-first": the table flags watchlist + anomalous vessels and lets
+  // the analyst focus on the ones that matter; the map draws only that subset.
+  const isPathToPortV9 = pathToPortVersionRaw === 'v9'
+  const advFiltersWidth = isPathToPortV8 ? 300 : 560
   // v7: the arrivals density + advanced filters live in a draggable floating
   // panel (not a modal) launched from the Expected Arrivals header, so the map
   // stays visible/interactive while the analyst tunes the filters.
@@ -633,11 +708,13 @@ function Myships() {
     x:
       typeof window === 'undefined'
         ? 560
-        : Math.max(24, window.innerWidth - 600),
+        : Math.max(24, window.innerWidth - advFiltersWidth - 40),
     y: 96,
   }))
   const [advFiltersDrag, setAdvFiltersDrag] = useState(null)
   const [advFiltersMinimized, setAdvFiltersMinimized] = useState(false)
+  // v8: all filters tuck inside a collapsible "Filters" accordion to keep the panel tiny by default.
+  const [advFiltersFiltersOpen, setAdvFiltersFiltersOpen] = useState(false)
   const arrivalsSelectStyles = {
     label: { color: '#C4C9D6', fontSize: 12, marginBottom: 4 },
     input: {
@@ -657,6 +734,8 @@ function Myships() {
   // to <body> with a much lower default z-index, so without this they open
   // *behind* the panel and appear unclickable.
   const arrivalsComboboxProps = { zIndex: 1400 }
+  // v8's compact panel uses smaller (xs) fields to reclaim vertical space.
+  const arrivalsFieldSize = isPathToPortV8 ? 'xs' : 'sm'
 
   // Ship Details Panel v12 launches as v7 under the hood, so every existing v7
   // branch in this file applies verbatim. Aliasing here keeps the copy from
@@ -713,9 +792,14 @@ function Myships() {
     if (!advFiltersDrag) return
     const handleMouseMove = (event) => {
       setAdvFiltersPos({
+        // Keep the whole panel on-screen: clamp so its right edge can't run past
+        // the viewport (the old fixed 320 min-visible let the panel spill off).
         x: Math.max(
           12,
-          Math.min(event.clientX - advFiltersDrag.x, window.innerWidth - 320)
+          Math.min(
+            event.clientX - advFiltersDrag.x,
+            window.innerWidth - advFiltersWidth - 12
+          )
         ),
         y: Math.max(
           12,
@@ -730,7 +814,7 @@ function Myships() {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [advFiltersDrag])
+  }, [advFiltersDrag, advFiltersWidth])
 
   // Two overflow-design explorations sit on top of the v17 layout:
   //   v18 = "Cap at 5"   — treat >5 vessels as suspect; show 5 + an anomaly banner.
@@ -739,7 +823,29 @@ function Myships() {
   // thing that differs is the overflow mode we thread through separately.
   const stsOverflowMode =
     stsVersionRaw === 'v18' ? 'cap' : stsVersionRaw === 'v19' ? 'scale' : null
-  const stsVersion = stsOverflowMode ? 'v17' : stsVersionRaw
+  // v22 is v21 (bounding boxes + modal overview) plus the large-transfer flow.
+  // Resolve it to 'v21' so every v21 layout branch applies unchanged; the new
+  // behavior keys off `isStsV22` / `stsVersionRaw` separately.
+  const isStsV22 = stsVersionRaw === 'v22'
+  // v23: same bounding-box (v21) flow + large-transfer detection, but instead of
+  // v22's always-on-map card the reliability warning is delivered as an
+  // auto-opening modal on first open of a 5+ vessel event (front-and-center,
+  // can't-miss), with a persistent badge fallback afterwards.
+  const isStsV23 = stsVersionRaw === 'v23'
+  // v24 starts as an exact clone of v23 (bounding-box flow + large-transfer
+  // auto-opening modal). Split its behavior off from `isStsV23` later as it
+  // diverges; for now it rides every v23 code path via the shared flags below.
+  const isStsV24 = stsVersionRaw === 'v24'
+  // Shared "unusually large transfer" behavior (banner, button badge, flag flow).
+  const isStsLargeTransfer = isStsV22 || isStsV23 || isStsV24
+  // v23/v24 deliver the reliability warning as an auto-opening modal (vs v22's
+  // always-on-map card).
+  const isStsLargeTransferModal = isStsV23 || isStsV24
+  const stsVersion = stsOverflowMode
+    ? 'v17'
+    : isStsV22 || isStsV23 || isStsV24
+      ? 'v21'
+      : stsVersionRaw
 
   const activeTab = shipTabs.find((t) => t.id === activeShipTab)
   const isStsTab = activeTab?.type === 'sts'
@@ -755,6 +861,9 @@ function Myships() {
   const stsEventShipIds = isStsShipTab
     ? (activeTab.stsShipIds || []).filter((sid) => ships[sid])
     : []
+  // v22 large-transfer flow: does this event exceed the expected STS size?
+  const stsShipTabOverflow =
+    isStsShipTab && stsEventShipIds.length > STS_MAX_VESSELS
 
   // Path to Port: expected arrivals for the active port, with distance/ETA
   // derived at the currently selected speed. Recomputes when the port, speed, or
@@ -766,6 +875,7 @@ function Myships() {
       ships,
       detections: runtimeDetections,
       speed: pathToPortSpeed,
+      scale: isPathToPortV8 || isPathToPortV9 ? 300 : 8,
     })
     if (pathToPortVersion !== 'v6') return result
     return {
@@ -785,7 +895,35 @@ function Myships() {
     pathToPortSpeed,
     pathToPortVersion,
     pathToPortSpeedsByShip,
+    isPathToPortV8,
+    isPathToPortV9,
   ])
+  // How many arrivals match the active advanced filters (before the density cap).
+  // Drives the v8 "how many ships show up at once" readout and scales cleanly if
+  // the arrivals list grows to hundreds.
+  const arrivalsMatchCount = useMemo(
+    () => filterArrivalRows(expectedArrivalsData.rows, arrivalsFilters).length,
+    [expectedArrivalsData.rows, arrivalsFilters]
+  )
+  // v9: how many inbound vessels fall into each salience bucket, for the focus
+  // control counts. "Priority" = watchlist ∪ anomalies.
+  const v9SalienceCounts = useMemo(() => {
+    let watchlist = 0
+    let anomalies = 0
+    let priority = 0
+    expectedArrivalsData.rows.forEach((row) => {
+      const s = getArrivalSalience(row)
+      if (s.watchlist) watchlist += 1
+      if (s.isAnomalous) anomalies += 1
+      if (s.isSalient) priority += 1
+    })
+    return {
+      watchlist,
+      anomalies,
+      priority,
+      all: expectedArrivalsData.rows.length,
+    }
+  }, [expectedArrivalsData.rows])
   // v7 Advanced filters: distinct vessel types + flags among this port's inbound
   // vessels, for the modal's Vessel type / Flag dropdowns.
   const arrivalsFacetOptions = useMemo(() => {
@@ -865,14 +1003,29 @@ function Myships() {
     [filteredShipsInPortRows, shipsInPortSort]
   )
   const filteredExpectedArrivalRows = useMemo(() => {
+    let rows = expectedArrivalsData.rows
+    // v9: narrow to the focused salience slice before the text search.
+    if (isPathToPortV9 && v9Focus !== 'all') {
+      rows = rows.filter((row) => {
+        const s = getArrivalSalience(row)
+        if (v9Focus === 'watchlist') return s.watchlist
+        if (v9Focus === 'anomalies') return s.isAnomalous
+        return s.isSalient // 'priority'
+      })
+    }
     const query = expectedArrivalsSearch.trim().toLocaleLowerCase()
-    if (!query) return expectedArrivalsData.rows
-    return expectedArrivalsData.rows.filter((row) =>
+    if (!query) return rows
+    return rows.filter((row) =>
       [row.name, row.flag, row.type, row.imo].some((value) =>
         String(value).toLocaleLowerCase().includes(query)
       )
     )
-  }, [expectedArrivalsData.rows, expectedArrivalsSearch])
+  }, [
+    expectedArrivalsData.rows,
+    expectedArrivalsSearch,
+    isPathToPortV9,
+    v9Focus,
+  ])
   const sortedExpectedArrivalRows = useMemo(
     () =>
       sortTableRows(
@@ -890,6 +1043,36 @@ function Myships() {
   // v3 Path to Port: ids of Expected Arrivals rows whose inline card is open.
   // A Set so more than one card can be expanded at once.
   const [expandedArrivalIds, setExpandedArrivalIds] = useState(() => new Set())
+  // Freeze the table order while a row is expanded. The expanded row exposes a
+  // speed slider, and changing it recomputes that ship's ETA — which, since the
+  // table sorts by ETA, would make rows jump around under the analyst's cursor.
+  // We snapshot the sorted order whenever nothing is expanded (or the sort
+  // changes) and hold it while any row is open, so live ETA edits update in place
+  // without reshuffling. Order re-applies once every row is collapsed.
+  const arrivalsOrderRef = useRef([])
+  useEffect(() => {
+    arrivalsOrderRef.current = sortedExpectedArrivalRows.map((r) => r.id)
+    // Re-snapshot on an explicit sort change even while expanded (the analyst
+    // asked for a new order, so honor it), and whenever nothing is expanded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expectedArrivalsSort])
+  useEffect(() => {
+    if (expandedArrivalIds.size === 0) {
+      arrivalsOrderRef.current = sortedExpectedArrivalRows.map((r) => r.id)
+    }
+  }, [expandedArrivalIds, sortedExpectedArrivalRows])
+  const displayedExpectedArrivalRows = useMemo(() => {
+    if (expandedArrivalIds.size === 0) return sortedExpectedArrivalRows
+    const order = arrivalsOrderRef.current
+    const rank = new Map(order.map((id, i) => [id, i]))
+    // Keep frozen rows in their locked positions; any row not in the snapshot
+    // (e.g. revealed by clearing a search) falls to the end in sorted order.
+    return [...sortedExpectedArrivalRows].sort((a, b) => {
+      const ai = rank.has(a.id) ? rank.get(a.id) : Number.MAX_SAFE_INTEGER
+      const bi = rank.has(b.id) ? rank.get(b.id) : Number.MAX_SAFE_INTEGER
+      return ai - bi
+    })
+  }, [sortedExpectedArrivalRows, expandedArrivalIds])
   // Path to Port v7: when the user clicks a vessel on the map while the
   // all-routes overlay is active, Layout fires `arrivalsExpandSignal` so we can
   // expand that vessel's Expected Arrivals row (with its speed slider) and
@@ -1091,6 +1274,41 @@ function Myships() {
             {renderPathToPortSpeedChips()}
           </Box>
         )}
+        {(() => {
+          // Estimate disclaimer: the ETA is a projection from the vessel's last
+          // known position at the selected speed along a direct route — it isn't a
+          // filed schedule. Spell that out so analysts don't over-trust it, and
+          // surface the assumed speed (which they can change above).
+          const assumedSpeed =
+            pathToPortVersion === 'v6'
+              ? (pathToPortSpeedsByShip[data.shipId] ??
+                resolveShipSpeedKn(ships[data.shipId]))
+              : pathToPortSpeed
+          return (
+            <Box
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 6,
+                paddingTop: 12,
+                borderTop: '1px solid #393C56',
+              }}
+            >
+              <InfoCircle
+                style={{
+                  flexShrink: 0,
+                  width: 13,
+                  height: 13,
+                  marginTop: 1,
+                  color: '#888F9E',
+                }}
+              />
+              <Text style={{ color: '#888F9E', fontSize: 11, lineHeight: 1.5 }}>
+                {`This estimate assumes a direct route at ${assumedSpeed} kn from the vessel's last known position, and will change as its actual speed and course update.`}
+              </Text>
+            </Box>
+          )
+        })()}
       </Box>
     )
   }
@@ -1325,8 +1543,7 @@ function Myships() {
       const mine = allDetections
         .filter(
           (d) =>
-            d.shipId === shipId &&
-            (d.type === 'sts' || d.type === 'sts-ais')
+            d.shipId === shipId && (d.type === 'sts' || d.type === 'sts-ais')
         )
         .sort((a, b) => new Date(b.date) - new Date(a.date))
       const linked = mine.find(
@@ -2113,6 +2330,52 @@ function Myships() {
   // Clear connectors when leaving the STS view entirely.
   useEffect(() => () => setStsConnectorData(null), [setStsConnectorData])
 
+  // v22 large-transfer flow: publish an overflow notice so the map can render an
+  // always-visible reliability warning while the analyst is on the event (the
+  // modal is only reached via the "STS Overview" button, so the warning can't
+  // live there alone). Cleared when the event is normal-sized or on unmount.
+  useEffect(() => {
+    if (isStsV22 && stsShipTabOverflow) {
+      setStsLargeTransferNotice({
+        count: stsEventShipIds.length,
+        flagged: stsReviewFlagged,
+      })
+    } else {
+      setStsLargeTransferNotice(null)
+    }
+  }, [
+    isStsV22,
+    stsShipTabOverflow,
+    stsEventShipIds.length,
+    stsReviewFlagged,
+    setStsLargeTransferNotice,
+  ])
+  useEffect(
+    () => () => setStsLargeTransferNotice(null),
+    [setStsLargeTransferNotice]
+  )
+
+  // Open the STS overview modal when the map's "Review event" button fires.
+  useEffect(() => {
+    if (!stsOverviewSignal) return
+    setStsOverviewModalOpen(true)
+  }, [stsOverviewSignal])
+
+  // v23 large-transfer flow: auto-open the overview modal the FIRST time an
+  // analyst lands on a 5+ vessel event, so the reliability warning is
+  // front-and-center and impossible to miss. Tracked per event id so re-opening
+  // a known event doesn't nag (which would just recreate notification-blindness
+  // in modal form); the persistent amber badge on the STS Overview button lets
+  // them reopen it deliberately after that.
+  const stsV23AutoShownRef = useRef(new Set())
+  useEffect(() => {
+    if (!isStsLargeTransferModal || !isStsShipTab || !stsShipTabOverflow) return
+    const key = activeTab?.id
+    if (!key || stsV23AutoShownRef.current.has(key)) return
+    stsV23AutoShownRef.current.add(key)
+    setStsOverviewModalOpen(true)
+  }, [isStsLargeTransferModal, isStsShipTab, stsShipTabOverflow, activeTab?.id])
+
   // Map marker clicks (via Layout) request selecting a participant here so the
   // transfer-network selection stays in sync with what's clicked on the map. A
   // `drillIn` request additionally opens that vessel's full timeline inside the
@@ -2277,9 +2540,7 @@ function Myships() {
     )
     setShownOnMapDetectionIds((current) =>
       allLoadedTimelineLocationsShown
-        ? current.filter(
-            (id) => !loadedIds.has(normalizeDetectionId(id))
-          )
+        ? current.filter((id) => !loadedIds.has(normalizeDetectionId(id)))
         : [
             ...current,
             ...loadedTimelineLocationIds.filter(
@@ -2698,11 +2959,238 @@ function Myships() {
         height = 260,
         width = '100%',
         marginBottom = 16,
-        borderRadius = 8,
+        borderRadius = 4,
         onPinClick,
+        realisticImagery = false,
+        // Card mode: draw a box around only the active vessel (activeIdx), no
+        // hover/spotlight/mini-card. The modal leaves this false so every box is
+        // hoverable and identifies its ship.
+        activeOnly = false,
+        // v24 modal: instead of "no box until hover", start focused on this
+        // vessel (its baked box shows on open); hover still overrides it.
+        defaultFocusIdx = null,
+        // v24 modal: dim the rest of the plate so the focused vessel stands out
+        // (the spotlight look from the earlier segmentation flow).
+        spotlight = false,
       } = {}
     ) => {
       if (!Array.isArray(list) || list.length === 0) return null
+      // Large-transfer flow (v22/v23) swaps in realistic low-res satellite plates
+      // (3–7 vessels). These aren't pen-traced yet, so the overlay is suppressed
+      // downstream and we show the clean image.
+      const realisticHeroByCount = {
+        2: satRaftReal2,
+        3: satRaftReal3,
+        4: satRaftReal4,
+        5: satRaftReal5,
+        6: satRaftReal6,
+        7: satRaftReal7,
+      }
+      // Large-transfer flow: the box is baked into the plate (one plate per boxed
+      // vessel), so we swap plates instead of drawing an SVG box. This sidesteps
+      // the cover-crop alignment problem entirely — the box is always correct.
+      if (realisticImagery) {
+        const n = list.length
+        const bakedByCount = {
+          2: [stsBox2_1, stsBox2_2],
+          3: [stsBox3_1, stsBox3_2, stsBox3_3],
+          4: [stsBox4_1, stsBox4_2, stsBox4_3, stsBox4_4],
+          5: [stsBox5_1, stsBox5_2, stsBox5_3, stsBox5_4, stsBox5_5],
+          6: [stsBox6_1, stsBox6_2, stsBox6_3, stsBox6_4, stsBox6_5, stsBox6_6],
+          7: [
+            stsBox7_1,
+            stsBox7_2,
+            stsBox7_3,
+            stsBox7_4,
+            stsBox7_5,
+            stsBox7_6,
+            stsBox7_7,
+          ],
+        }
+        // Hover hotspots in the plate's own pixel space (1024×682), measured from
+        // the baked plates: each vessel's x-center + a column width, over a shared
+        // vertical band. Rendered in an SVG with the same `slice` crop as the <img>
+        // so the invisible hitboxes track the ships regardless of container size.
+        const RVB = { w: 1024, h: 682 }
+        const hitboxByCount = {
+          2: { cx: [481, 534], w: 54, top: 210, h: 270 },
+          3: { cx: [462, 517, 572], w: 55, top: 208, h: 280 },
+          4: { cx: [456, 489, 524, 558], w: 36, top: 208, h: 282 },
+          5: { cx: [447, 486, 525, 564, 603], w: 40, top: 205, h: 285 },
+          6: { cx: [405, 445, 484, 524, 564, 603], w: 40, top: 205, h: 288 },
+          7: { cx: [371, 418, 465, 513, 560, 607, 654], w: 47, top: 205, h: 288 },
+        }
+        const bakedList = bakedByCount[n]
+        const cleanPlate = realisticHeroByCount[n] || satRaftReal5
+        const hitbox = hitboxByCount[n]
+        // Card locks to the active vessel; the modal follows hover, falling back
+        // to `defaultFocusIdx` (v24 opens focused on the active vessel; v23 has no
+        // default, so it stays clean until the analyst points at a ship).
+        const normalizedDefaultFocus =
+          defaultFocusIdx != null && defaultFocusIdx >= 0 && defaultFocusIdx < n
+            ? defaultFocusIdx
+            : null
+        const focusIdx = activeOnly
+          ? activeIdx != null && activeIdx < n
+            ? activeIdx
+            : 0
+          : stsHeroHoverIdx != null && stsHeroHoverIdx < n
+            ? stsHeroHoverIdx
+            : normalizedDefaultFocus
+        const shownImage =
+          focusIdx != null && bakedList && bakedList[focusIdx]
+            ? bakedList[focusIdx]
+            : cleanPlate
+        const focusSid = focusIdx != null ? list[focusIdx] : null
+        const focusShip = focusSid ? ships[focusSid] : null
+        const focusName = focusShip?.name || 'Unattributed vessel'
+        const focusFlag = focusShip?.flag
+        // v24: uniformly darken the plate so the boxed vessel reads as the
+        // subject (no spotlight aperture — that looked like a halo).
+        const spotlightOn = spotlight && !activeOnly
+        // Expand-to-lightbox: title tracks whichever vessel the plate is showing.
+        const lightboxTitle =
+          focusIdx != null ? focusName : 'Ship-to-Ship Event'
+        return (
+          <Box
+            style={{
+              position: 'relative',
+              borderRadius,
+              overflow: 'hidden',
+              border: '1px solid #393C56',
+              marginBottom,
+              width,
+              flexShrink: width === '100%' ? undefined : 0,
+            }}
+          >
+            <img
+              src={shownImage}
+              alt="Ship-to-ship event"
+              style={{
+                width: '100%',
+                height,
+                objectFit: 'cover',
+                display: 'block',
+                filter: spotlightOn ? 'brightness(0.6)' : 'none',
+                transition: 'opacity 0.12s ease, filter 0.2s ease',
+              }}
+            />
+            {/* Expand to a larger lightbox of the current plate. Rendered as a
+                div (not a <button>) because this hero can sit inside a clickable
+                timeline card — a nested <button> is invalid HTML and swallows the
+                click. */}
+            <Box
+              role="button"
+              tabIndex={0}
+              aria-label="Expand image"
+              title="Expand"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                setStsImageLightbox({ src: shownImage, title: lightboxTitle })
+              }}
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                zIndex: 6,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 28,
+                height: 28,
+                borderRadius: 4,
+                background: '#24263C',
+                border: '1px solid #393C56',
+                color: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m14 10 7-7m0 0h-6m6 0v6m-11 5-7 7m0 0h6m-6 0v-6" />
+              </svg>
+            </Box>
+            {/* Modal only: invisible per-vessel hover/click targets. */}
+            {!activeOnly && hitbox && (
+              <svg
+                viewBox={`0 0 ${RVB.w} ${RVB.h}`}
+                preserveAspectRatio="xMidYMid slice"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  zIndex: 2,
+                }}
+              >
+                {hitbox.cx.map((cx, idx) => (
+                  <rect
+                    key={`hit-${idx}`}
+                    x={cx - hitbox.w / 2}
+                    y={hitbox.top}
+                    width={hitbox.w}
+                    height={hitbox.h}
+                    fill="rgba(0,0,0,0.001)"
+                    onMouseEnter={() => setStsHeroHoverIdx(idx)}
+                    onMouseLeave={() =>
+                      setStsHeroHoverIdx((cur) => (cur === idx ? null : cur))
+                    }
+                    onClick={onPinClick ? () => onPinClick(idx) : undefined}
+                    style={{
+                      cursor: onPinClick ? 'pointer' : 'default',
+                      pointerEvents: 'all',
+                    }}
+                  />
+                ))}
+              </svg>
+            )}
+            {/* Modal only: identify the hovered vessel. */}
+            {!activeOnly && focusIdx != null && (
+              <Box
+                style={{
+                  position: 'absolute',
+                  bottom: 10,
+                  left: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 10px',
+                  borderRadius: 4,
+                  background: 'rgba(12, 15, 26, 0.92)',
+                  border: '1px solid #006cd7',
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
+                  pointerEvents: 'none',
+                  zIndex: 5,
+                  maxWidth: 'calc(100% - 20px)',
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#fff',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {focusName}
+                </Text>
+                {focusFlag && <Text style={{ fontSize: 13 }}>{focusFlag}</Text>}
+              </Box>
+            )}
+          </Box>
+        )
+      }
       const heroByCount = {
         // 0 vessels = open-ocean plate with no ships (baseline / empty scene).
         0: satRaftOcean,
@@ -2744,7 +3232,10 @@ function Myships() {
           { top: '60%', left: '65%' },
         ],
       }
-      const heroImage = heroByCount[list.length] || satRaft5
+      const heroImage =
+        (realisticImagery && realisticHeroByCount[list.length]) ||
+        heroByCount[list.length] ||
+        satRaft5
       const pinPos = pinPosByCount[list.length] || pinPosByCount[5]
       const hasActive = activeIdx != null
 
@@ -2902,7 +3393,71 @@ function Myships() {
             ],
           },
         }
-        const outlineSet = hullOutlinesByCount[list.length] || null
+        // v21: bounding-box mini-clips instead of segmentation outlines.
+        const bboxMode = stsVersion === 'v21'
+        // v22 large-transfer flow: we only have pen-traced hulls for 2–5
+        // vessels, but v22 exists to show the 6+ overflow raft. For the 6-hull
+        // image we don't have pen traces, so define plain axis-aligned boxes in
+        // the hero's own pixel space (1536×1024 = HERO_VB). `sx/sy = 1` and
+        // `tb = [0,0,w,h]` means each box is drawn exactly at `tx/ty` with size
+        // `w×h`. Only used in bboxMode (v21/v22); segmentation (v17/v20) still
+        // shows the honest "unavailable" note for 6+.
+        const bboxOnlyHullsByCount = {
+          6: {
+            hulls: [
+              { tx: 477, ty: 180, sx: 1, sy: 1, tb: [0, 0, 138, 663] },
+              { tx: 618, ty: 225, sx: 1, sy: 1, tb: [0, 0, 90, 612] },
+              { tx: 714, ty: 225, sx: 1, sy: 1, tb: [0, 0, 96, 612] },
+              { tx: 816, ty: 225, sx: 1, sy: 1, tb: [0, 0, 93, 612] },
+              { tx: 915, ty: 225, sx: 1, sy: 1, tb: [0, 0, 93, 612] },
+              { tx: 1012, ty: 228, sx: 1, sy: 1, tb: [0, 0, 101, 609] },
+            ].map((o) => ({
+              ...o,
+              d: `M0 0H${o.tb[2]}V${o.tb[3]}H0Z`,
+            })),
+          },
+        }
+        // Realistic (blurry) plates: the raft sits centered in the frame, so
+        // rather than pen-tracing each fuzzy hull we lay evenly-spaced axis-
+        // aligned boxes over the cluster (image px, HERO_VB space). One cluster
+        // rect per vessel count, sliced into N boxes.
+        // `angle` (deg) orients each box along the hull so it reads as a real
+        // oriented ship-detection box rather than an axis-aligned rectangle.
+        // Positive = clockwise. Boxes are kept narrow so one box = one hull.
+        const realisticClusterByCount = {
+          2: { left: 712, top: 382, width: 120, height: 278, angle: 12 },
+          3: { left: 676, top: 356, width: 190, height: 336, angle: 12 },
+          4: { left: 658, top: 374, width: 184, height: 284, angle: 12 },
+          5: { left: 648, top: 360, width: 256, height: 318, angle: 12 },
+          6: { left: 582, top: 352, width: 320, height: 354, angle: 12 },
+          7: { left: 576, top: 382, width: 342, height: 308, angle: 12 },
+        }
+        const realisticOutlineSet = (() => {
+          const c = realisticClusterByCount[list.length]
+          if (!c) return null
+          const slot = c.width / list.length
+          // Hug a single hull: ~half the slot, so neighbours stay clear.
+          const boxW = Math.max(20, slot * 0.46)
+          return {
+            hulls: Array.from({ length: list.length }, (_, i) => {
+              const x = c.left + i * slot + (slot - boxW) / 2
+              return {
+                tx: x,
+                ty: c.top,
+                sx: 1,
+                sy: 1,
+                angle: c.angle,
+                tb: [0, 0, boxW, c.height],
+                d: `M0 0H${boxW}V${c.height}H0Z`,
+              }
+            }),
+          }
+        })()
+        const outlineSet = realisticImagery
+          ? realisticOutlineSet
+          : hullOutlinesByCount[list.length] ||
+            (bboxMode ? bboxOnlyHullsByCount[list.length] : null) ||
+            null
         // Derive each hull's spotlight aperture (image px) from its trace bbox +
         // transform, so `cx/cy/w/h` stay correct after any `tx/ty/sx/sy` tweak.
         const outlines = outlineSet
@@ -2919,14 +3474,17 @@ function Myships() {
           : null
         const hasOutlines =
           Array.isArray(outlines) && outlines.length === list.length
-        // v21: bounding-box mini-clips instead of segmentation outlines.
-        const bboxMode = stsVersion === 'v21'
-        // Hover wins; fall back to any externally-driven active vessel.
-        const focusIdx =
-          stsHeroHoverIdx != null && stsHeroHoverIdx < list.length
+        // Card mode locks focus to the active vessel and ignores hover; the modal
+        // lets hover win, falling back to any externally-driven active vessel.
+        const focusIdx = activeOnly
+          ? activeIdx
+          : stsHeroHoverIdx != null && stsHeroHoverIdx < list.length
             ? stsHeroHoverIdx
             : activeIdx
-        const hasFocus = stsSegmentOn && hasOutlines && focusIdx != null
+        // The card always shows its single box (no toggle in the ship panel); the
+        // modal respects the SEGMENT/BOUNDING-BOXES toggle.
+        const segmentActive = activeOnly ? true : stsSegmentOn
+        const hasFocus = segmentActive && hasOutlines && focusIdx != null
         const focusShape = hasFocus ? outlines[focusIdx] : null
         const focusSid = hasFocus ? list[focusIdx] : null
         const focusShip = focusSid ? ships[focusSid] : null
@@ -2962,7 +3520,7 @@ function Myships() {
                 height,
                 objectFit: 'cover',
                 display: 'block',
-                filter: hasFocus ? 'brightness(0.9)' : 'none',
+                filter: hasFocus && !activeOnly ? 'brightness(0.9)' : 'none',
                 transition: 'filter 0.2s ease',
               }}
             />
@@ -2970,7 +3528,7 @@ function Myships() {
                 For any other count the stock raft image can't match the event,
                 so instead of a silently-dead toggle we say so outright. Only on
                 the full-size overview hero (not the tiny drill-in thumbnail). */}
-            {stsSegmentOn && !hasOutlines && width === '100%' && (
+            {stsSegmentOn && !hasOutlines && !realisticImagery && width === '100%' && (
               <Box
                 style={{
                   position: 'absolute',
@@ -2980,7 +3538,7 @@ function Myships() {
                   alignItems: 'center',
                   gap: 6,
                   padding: '5px 10px',
-                  borderRadius: 6,
+                  borderRadius: 4,
                   background: 'rgba(3, 6, 15, 0.62)',
                   border: '1px solid rgba(141,147,168,0.45)',
                   zIndex: 3,
@@ -2995,14 +3553,14 @@ function Myships() {
                     textTransform: 'uppercase',
                   }}
                 >
-                  {`Segmentation unavailable for ${list.length} vessels`}
+                  {`${bboxMode ? 'Bounding boxes' : 'Segmentation'} unavailable for ${list.length} vessels`}
                 </Text>
               </Box>
             )}
             {/* Segmentation overlay: outlines + spotlight + reticle, all in the
                 image's pixel space with the same `cover` crop as the <img>.
                 Hidden entirely when the analyst turns SEGMENT FOCUS off. */}
-            {stsSegmentOn && hasOutlines && (
+            {segmentActive && hasOutlines && (
               <svg
                 viewBox={`0 0 ${HERO_VB.w} ${HERO_VB.h}`}
                 preserveAspectRatio="xMidYMid slice"
@@ -3015,8 +3573,10 @@ function Myships() {
                   zIndex: 2,
                 }}
               >
-                {/* Spotlight: dim everything except a soft ellipse on the hull. */}
+                {/* Spotlight: dim everything except a soft ellipse on the hull.
+                    Skipped in card mode (single static box, nothing to dim). */}
                 {hasFocus &&
+                  !activeOnly &&
                   (() => {
                     const r = focusShape.w * 0.95
                     const sy = (focusShape.h * 0.62) / r
@@ -3068,6 +3628,8 @@ function Myships() {
                       (b.idx === focusIdx ? 1 : 0)
                   )
                   .map(({ o, idx }) => {
+                    // Card mode: only the active vessel's box is drawn.
+                    if (activeOnly && idx !== focusIdx) return null
                     const sid = list[idx]
                     const s = ships[sid]
                     const attributed = Boolean(s) && sid !== 'unknown'
@@ -3099,9 +3661,7 @@ function Myships() {
                       onClick: onPinClick ? () => onPinClick(idx) : undefined,
                       onMouseEnter: () => setStsHeroHoverIdx(idx),
                       onMouseLeave: () =>
-                        setStsHeroHoverIdx((cur) =>
-                          cur === idx ? null : cur
-                        ),
+                        setStsHeroHoverIdx((cur) => (cur === idx ? null : cur)),
                       style: {
                         cursor: onPinClick ? 'pointer' : 'default',
                         pointerEvents: 'all',
@@ -3120,7 +3680,11 @@ function Myships() {
                         className={`sts-hull sts-hull-${list.length}-${idx} ${
                           idx === 0 ? 'sts-hull-left' : 'sts-hull-right'
                         }`}
-                        transform={`translate(${o.tx} ${o.ty})`}
+                        transform={`translate(${o.tx} ${o.ty})${
+                          o.angle
+                            ? ` rotate(${o.angle} ${o.tb[2] / 2} ${o.tb[3] / 2})`
+                            : ''
+                        }`}
                       >
                         {bboxMode ? (
                           <rect
@@ -3140,8 +3704,9 @@ function Myships() {
             )}
             {/* Mini clip card for the focused hull (CONF / LENGTH / HEADING).
                 The "SHIP N" eyebrow + vessel name identify the card, so the old
-                "SEGMENTED MINI-CLIP" label was dropped to save space. */}
-            {hasFocus && (
+                "SEGMENTED MINI-CLIP" label was dropped to save space. Card mode
+                skips it — the box alone identifies the active vessel. */}
+            {hasFocus && !activeOnly && (
               <Box
                 style={{
                   position: 'absolute',
@@ -3150,7 +3715,7 @@ function Myships() {
                   right: cardOnLeft ? undefined : 10,
                   // width: 150,
                   padding: 8,
-                  borderRadius: 8,
+                  borderRadius: 4,
                   background: 'rgba(12, 15, 26, 0.92)',
                   border: `1px solid #006cd7`,
                   boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
@@ -3237,54 +3802,54 @@ function Myships() {
             shipDetailsVersion !== 'v9' &&
             shipDetailsVersion !== 'v10' &&
             list.map((sid, idx) => {
-            const pos = pinPos[idx] || pinPos[pinPos.length - 1]
-            const s = ships[sid]
-            const attributed = Boolean(s) && sid !== 'unknown'
-            const name = s?.name || 'Unattributed'
-            const isActive = hasActive && idx === activeIdx
-            const dimmed = hasActive && !isActive
-            return (
-              <Tooltip
-                key={`pin-${sid}-${idx}`}
-                label={`${idx + 1}. ${name}`}
-                withArrow
-                color="#181926"
-                styles={{
-                  tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
-                }}
-              >
-                <Box
-                  onClick={onPinClick ? () => onPinClick(idx) : undefined}
-                  style={{
-                    position: 'absolute',
-                    top: pos.top,
-                    left: pos.left,
-                    transform: `translate(-50%, -50%) scale(${isActive ? 1.2 : 1})`,
-                    width: 24,
-                    height: 24,
-                    borderRadius: '50%',
-                    background: attributed ? '#006CD7' : '#F75349',
-                    border: isActive ? '2px solid #fff' : '2px solid #fff',
-                    boxShadow: isActive
-                      ? '0 0 0 3px rgba(0,148,255,0.6), 0 1px 4px rgba(0,0,0,0.5)'
-                      : '0 1px 4px rgba(0,0,0,0.5)',
-                    opacity: dimmed ? 0.4 : 1,
-                    color: '#fff',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: onPinClick ? 'pointer' : 'default',
-                    transition:
-                      'opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease',
-                    zIndex: isActive ? 2 : 1,
+              const pos = pinPos[idx] || pinPos[pinPos.length - 1]
+              const s = ships[sid]
+              const attributed = Boolean(s) && sid !== 'unknown'
+              const name = s?.name || 'Unattributed'
+              const isActive = hasActive && idx === activeIdx
+              const dimmed = hasActive && !isActive
+              return (
+                <Tooltip
+                  key={`pin-${sid}-${idx}`}
+                  label={`${idx + 1}. ${name}`}
+                  withArrow
+                  color="#181926"
+                  styles={{
+                    tooltip: { color: '#fff', fontSize: 12, fontWeight: 600 },
                   }}
                 >
-                  {idx + 1}
-                </Box>
-              </Tooltip>
-            )
+                  <Box
+                    onClick={onPinClick ? () => onPinClick(idx) : undefined}
+                    style={{
+                      position: 'absolute',
+                      top: pos.top,
+                      left: pos.left,
+                      transform: `translate(-50%, -50%) scale(${isActive ? 1.2 : 1})`,
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      background: attributed ? '#006CD7' : '#F75349',
+                      border: isActive ? '2px solid #fff' : '2px solid #fff',
+                      boxShadow: isActive
+                        ? '0 0 0 3px rgba(0,148,255,0.6), 0 1px 4px rgba(0,0,0,0.5)'
+                        : '0 1px 4px rgba(0,0,0,0.5)',
+                      opacity: dimmed ? 0.4 : 1,
+                      color: '#fff',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: onPinClick ? 'pointer' : 'default',
+                      transition:
+                        'opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease',
+                      zIndex: isActive ? 2 : 1,
+                    }}
+                  >
+                    {idx + 1}
+                  </Box>
+                </Tooltip>
+              )
             })}
         </Box>
       )
@@ -3292,23 +3857,18 @@ function Myships() {
     [ships, stsVersion, stsHeroHoverIdx, stsSegmentOn, shipDetailsVersion]
   )
   const selectedEventIsSts =
-    selectedDetection?.type === 'sts' ||
-    selectedDetection?.type === 'sts-ais'
-  const selectedStsIcon = selectedEventIsSts
-    ? (stsVersion === 'v17' ||
-        stsVersion === 'v20' ||
-        stsVersion === 'v21') &&
-      (isStsTab || isStsShipTab)
-      ? (
-          <StsV20Icon
-            type={activeTab?.stsType || selectedDetection?.type}
-            size={16}
-          />
-        )
-      : isStsTab && activeTab
-        ? renderStsTabIcon(activeTab, { width: 6, height: 14, gap: 2 })
-        : undefined
-    : undefined
+    selectedDetection?.type === 'sts' || selectedDetection?.type === 'sts-ais'
+  const selectedStsIcon = selectedEventIsSts ? (
+    (stsVersion === 'v17' || stsVersion === 'v20' || stsVersion === 'v21') &&
+    (isStsTab || isStsShipTab) ? (
+      <StsV20Icon
+        type={activeTab?.stsType || selectedDetection?.type}
+        size={16}
+      />
+    ) : isStsTab && activeTab ? (
+      renderStsTabIcon(activeTab, { width: 6, height: 14, gap: 2 })
+    ) : undefined
+  ) : undefined
 
   const isLatest =
     !selectedCard || selectedDetection?.id === latestDetection?.id
@@ -4603,7 +5163,7 @@ function Myships() {
                           <Box
                             style={{
                               padding: '10px 12px',
-                              borderRadius: 6,
+                              borderRadius: 4,
                               border: isActive
                                 ? '2px solid #006CD7'
                                 : '1px solid #393C56',
@@ -4695,7 +5255,7 @@ function Myships() {
                         gap: 10,
                         marginBottom: 14,
                         padding: '10px 12px',
-                        borderRadius: 8,
+                        borderRadius: 4,
                         background:
                           stsOverflowMode === 'cap'
                             ? 'rgba(247, 178, 74, 0.12)'
@@ -4811,7 +5371,7 @@ function Myships() {
                               <Box
                                 style={{
                                   padding: '8px 10px',
-                                  borderRadius: 6,
+                                  borderRadius: 4,
                                   background: 'rgba(3, 6, 15, 0.5)',
                                   border: '1px solid rgba(141,147,168,0.28)',
                                 }}
@@ -4852,7 +5412,7 @@ function Myships() {
                                 alignItems: 'center',
                                 gap: 6,
                                 padding: '5px 10px',
-                                borderRadius: 6,
+                                borderRadius: 4,
                                 cursor: 'pointer',
                                 userSelect: 'none',
                                 background: 'transparent',
@@ -4901,38 +5461,41 @@ function Myships() {
                         "unavailable" note on the hero instead. */}
                     {stsVersion === 'v17' &&
                       [2, 3, 4, 5].includes(list.length) && (
-                      <Switch
-                        checked={stsSegmentOn}
-                        onChange={toggleStsSegment}
-                        label="Segment focus"
-                        labelPosition="left"
-                        size="xs"
-                        color="#006CD7"
-                        style={{ flexShrink: 0 }}
-                        styles={{
-                          root: { display: 'flex' },
-                          body: { display: 'flex', alignItems: 'center' },
-                          track: {
-                            border: 'none',
-                            cursor: 'pointer',
-                            backgroundColor: stsSegmentOn
-                              ? '#0094FF'
-                              : '#4A4D6A',
-                          },
-                          thumb: { border: 'none', backgroundColor: '#FFFFFF' },
-                          label: {
-                            color: stsSegmentOn ? '#FFFFFF' : '#8D93A8',
-                            fontSize: 10,
-                            fontWeight: 700,
-                            letterSpacing: 0.8,
-                            textTransform: 'uppercase',
-                            paddingRight: 8,
-                            cursor: 'pointer',
-                            transition: 'color 0.15s ease',
-                          },
-                        }}
-                      />
-                    )}
+                        <Switch
+                          checked={stsSegmentOn}
+                          onChange={toggleStsSegment}
+                          label="Segment focus"
+                          labelPosition="left"
+                          size="xs"
+                          color="#006CD7"
+                          style={{ flexShrink: 0 }}
+                          styles={{
+                            root: { display: 'flex' },
+                            body: { display: 'flex', alignItems: 'center' },
+                            track: {
+                              border: 'none',
+                              cursor: 'pointer',
+                              backgroundColor: stsSegmentOn
+                                ? '#0094FF'
+                                : '#4A4D6A',
+                            },
+                            thumb: {
+                              border: 'none',
+                              backgroundColor: '#FFFFFF',
+                            },
+                            label: {
+                              color: stsSegmentOn ? '#FFFFFF' : '#8D93A8',
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: 0.8,
+                              textTransform: 'uppercase',
+                              paddingRight: 8,
+                              cursor: 'pointer',
+                              transition: 'color 0.15s ease',
+                            },
+                          }}
+                        />
+                      )}
                   </Box>
 
                   {/* Location + event-level ID (ID last; stands in for the
@@ -5267,7 +5830,7 @@ function Myships() {
                           <Box
                             style={{
                               border: '1px solid #393C56',
-                              borderRadius: 8,
+                              borderRadius: 4,
                               background: '#12131F',
                               padding: 8,
                             }}
@@ -5435,7 +5998,7 @@ function Myships() {
                               alignItems: 'center',
                               gap: 10,
                               padding: '10px 12px',
-                              borderRadius: 6,
+                              borderRadius: 4,
                               border: `1px solid ${
                                 isHovered ? '#006CD7' : '#393C56'
                               }`,
@@ -5696,7 +6259,7 @@ function Myships() {
                             styles={{
                               tooltip: {
                                 color: '#fff',
-                                borderRadius: 8,
+                                borderRadius: 4,
                                 padding: '10px 12px',
                                 maxWidth: 240,
                               },
@@ -6004,8 +6567,8 @@ function Myships() {
                               eventToolsPoppedOut
                                 ? '#006CD7'
                                 : hoveredTopAction === 'popout'
-                                ? '#24263C'
-                                : 'transparent',
+                                  ? '#24263C'
+                                  : 'transparent',
                           }}
                         >
                           {shipDetailsVersion === 'v4' ||
@@ -6390,129 +6953,155 @@ function Myships() {
                       shipDetailsVersion !== 'v8' &&
                       shipDetailsVersion !== 'v9' &&
                       shipDetailsVersion !== 'v10' && (
-                      <ShipDetailsPanel
-                        version={shipDetailsVersion}
-                        selectedEvent={selectedDetection}
-                        isLatest={isLatest}
-                        eventLabel={eventLabel[selectedDetection?.type] || ''}
-                        eventIconOverride={selectedStsIcon}
-                        flashEnabled={flashEnabled}
-                        onToolsVisibleChange={setDetailToolsVisible}
-                        onToolAction={handleShipToolAction}
-                        activeToolIds={activeMapToolPanels}
-                      />
-                    )}
-                    {isStsShipTab &&
-                      (stsVersionRaw === 'v20' || stsVersionRaw === 'v21') && (
-                      // Compact single-row STS switcher directly under the tools
-                      // card: an Overview button + the involved vessels. Kept
-                      // slim so it doesn't push the detail tabs below the fold.
-                      <Box style={{ marginTop: 16 }}>
-                        <Text
-                          style={{
-                            color: '#fff',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            marginBottom: 8,
-                          }}
-                        >
-                          Ship-to-Ship Event
-                        </Text>
-                        <Box
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                          }}
-                        >
-                        <Box
-                          component="button"
-                          type="button"
-                          onClick={() => setStsOverviewModalOpen(true)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            height: 30,
-                            padding: '0 10px',
-                            background: '#181926',
-                            border: '1px solid #393C56',
-                            borderRadius: 4,
-                            color: '#fff',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            flexShrink: 0,
-                          }}
-                        >
-                          STS Overview
-                        </Box>
-                        <Box
-                          style={{
-                            width: 1,
-                            height: 30,
-                            background: '#393C56',
-                            flexShrink: 0,
-                          }}
+                        <ShipDetailsPanel
+                          version={shipDetailsVersion}
+                          selectedEvent={selectedDetection}
+                          isLatest={isLatest}
+                          eventLabel={eventLabel[selectedDetection?.type] || ''}
+                          eventIconOverride={selectedStsIcon}
+                          flashEnabled={flashEnabled}
+                          onToolsVisibleChange={setDetailToolsVisible}
+                          onToolAction={handleShipToolAction}
+                          activeToolIds={activeMapToolPanels}
                         />
-                        <Box
-                          className="tab-row-scroll"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            overflowX: 'auto',
-                            minWidth: 0,
-                          }}
-                        >
-                          {stsEventShipIds.map((sid) => {
-                            const s = ships[sid]
-                            if (!s) return null
-                            const active = activeShipTab === sid
-                            return (
-                              <Box
-                                key={sid}
-                                component="button"
-                                type="button"
-                                onClick={() => {
-                                  if (active) return
-                                  openStsVesselTab(sid, activeTab)
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  height: 30,
-                                  padding: '0 10px',
-                                  borderRadius: 4,
-                                  border: `1px solid ${active ? '#0094FF' : '#393C56'}`,
-                                  background: active
-                                    ? 'rgba(0, 148, 255, 0.12)'
+                      )}
+                    {isStsShipTab &&
+                      (stsVersionRaw === 'v20' ||
+                        stsVersionRaw === 'v21' ||
+                        stsVersionRaw === 'v22' ||
+                        stsVersionRaw === 'v23' ||
+                        stsVersionRaw === 'v24') && (
+                        // Compact single-row STS switcher directly under the tools
+                        // card: an Overview button + the involved vessels. Kept
+                        // slim so it doesn't push the detail tabs below the fold.
+                        <Box style={{ marginTop: 16 }}>
+                          <Text
+                            style={{
+                              color: '#fff',
+                              fontSize: 13,
+                              fontWeight: 600,
+                              marginBottom: 8,
+                            }}
+                          >
+                            Ship-to-Ship Event
+                          </Text>
+                          <Box
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                            }}
+                          >
+                            <Box
+                              component="button"
+                              type="button"
+                              onClick={() => setStsOverviewModalOpen(true)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                height: 30,
+                                padding: '0 10px',
+                                background:
+                                  isStsLargeTransfer && stsShipTabOverflow
+                                    ? 'rgba(247, 178, 74, 0.12)'
                                     : '#181926',
-                                  cursor: active ? 'default' : 'pointer',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                <Text
+                                border: `1px solid ${
+                                  isStsLargeTransfer && stsShipTabOverflow
+                                    ? 'rgba(247, 178, 74, 0.55)'
+                                    : '#393C56'
+                                }`,
+                                borderRadius: 4,
+                                color:
+                                  isStsLargeTransfer && stsShipTabOverflow
+                                    ? '#F7C67E'
+                                    : '#fff',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {isStsLargeTransfer && stsShipTabOverflow && (
+                                <AlertCircle
                                   style={{
-                                    color: '#fff',
-                                    fontSize: 12,
-                                    fontWeight: active ? 600 : 500,
-                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
+                                    width: 15,
+                                    height: 15,
+                                    color: '#F7B24A',
                                   }}
-                                >
-                                  {s.name}
-                                </Text>
-                                {s.flag && (
-                                  <Text style={{ fontSize: 13 }}>{s.flag}</Text>
-                                )}
-                              </Box>
-                            )
-                          })}
+                                />
+                              )}
+                              STS Overview
+                            </Box>
+                            <Box
+                              style={{
+                                width: 1,
+                                height: 30,
+                                background: '#393C56',
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Box
+                              className="tab-row-scroll"
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                overflowX: 'auto',
+                                minWidth: 0,
+                              }}
+                            >
+                              {stsEventShipIds.map((sid) => {
+                                const s = ships[sid]
+                                if (!s) return null
+                                const active = activeShipTab === sid
+                                return (
+                                  <Box
+                                    key={sid}
+                                    component="button"
+                                    type="button"
+                                    onClick={() => {
+                                      if (active) return
+                                      openStsVesselTab(sid, activeTab)
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                      height: 30,
+                                      padding: '0 10px',
+                                      borderRadius: 4,
+                                      border: `1px solid ${active ? '#0094FF' : '#393C56'}`,
+                                      background: active
+                                        ? 'rgba(0, 148, 255, 0.12)'
+                                        : '#181926',
+                                      cursor: active ? 'default' : 'pointer',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        color: '#fff',
+                                        fontSize: 12,
+                                        fontWeight: active ? 600 : 500,
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {s.name}
+                                    </Text>
+                                    {s.flag && (
+                                      <Text style={{ fontSize: 13 }}>
+                                        {s.flag}
+                                      </Text>
+                                    )}
+                                  </Box>
+                                )
+                              })}
+                            </Box>
+                          </Box>
                         </Box>
-                        </Box>
-                      </Box>
-                    )}
+                      )}
                   </>
                 )}
               </Box>
@@ -6523,24 +7112,26 @@ function Myships() {
                     shipDetailsVersion !== 'v8' &&
                     shipDetailsVersion !== 'v9' &&
                     shipDetailsVersion !== 'v10' && (
-                    <Box style={{ flexShrink: 0, padding: '20px 20px 0 20px' }}>
-                      <ShipDetailsPanel
-                        version={shipDetailsVersion}
-                        selectedEvent={selectedDetection}
-                        isLatest
-                        eventLabel={
-                          isStsUnattributed
-                            ? 'Unattributed'
-                            : eventLabel[selectedDetection?.type] || ''
-                        }
-                        flashEnabled={false}
-                        unattributed
-                        onToolsVisibleChange={setDetailToolsVisible}
-                        onToolAction={handleShipToolAction}
-                        activeToolIds={activeMapToolPanels}
-                      />
-                    </Box>
-                  )}
+                      <Box
+                        style={{ flexShrink: 0, padding: '20px 20px 0 20px' }}
+                      >
+                        <ShipDetailsPanel
+                          version={shipDetailsVersion}
+                          selectedEvent={selectedDetection}
+                          isLatest
+                          eventLabel={
+                            isStsUnattributed
+                              ? 'Unattributed'
+                              : eventLabel[selectedDetection?.type] || ''
+                          }
+                          flashEnabled={false}
+                          unattributed
+                          onToolsVisibleChange={setDetailToolsVisible}
+                          onToolAction={handleShipToolAction}
+                          activeToolIds={activeMapToolPanels}
+                        />
+                      </Box>
+                    )}
                   <Box
                     className="no-scrollbar"
                     style={{
@@ -6854,9 +7445,7 @@ function Myships() {
                             ).padStart(2, '0')}`
                             const aisLocationActive =
                               normalizeDetectionId(selectedCard) ===
-                                normalizeDetectionId(
-                                  latestAisDetection.id
-                                ) ||
+                                normalizeDetectionId(latestAisDetection.id) ||
                               shownOnMapDetectionIds.some(
                                 (id) =>
                                   normalizeDetectionId(id) ===
@@ -6920,7 +7509,7 @@ function Myships() {
                                       style={{
                                         width: 28,
                                         height: 16,
-                                        borderRadius: 8,
+                                        borderRadius: 4,
                                         padding: 2,
                                         display: 'flex',
                                         justifyContent:
@@ -7002,7 +7591,8 @@ function Myships() {
                                     }
                                     onEventToolsButtonClick={
                                       isShipDetailsV12
-                                        ? (nextOpen) => setEventToolsPoppedOut(nextOpen)
+                                        ? (nextOpen) =>
+                                            setEventToolsPoppedOut(nextOpen)
                                         : undefined
                                     }
                                     eventToolsButtonActive={
@@ -7344,7 +7934,8 @@ function Myships() {
                                   }
                                   onEventToolsButtonClick={
                                     isShipDetailsV12
-                                      ? (nextOpen) => setEventToolsPoppedOut(nextOpen)
+                                      ? (nextOpen) =>
+                                          setEventToolsPoppedOut(nextOpen)
                                       : undefined
                                   }
                                   eventToolsButtonActive={
@@ -7464,7 +8055,8 @@ function Myships() {
                                 }
                                 onEventToolsButtonClick={
                                   isShipDetailsV12
-                                    ? (nextOpen) => setEventToolsPoppedOut(nextOpen)
+                                    ? (nextOpen) =>
+                                        setEventToolsPoppedOut(nextOpen)
                                     : undefined
                                 }
                                 eventToolsButtonActive={
@@ -7656,24 +8248,45 @@ function Myships() {
                                 }
                                 detectionType={det.type}
                                 stsHeroNode={
-                                  (det.type === 'sts' ||
-                                    det.type === 'sts-ais') &&
-                                  isStsTab &&
-                                  Array.isArray(stsShipIds) &&
-                                  stsShipIds.length > 1
-                                    ? renderStsHero(stsShipIds, {
-                                        activeIdx: activeStsShipIndex,
-                                        height:
-                                          shipDetailsVersion === 'v4' ||
-                                          shipDetailsVersion === 'v5' ||
-                                          shipDetailsVersion === 'v6' ||
-                                          shipDetailsVersion === 'v10'
-                                            ? 180
-                                            : 206,
-                                        width: 180,
-                                        marginBottom: 0,
-                                        borderRadius: 4,
-                                      })
+                                  det.type === 'sts' || det.type === 'sts-ais'
+                                    ? isStsTab &&
+                                      Array.isArray(stsShipIds) &&
+                                      stsShipIds.length > 1
+                                      ? renderStsHero(stsShipIds, {
+                                          activeIdx: activeStsShipIndex,
+                                          height:
+                                            shipDetailsVersion === 'v4' ||
+                                            shipDetailsVersion === 'v5' ||
+                                            shipDetailsVersion === 'v6' ||
+                                            shipDetailsVersion === 'v10'
+                                              ? 180
+                                              : 206,
+                                          width: 180,
+                                          marginBottom: 0,
+                                          borderRadius: 4,
+                                        })
+                                      : // Bounding-box STS versions (v21/v22/v23):
+                                        // the ship-detail card shows the satellite
+                                        // plate boxed to the ACTIVE vessel, so each
+                                        // vessel tab (Invictus, Wisdom Star, …) shows
+                                        // its own detection box. v22/v23 also use this
+                                        // for the large-transfer overflow rafts.
+                                        isStsShipTab && stsVersion === 'v21'
+                                        ? renderStsHero(stsEventShipIds, {
+                                            height: 206,
+                                            width: 180,
+                                            marginBottom: 0,
+                                            borderRadius: 4,
+                                            realisticImagery: true,
+                                            activeOnly: true,
+                                            activeIdx: Math.max(
+                                              0,
+                                              stsEventShipIds.indexOf(
+                                                activeShipId
+                                              )
+                                            ),
+                                          })
+                                        : undefined
                                     : undefined
                                 }
                               />
@@ -8867,32 +9480,37 @@ function Myships() {
                 icon={<SatelliteIcon />}
                 onClick={() => {}}
               />
-              {(pathToPortVersion === 'v5' ||
-                pathToPortVersion === 'v6') && (
-                <ShipPathPanelButton
-                  fullWidth
-                  singleLineLabel
-                  active={arrivalsOverlayOn}
-                  label={
-                    arrivalsOverlayOn ? 'Hide Path to Port' : 'Path to Port'
-                  }
-                  icon={
-                    <Anchor style={{ width: 20, height: 20, color: '#fff' }} />
-                  }
-                  onClick={() =>
-                    setArrivalsOverlayOn((v) => {
-                      const next = !v
-                      // Turning the overlay on clears any single-vessel focus so
-                      // the two views stay mutually exclusive.
-                      if (next) {
-                        clearPathToPort()
-                        setExpandedArrivalIds(new Set())
-                      }
-                      return next
-                    })
-                  }
-                />
-              )}
+              {(pathToPortVersion === 'v5' || pathToPortVersion === 'v6') &&
+                !isPathToPortV9 && (
+                  <ShipPathPanelButton
+                    fullWidth
+                    singleLineLabel
+                    active={arrivalsOverlayOn}
+                    label={
+                      arrivalsOverlayOn ? 'Hide Path to Port' : 'Path to Port'
+                    }
+                    icon={
+                      <Anchor
+                        style={{ width: 20, height: 20, color: '#fff' }}
+                      />
+                    }
+                    onClick={() =>
+                      setArrivalsOverlayOn((v) => {
+                        const next = !v
+                        // Turning the overlay on clears any single-vessel focus so
+                        // the two views stay mutually exclusive.
+                        if (next) {
+                          clearPathToPort()
+                          setExpandedArrivalIds(new Set())
+                        }
+                        // v8: the advanced filters belong to the Path to Port
+                        // overlay, so open the panel with it (and close on hide).
+                        if (isPathToPortV8) setAdvancedFiltersOpen(next)
+                        return next
+                      })
+                    }
+                  />
+                )}
             </Box>
           )}
 
@@ -9465,7 +10083,11 @@ function Myships() {
                       borderRadius: 4,
                     }}
                   >
-                    <SearchMd size={16} color="#FFFFFF" style={{ flexShrink: 0 }} />
+                    <SearchMd
+                      size={16}
+                      color="#FFFFFF"
+                      style={{ flexShrink: 0 }}
+                    />
                     <Box
                       component="input"
                       type="search"
@@ -9492,7 +10114,7 @@ function Myships() {
                     style={{
                       display: 'grid',
                       gridTemplateColumns:
-                        'minmax(0, 1.5fr) 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr)',
+                        'minmax(0, 1.5fr) 48px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr)',
                       columnGap: 10,
                       alignItems: 'center',
                       padding: '6px 10px',
@@ -9506,7 +10128,7 @@ function Myships() {
                   >
                     {[
                       ['name', 'Name'],
-                      ['flag', 'Ctry'],
+                      ['flag', 'Flag'],
                       ['type', 'Type'],
                       ['imo', 'IMO'],
                       ['mmsi', 'MMSI'],
@@ -9538,95 +10160,95 @@ function Myships() {
                     </Text>
                   )}
                   {sortedShipsInPortRows.map((ship) => {
-                      return (
-                        <Box
-                          key={ship.id}
+                    return (
+                      <Box
+                        key={ship.id}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns:
+                            'minmax(0, 1.5fr) 48px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr)',
+                          columnGap: 10,
+                          alignItems: 'center',
+                          padding: '8px 10px',
+                          margin: '0 20px',
+                          borderBottom: '1px solid #393C56',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = '#24263C'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent'
+                        }}
+                      >
+                        <Text
                           style={{
-                            display: 'grid',
-                            gridTemplateColumns:
-                              'minmax(0, 1.5fr) 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr)',
-                            columnGap: 10,
-                            alignItems: 'center',
-                            padding: '8px 10px',
-                            margin: '0 20px',
-                            borderBottom: '1px solid #393C56',
-                            cursor: 'pointer',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#24263C'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent'
+                            color: '#fff',
+                            fontSize: 12,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
                           }}
                         >
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {ship.name}
-                          </Text>
-                          <Text style={{ fontSize: 14 }}>{ship.flag}</Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {ship.type}
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {ship.imo}
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {ship.mmsi}
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {ship.reportedAt.toLocaleString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: false,
-                              timeZone: 'UTC',
-                            })}{' '}
-                            UTC
-                          </Text>
-                        </Box>
-                      )
-                    })}
+                          {ship.name}
+                        </Text>
+                        <Text style={{ fontSize: 14 }}>{ship.flag}</Text>
+                        <Text
+                          style={{
+                            color: '#fff',
+                            fontSize: 12,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {ship.type}
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#fff',
+                            fontSize: 12,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {ship.imo}
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#fff',
+                            fontSize: 12,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {ship.mmsi}
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#fff',
+                            fontSize: 12,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {ship.reportedAt.toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                            timeZone: 'UTC',
+                          })}{' '}
+                          UTC
+                        </Text>
+                      </Box>
+                    )
+                  })}
                 </Box>
               )}
 
@@ -9748,54 +10370,58 @@ function Myships() {
                       >
                         {expectedArrivalsData.rows.length} Expected arrivals
                       </Text>
-                      <Box
-                        onClick={() => setAdvancedFiltersOpen(true)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          cursor: 'pointer',
-                          color: '#006CD7',
-                          fontSize: 13,
-                          fontWeight: 600,
-                          userSelect: 'none',
-                        }}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
+                      {/* v8 opens Advanced filters from the Path to Port button
+                          instead (the filters belong to that overlay). */}
+                      {!isPathToPortV8 && (
+                        <Box
+                          onClick={() => setAdvancedFiltersOpen(true)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            cursor: 'pointer',
+                            color: '#006CD7',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            userSelect: 'none',
+                          }}
                         >
-                          <path
-                            d="M3 7H14M14 7C14 8.65685 15.3431 10 17 10C18.6569 10 20 8.65685 20 7C20 5.34315 18.6569 4 17 4C15.3431 4 14 5.34315 14 7ZM10 17C10 18.6569 8.65685 20 7 20C5.34315 20 4 18.6569 4 17C4 15.3431 5.34315 14 7 14C8.65685 14 10 15.3431 10 17ZM10 17H21M3 17H4M20 7H21"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                        Advanced filters
-                        {countActiveArrivalsFilters(arrivalsFilters) > 0 && (
-                          <Box
-                            style={{
-                              minWidth: 18,
-                              height: 18,
-                              padding: '0 5px',
-                              borderRadius: 9,
-                              background: '#006CD7',
-                              color: '#fff',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
                           >
-                            {countActiveArrivalsFilters(arrivalsFilters)}
-                          </Box>
-                        )}
-                      </Box>
+                            <path
+                              d="M3 7H14M14 7C14 8.65685 15.3431 10 17 10C18.6569 10 20 8.65685 20 7C20 5.34315 18.6569 4 17 4C15.3431 4 14 5.34315 14 7ZM10 17C10 18.6569 8.65685 20 7 20C5.34315 20 4 18.6569 4 17C4 15.3431 5.34315 14 7 14C8.65685 14 10 15.3431 10 17ZM10 17H21M3 17H4M20 7H21"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          Advanced filters
+                          {countActiveArrivalsFilters(arrivalsFilters) > 0 && (
+                            <Box
+                              style={{
+                                minWidth: 18,
+                                height: 18,
+                                padding: '0 5px',
+                                borderRadius: 9,
+                                background: '#006CD7',
+                                color: '#fff',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              {countActiveArrivalsFilters(arrivalsFilters)}
+                            </Box>
+                          )}
+                        </Box>
+                      )}
                     </Box>
                   )}
 
@@ -9841,12 +10467,76 @@ function Myships() {
                     />
                   </Box>
 
+                  {/* v9: salience-first focus control — the analyst narrows to the
+                      vessels that matter (watchlist / anomalies) instead of the
+                      whole crowd. The map always draws the salient subset. */}
+                  {isPathToPortV9 && (
+                    <Box
+                      style={{
+                        display: 'flex',
+                        gap: 6,
+                        margin: '0 20px 10px 20px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {[
+                        ['priority', 'Priority', v9SalienceCounts.priority],
+                        ['watchlist', 'Watchlist', v9SalienceCounts.watchlist],
+                        ['anomalies', 'Anomalies', v9SalienceCounts.anomalies],
+                        ['all', 'All', v9SalienceCounts.all],
+                      ].map(([key, label, count]) => {
+                        const activeSeg = v9Focus === key
+                        return (
+                          <Box
+                            key={key}
+                            onClick={() => setV9Focus(key)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '5px 10px',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: activeSeg ? '#fff' : '#C4C9D6',
+                              background: activeSeg ? '#006CD7' : '#24263C',
+                              border: `1px solid ${
+                                activeSeg ? '#006CD7' : '#393C56'
+                              }`,
+                            }}
+                          >
+                            {label}
+                            <Box
+                              style={{
+                                minWidth: 16,
+                                height: 16,
+                                padding: '0 4px',
+                                borderRadius: 8,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: activeSeg ? '#006CD7' : '#fff',
+                                background: activeSeg ? '#fff' : '#393C56',
+                              }}
+                            >
+                              {count}
+                            </Box>
+                          </Box>
+                        )
+                      })}
+                    </Box>
+                  )}
+
                   {/* Table header stays fixed with the intro/card above it. */}
                   <Box
                     style={{
                       display: 'grid',
                       gridTemplateColumns:
-                        'minmax(0, 1.3fr) 24px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 0.8fr) 44px',
+                        'minmax(0, 1.3fr) 48px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 0.8fr) 44px',
                       columnGap: 10,
                       alignItems: 'center',
                       padding: '6px 10px',
@@ -9858,7 +10548,7 @@ function Myships() {
                   >
                     {[
                       ['name', 'Name'],
-                      ['flag', 'Ctry'],
+                      ['flag', 'Flag'],
                       ['type', 'Type'],
                       ['imo', 'IMO'],
                       ['eta', 'ETA'],
@@ -9887,19 +10577,7 @@ function Myships() {
                       overflowY: 'auto',
                     }}
                   >
-                  {expectedArrivalsData.rows.length === 0 && (
-                    <Text
-                      style={{
-                        color: '#888F9E',
-                        fontSize: 13,
-                        margin: '16px 20px',
-                      }}
-                    >
-                      No expected arrivals for this port.
-                    </Text>
-                  )}
-                  {expectedArrivalsData.rows.length > 0 &&
-                    sortedExpectedArrivalRows.length === 0 && (
+                    {expectedArrivalsData.rows.length === 0 && (
                       <Text
                         style={{
                           color: '#888F9E',
@@ -9907,276 +10585,329 @@ function Myships() {
                           margin: '16px 20px',
                         }}
                       >
-                        No expected arrivals match your search.
+                        No expected arrivals for this port.
                       </Text>
                     )}
+                    {expectedArrivalsData.rows.length > 0 &&
+                      sortedExpectedArrivalRows.length === 0 && (
+                        <Text
+                          style={{
+                            color: '#888F9E',
+                            fontSize: 13,
+                            margin: '16px 20px',
+                          }}
+                        >
+                          No expected arrivals match your search.
+                        </Text>
+                      )}
 
-                  {sortedExpectedArrivalRows.map((row) => {
-                    const isActiveRoute =
-                      pathToPortRoute?.shipId === row.shipId
-                    const usesInlineArrivals =
-                      pathToPortVersion === 'v3' ||
-                      pathToPortVersion === 'v6'
-                    const isExpanded =
-                      usesInlineArrivals && expandedArrivalIds.has(row.id)
-                    // v3/v6 highlight every expanded row (multiple can be open);
-                    // other versions highlight the single active route.
-                    const isRowActive =
-                      usesInlineArrivals ? isExpanded : isActiveRoute
-                    const etaShort = row.etaDate
-                      ? row.etaDate.toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: false,
-                          timeZone: 'UTC',
-                        })
-                      : '—'
-                    return (
-                      <Box key={row.id} data-arrival-id={row.id}>
-                        <Box
-                          onClick={() => {
-                            // Every version stays on the port detail panel:
-                            // clicking an arrival draws the route + frames the map
-                            // without switching to the vessel tab.
-                            if (usesInlineArrivals) {
-                              // v7: while the "Path to Port" all-routes overlay is
-                              // active, the overlay draws every route, so toggling
-                              // a row must ONLY open/close that row's readout —
-                              // it must not turn the overlay off or clear routes.
-                              if (isPathToPortV7 && arrivalsOverlayOn) {
+                    {displayedExpectedArrivalRows.map((row) => {
+                      const isActiveRoute =
+                        pathToPortRoute?.shipId === row.shipId
+                      const usesInlineArrivals =
+                        pathToPortVersion === 'v3' || pathToPortVersion === 'v6'
+                      const isExpanded =
+                        usesInlineArrivals && expandedArrivalIds.has(row.id)
+                      // v3/v6 highlight every expanded row (multiple can be open);
+                      // other versions highlight the single active route.
+                      const isRowActive = usesInlineArrivals
+                        ? isExpanded
+                        : isActiveRoute
+                      const etaShort = row.etaDate
+                        ? row.etaDate.toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                            timeZone: 'UTC',
+                          })
+                        : '—'
+                      return (
+                        <Box key={row.id} data-arrival-id={row.id}>
+                          <Box
+                            onClick={() => {
+                              // Every version stays on the port detail panel:
+                              // clicking an arrival draws the route + frames the map
+                              // without switching to the vessel tab.
+                              if (usesInlineArrivals) {
+                                // v7: while the "Path to Port" all-routes overlay is
+                                // active, the overlay draws every route, so toggling
+                                // a row must ONLY open/close that row's readout —
+                                // it must not turn the overlay off or clear routes.
+                                if (isPathToPortV7 && arrivalsOverlayOn) {
+                                  setExpandedArrivalIds((prev) => {
+                                    const next = new Set(prev)
+                                    if (next.has(row.id)) next.delete(row.id)
+                                    else next.add(row.id)
+                                    return next
+                                  })
+                                  return
+                                }
+                                // Inline version toggles the in-row readout; more
+                                // than one card can be open at once, and each open
+                                // card draws its own route on the map.
+                                if (pathToPortVersion === 'v6') {
+                                  setArrivalsOverlayOn(false)
+                                }
+                                const willExpand = !expandedArrivalIds.has(
+                                  row.id
+                                )
                                 setExpandedArrivalIds((prev) => {
                                   const next = new Set(prev)
                                   if (next.has(row.id)) next.delete(row.id)
                                   else next.add(row.id)
                                   return next
                                 })
-                                return
+                                const descriptor = {
+                                  shipId: row.shipId,
+                                  detectionId: row.detectionId ?? null,
+                                  portId: activeTab?.id,
+                                  portName: activeTab?.name || null,
+                                }
+                                setPathToPortRoutes((prev) => {
+                                  const others = prev.filter(
+                                    (r) => r.shipId !== row.shipId
+                                  )
+                                  return willExpand
+                                    ? [...others, descriptor]
+                                    : others
+                                })
+                                // Keep the single route in sync (last expanded) so
+                                // framing / any single-route consumers still work.
+                                if (willExpand) {
+                                  setPathToPortRoute(descriptor)
+                                } else if (
+                                  pathToPortRoute?.shipId === row.shipId
+                                ) {
+                                  setPathToPortRoute(null)
+                                }
+                              } else if (isActiveRoute) {
+                                // v1/v2/v4 show the readout in the floating map panel.
+                                // Clicking the active row again clears it.
+                                clearPathToPort()
+                              } else {
+                                // In v4/v5, focusing a single vessel turns off the
+                                // "show all arrivals" overlay so the two stay
+                                // mutually exclusive (and can each be re-entered).
+                                if (
+                                  pathToPortVersion === 'v4' ||
+                                  pathToPortVersion === 'v5'
+                                ) {
+                                  setArrivalsOverlayOn(false)
+                                }
+                                setPathToPortRoute({
+                                  shipId: row.shipId,
+                                  detectionId: row.detectionId ?? null,
+                                  portId: activeTab?.id,
+                                  portName: activeTab?.name || null,
+                                })
                               }
-                              // Inline version toggles the in-row readout; more
-                              // than one card can be open at once, and each open
-                              // card draws its own route on the map.
-                              if (pathToPortVersion === 'v6') {
-                                setArrivalsOverlayOn(false)
-                              }
-                              const willExpand = !expandedArrivalIds.has(row.id)
-                              setExpandedArrivalIds((prev) => {
-                                const next = new Set(prev)
-                                if (next.has(row.id)) next.delete(row.id)
-                                else next.add(row.id)
-                                return next
-                              })
-                              const descriptor = {
-                                shipId: row.shipId,
-                                detectionId: row.detectionId ?? null,
-                                portId: activeTab?.id,
-                                portName: activeTab?.name || null,
-                              }
-                              setPathToPortRoutes((prev) => {
-                                const others = prev.filter(
-                                  (r) => r.shipId !== row.shipId
-                                )
-                                return willExpand
-                                  ? [...others, descriptor]
-                                  : others
-                              })
-                              // Keep the single route in sync (last expanded) so
-                              // framing / any single-route consumers still work.
-                              if (willExpand) {
-                                setPathToPortRoute(descriptor)
-                              } else if (pathToPortRoute?.shipId === row.shipId) {
-                                setPathToPortRoute(null)
-                              }
-                            } else if (isActiveRoute) {
-                              // v1/v2/v4 show the readout in the floating map panel.
-                              // Clicking the active row again clears it.
-                              clearPathToPort()
-                            } else {
-                              // In v4/v5, focusing a single vessel turns off the
-                              // "show all arrivals" overlay so the two stay
-                              // mutually exclusive (and can each be re-entered).
-                              if (
-                                pathToPortVersion === 'v4' ||
-                                pathToPortVersion === 'v5'
-                              ) {
-                                setArrivalsOverlayOn(false)
-                              }
-                              setPathToPortRoute({
-                                shipId: row.shipId,
-                                detectionId: row.detectionId ?? null,
-                                portId: activeTab?.id,
-                                portName: activeTab?.name || null,
-                              })
-                            }
-                          }}
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns:
-                              'minmax(0, 1.3fr) 24px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 0.8fr) 44px',
-                            columnGap: 10,
-                            alignItems: 'center',
-                            padding: '8px 10px',
-                            // When active, pull up 1px so the solid highlight
-                            // covers the previous row's bottom border (no line
-                            // showing across the top of the active row).
-                            margin: isRowActive
-                              ? '-1px 20px 0 20px'
-                              : '0 20px',
-                            position: isRowActive ? 'relative' : 'static',
-                            borderBottom: isRowActive
-                              ? 'none'
-                              : '1px solid #393C56',
-                            cursor: 'pointer',
-                            background: isRowActive
-                              ? '#002B56'
-                              : 'transparent',
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isRowActive)
-                              e.currentTarget.style.background = '#24263C'
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isRowActive)
-                              e.currentTarget.style.background = 'transparent'
-                          }}
-                        >
-                          <Text
+                            }}
                             style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
+                              display: 'grid',
+                              gridTemplateColumns:
+                                'minmax(0, 1.3fr) 48px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 0.8fr) 44px',
+                              columnGap: 10,
+                              alignItems: 'center',
+                              padding: '8px 10px',
+                              // When active, pull up 1px so the solid highlight
+                              // covers the previous row's bottom border (no line
+                              // showing across the top of the active row).
+                              margin: isRowActive
+                                ? '-1px 20px 0 20px'
+                                : '0 20px',
+                              position: isRowActive ? 'relative' : 'static',
+                              borderBottom: isRowActive
+                                ? 'none'
+                                : '1px solid #393C56',
+                              cursor: 'pointer',
+                              background: isRowActive
+                                ? '#002B56'
+                                : 'transparent',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isRowActive)
+                                e.currentTarget.style.background = '#24263C'
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isRowActive)
+                                e.currentTarget.style.background = 'transparent'
                             }}
                           >
-                            {row.name}
-                          </Text>
-                          <Text style={{ fontSize: 14 }}>{row.flag}</Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {row.type}
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {row.imo}
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {etaShort}
-                          </Text>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {formatDistanceNm(row.distanceNm)}
-                          </Text>
-                          {usesInlineArrivals ? (
                             <Box
                               style={{
-                                justifySelf: 'end',
-                                width: 26,
-                                height: 26,
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                borderRadius: 4,
-                                border: `1px solid ${
-                                  isExpanded ? '#0094ff' : '#393C56'
-                                }`,
-                                background: isExpanded
-                                  ? 'rgba(0, 148, 255, 0.12)'
-                                  : '#24263C',
+                                gap: 6,
+                                minWidth: 0,
                               }}
                             >
-                              {isExpanded ? (
-                                <XClose size={14} color="#fff" />
-                              ) : (
-                                <List
-                                  style={{
-                                    width: 14,
-                                    height: 14,
-                                    color: '#fff',
-                                  }}
-                                />
-                              )}
+                              {isPathToPortV9 &&
+                                (() => {
+                                  const s = getArrivalSalience(row)
+                                  if (!s.isSalient) return null
+                                  const color = s.watchlist
+                                    ? '#F79009'
+                                    : '#F97066'
+                                  const title = [
+                                    s.watchlist ? 'Watchlist (VOI)' : null,
+                                    ...s.anomalies.map(
+                                      (a) => ARRIVAL_ANOMALY_LABELS[a]
+                                    ),
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · ')
+                                  return (
+                                    <Box
+                                      title={title}
+                                      style={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        background: color,
+                                        flexShrink: 0,
+                                      }}
+                                    />
+                                  )
+                                })()}
+                              <Text
+                                style={{
+                                  color: '#fff',
+                                  fontSize: 12,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {row.name}
+                              </Text>
                             </Box>
-                          ) : (
+                            <Text style={{ fontSize: 14 }}>{row.flag}</Text>
                             <Text
                               style={{
-                                color: isActiveRoute ? '#fff' : '#0094ff',
+                                color: '#fff',
                                 fontSize: 12,
-                                fontWeight: 600,
-                                textAlign: 'right',
                                 whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
                               }}
                             >
-                              View
+                              {row.type}
                             </Text>
-                          )}
-                        </Box>
-                        {isExpanded && (
-                          <Box
-                            style={{
-                              position: 'relative',
-                              margin: '10px 20px 14px 20px',
-                              padding: 14,
-                              background: '#24263C',
-                              border: '1px solid #393C56',
-                              borderRadius: 4,
-                            }}
-                          >
-                            {/* Caret pointing up to the row's toggle button. */}
+                            <Text
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {row.imo}
+                            </Text>
+                            <Text
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {etaShort}
+                            </Text>
+                            <Text
+                              style={{
+                                color: '#fff',
+                                fontSize: 12,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {formatDistanceNm(row.distanceNm)}
+                            </Text>
+                            {usesInlineArrivals ? (
+                              <Box
+                                style={{
+                                  justifySelf: 'end',
+                                  width: 26,
+                                  height: 26,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: 4,
+                                  border: `1px solid ${
+                                    isExpanded ? '#0094ff' : '#393C56'
+                                  }`,
+                                  background: isExpanded
+                                    ? 'rgba(0, 148, 255, 0.12)'
+                                    : '#24263C',
+                                }}
+                              >
+                                {isExpanded ? (
+                                  <XClose size={14} color="#fff" />
+                                ) : (
+                                  <List
+                                    style={{
+                                      width: 14,
+                                      height: 14,
+                                      color: '#fff',
+                                    }}
+                                  />
+                                )}
+                              </Box>
+                            ) : (
+                              <Text
+                                style={{
+                                  color: isActiveRoute ? '#fff' : '#0094ff',
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  textAlign: 'right',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                View
+                              </Text>
+                            )}
+                          </Box>
+                          {isExpanded && (
                             <Box
                               style={{
-                                position: 'absolute',
-                                top: -6,
-                                right: 12,
-                                width: 10,
-                                height: 10,
+                                position: 'relative',
+                                margin: '10px 20px 14px 20px',
+                                padding: 14,
                                 background: '#24263C',
-                                borderLeft: '1px solid #393C56',
-                                borderTop: '1px solid #393C56',
-                                transform: 'rotate(45deg)',
+                                border: '1px solid #393C56',
+                                borderRadius: 4,
                               }}
-                            />
-                            {renderPathToPortReadout({
-                              shipId: row.shipId,
-                              distanceNm: row.distanceNm,
-                              etaDate: row.etaDate,
-                              etaHours: row.etaHours,
-                            })}
-                          </Box>
-                        )}
-                      </Box>
-                    )
-                  })}
+                            >
+                              {/* Caret pointing up to the row's toggle button. */}
+                              <Box
+                                style={{
+                                  position: 'absolute',
+                                  top: -6,
+                                  right: 12,
+                                  width: 10,
+                                  height: 10,
+                                  background: '#24263C',
+                                  borderLeft: '1px solid #393C56',
+                                  borderTop: '1px solid #393C56',
+                                  transform: 'rotate(45deg)',
+                                }}
+                              />
+                              {renderPathToPortReadout({
+                                shipId: row.shipId,
+                                distanceNm: row.distanceNm,
+                                etaDate: row.etaDate,
+                                etaHours: row.etaHours,
+                              })}
+                            </Box>
+                          )}
+                        </Box>
+                      )
+                    })}
                   </Box>
                 </Box>
               )}
@@ -10864,7 +11595,7 @@ function Myships() {
               position: 'fixed',
               top: advFiltersPos.y,
               left: advFiltersPos.x,
-              width: 560,
+              width: advFiltersWidth,
               maxWidth: 'calc(100vw - 24px)',
               maxHeight: 'calc(100vh - 24px)',
               zIndex: 1200,
@@ -10886,8 +11617,8 @@ function Myships() {
                 })
               }}
               style={{
-                height: 56,
-                padding: '0 20px',
+                height: isPathToPortV8 ? 44 : 56,
+                padding: isPathToPortV8 ? '0 14px' : '0 20px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -10897,7 +11628,13 @@ function Myships() {
                 flexShrink: 0,
               }}
             >
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 600 }}>
+              <Text
+                style={{
+                  color: '#fff',
+                  fontSize: isPathToPortV8 ? 14 : 16,
+                  fontWeight: 600,
+                }}
+              >
                 Advanced filters
               </Text>
               <Box style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -10937,288 +11674,394 @@ function Myships() {
             </Box>
             <Box
               style={{
-                padding: 20,
+                padding: isPathToPortV8 ? 14 : 20,
                 overflowY: 'auto',
                 display: advFiltersMinimized ? 'none' : 'block',
               }}
             >
-        {/* Density */}
-        <Box style={{ marginBottom: 18 }}>
-          <Box
-            style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-              marginBottom: 8,
-            }}
-          >
-            <Text style={{ color: '#C4C9D6', fontSize: 12 }}>
-              Show top arrivals by soonest ETA
-            </Text>
-            <Text style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
-              {Math.min(
-                pathToPortTopN,
-                Math.max(1, expectedArrivalsData.rows.length)
-              )}{' '}
-              of {expectedArrivalsData.rows.length}
-            </Text>
-          </Box>
-          <Slider
-            min={1}
-            max={Math.max(1, expectedArrivalsData.rows.length)}
-            value={Math.min(
-              pathToPortTopN,
-              Math.max(1, expectedArrivalsData.rows.length)
-            )}
-            onChange={setPathToPortTopN}
-            label={null}
-            color="blue"
-            styles={{
-              track: { background: '#393C56' },
-              bar: { background: '#006CD7' },
-              thumb: { borderColor: '#006CD7', background: '#fff' },
-            }}
-          />
-        </Box>
+              {/* Density — v8 drops the top-N slider (it desynced the map from the
+            table); the filters do the reducing and the map == the table. */}
+              {isPathToPortV8 ? (
+                <Box
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    marginBottom: 12,
+                  }}
+                >
+                  <Text style={{ color: '#C4C9D6', fontSize: 12 }}>
+                    Matching arrivals
+                  </Text>
+                  <Text
+                    style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}
+                  >
+                    {arrivalsMatchCount}
+                  </Text>
+                </Box>
+              ) : (
+                <Box style={{ marginBottom: 18 }}>
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      justifyContent: 'space-between',
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text style={{ color: '#C4C9D6', fontSize: 12 }}>
+                      Show top arrivals by soonest ETA
+                    </Text>
+                    <Text
+                      style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}
+                    >
+                      {Math.min(
+                        pathToPortTopN,
+                        Math.max(1, expectedArrivalsData.rows.length)
+                      )}{' '}
+                      of {expectedArrivalsData.rows.length}
+                    </Text>
+                  </Box>
+                  <Slider
+                    min={1}
+                    max={Math.max(1, expectedArrivalsData.rows.length)}
+                    value={Math.min(
+                      pathToPortTopN,
+                      Math.max(1, expectedArrivalsData.rows.length)
+                    )}
+                    onChange={setPathToPortTopN}
+                    label={null}
+                    color="blue"
+                    styles={{
+                      track: { background: '#393C56' },
+                      bar: { background: '#006CD7' },
+                      thumb: { borderColor: '#006CD7', background: '#fff' },
+                    }}
+                  />
+                </Box>
+              )}
 
-        {/* Auto zoom toggle */}
-        <Box
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 14px',
-            background: '#24263C',
-            border: '1px solid #393C56',
-            borderRadius: 4,
-            marginBottom: 18,
-          }}
-        >
-          <Box>
-            <Text style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>
-              Auto zoom to fit
-            </Text>
-            <Text style={{ color: '#888F9E', fontSize: 11, marginTop: 2 }}>
-              Re-frame the map when the results change
-            </Text>
-          </Box>
-          <Box
-            role="switch"
-            tabIndex={0}
-            aria-label="Auto zoom to fit"
-            aria-checked={arrivalsAutoZoom}
-            onClick={() => setArrivalsAutoZoom((prev) => !prev)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                setArrivalsAutoZoom((prev) => !prev)
-              }
-            }}
-            style={{
-              width: 36,
-              height: 20,
-              borderRadius: 10,
-              padding: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: arrivalsAutoZoom ? 'flex-end' : 'flex-start',
-              background: arrivalsAutoZoom ? '#006CD7' : '#393C56',
-              cursor: 'pointer',
-              transition: 'background 0.15s ease',
-              flexShrink: 0,
-            }}
-          >
-            <Box
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                background: '#FFFFFF',
-              }}
-            />
-          </Box>
-        </Box>
+              {/* Auto zoom toggle */}
+              <Box
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: isPathToPortV8 ? '8px 12px' : '12px 14px',
+                  background: '#24263C',
+                  border: '1px solid #393C56',
+                  borderRadius: 4,
+                  marginBottom: isPathToPortV8 ? 12 : 18,
+                }}
+              >
+                <Box>
+                  <Text
+                    style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}
+                  >
+                    Auto zoom to fit
+                  </Text>
+                  <Text
+                    style={{ color: '#888F9E', fontSize: 11, marginTop: 2 }}
+                  >
+                    Re-frame the map when the results change
+                  </Text>
+                </Box>
+                <Box
+                  role="switch"
+                  tabIndex={0}
+                  aria-label="Auto zoom to fit"
+                  aria-checked={arrivalsAutoZoom}
+                  onClick={() => setArrivalsAutoZoom((prev) => !prev)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setArrivalsAutoZoom((prev) => !prev)
+                    }
+                  }}
+                  style={{
+                    width: 36,
+                    height: 20,
+                    borderRadius: 10,
+                    padding: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: arrivalsAutoZoom
+                      ? 'flex-end'
+                      : 'flex-start',
+                    background: arrivalsAutoZoom ? '#006CD7' : '#393C56',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: '50%',
+                      background: '#FFFFFF',
+                    }}
+                  />
+                </Box>
+              </Box>
 
-        {/* Filter dropdowns */}
-        <Box
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 14,
-          }}
-        >
-          <Select
-            label="ETA within"
-            placeholder="Any"
-            clearable
-            data={ARRIVAL_ETA_OPTIONS.map((o) => ({
-              value: String(o.value),
-              label: o.label,
-            }))}
-            value={
-              arrivalsFilters.etaWithinHours != null
-                ? String(arrivalsFilters.etaWithinHours)
-                : null
-            }
-            onChange={(val) =>
-              setArrivalsFilters((f) => ({
-                ...f,
-                etaWithinHours: val == null ? null : Number(val),
-              }))
-            }
-            comboboxProps={arrivalsComboboxProps}
-            classNames={arrivalsSelectClassNames}
-            styles={arrivalsSelectStyles}
-          />
-          <Select
-            label="Distance from port"
-            placeholder="Any"
-            clearable
-            data={ARRIVAL_DISTANCE_OPTIONS.map((o) => ({
-              value: String(o.value),
-              label: o.label,
-            }))}
-            value={
-              arrivalsFilters.maxDistanceNm != null
-                ? String(arrivalsFilters.maxDistanceNm)
-                : null
-            }
-            onChange={(val) =>
-              setArrivalsFilters((f) => ({
-                ...f,
-                maxDistanceNm: val == null ? null : Number(val),
-              }))
-            }
-            comboboxProps={arrivalsComboboxProps}
-            classNames={arrivalsSelectClassNames}
-            styles={arrivalsSelectStyles}
-          />
-          <Select
-            label="Speed"
-            placeholder="Any"
-            clearable
-            data={ARRIVAL_SPEED_BANDS}
-            value={arrivalsFilters.speedBand}
-            onChange={(val) =>
-              setArrivalsFilters((f) => ({ ...f, speedBand: val }))
-            }
-            comboboxProps={arrivalsComboboxProps}
-            classNames={arrivalsSelectClassNames}
-            styles={arrivalsSelectStyles}
-          />
-          <MultiSelect
-            label="Vessel type"
-            placeholder={
-              arrivalsFilters.shipTypes.length ? '' : 'Any'
-            }
-            clearable
-            searchable
-            data={arrivalsFacetOptions.types}
-            value={arrivalsFilters.shipTypes}
-            onChange={(vals) =>
-              setArrivalsFilters((f) => ({ ...f, shipTypes: vals }))
-            }
-            comboboxProps={arrivalsComboboxProps}
-            classNames={arrivalsSelectClassNames}
-            styles={arrivalsSelectStyles}
-          />
-          <MultiSelect
-            label="Flag"
-            placeholder={arrivalsFilters.flags.length ? '' : 'Any'}
-            clearable
-            searchable
-            data={arrivalsFacetOptions.flags}
-            value={arrivalsFilters.flags}
-            onChange={(vals) =>
-              setArrivalsFilters((f) => ({ ...f, flags: vals }))
-            }
-            comboboxProps={arrivalsComboboxProps}
-            classNames={arrivalsSelectClassNames}
-            styles={arrivalsSelectStyles}
-          />
-          <MultiSelect
-            label="Arrival status"
-            placeholder={
-              arrivalsFilters.statuses.length ? '' : 'Any'
-            }
-            clearable
-            data={ARRIVAL_STATUS_OPTIONS}
-            value={arrivalsFilters.statuses}
-            onChange={(vals) =>
-              setArrivalsFilters((f) => ({ ...f, statuses: vals }))
-            }
-            comboboxProps={arrivalsComboboxProps}
-            classNames={arrivalsSelectClassNames}
-            styles={arrivalsSelectStyles}
-          />
-          <MultiSelect
-            label="Destination terminal"
-            placeholder={
-              arrivalsFilters.terminals.length ? '' : 'Any'
-            }
-            clearable
-            data={ARRIVAL_TERMINAL_OPTIONS}
-            value={arrivalsFilters.terminals}
-            onChange={(vals) =>
-              setArrivalsFilters((f) => ({ ...f, terminals: vals }))
-            }
-            comboboxProps={arrivalsComboboxProps}
-            classNames={arrivalsSelectClassNames}
-            styles={arrivalsSelectStyles}
-          />
-          <MultiSelect
-            label="Data quality"
-            placeholder={
-              arrivalsFilters.dataFlags.length ? '' : 'Any'
-            }
-            clearable
-            data={ARRIVAL_DATA_FLAG_OPTIONS}
-            value={arrivalsFilters.dataFlags}
-            onChange={(vals) =>
-              setArrivalsFilters((f) => ({ ...f, dataFlags: vals }))
-            }
-            comboboxProps={arrivalsComboboxProps}
-            classNames={arrivalsSelectClassNames}
-            styles={arrivalsSelectStyles}
-          />
-        </Box>
+              {/* Filter dropdowns — v8 tucks them all inside a collapsible "Filters"
+            accordion (Future Path "Parameters" style) so the panel stays tiny. */}
+              <Box
+                style={
+                  isPathToPortV8
+                    ? {
+                        border: '1px solid #393C56',
+                        borderRadius: 4,
+                        overflow: 'hidden',
+                      }
+                    : undefined
+                }
+              >
+                {isPathToPortV8 && (
+                  <Box
+                    onClick={() => setAdvFiltersFiltersOpen((o) => !o)}
+                    style={{
+                      background: '#24263C',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Box
+                      style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                    >
+                      <Text
+                        style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}
+                      >
+                        Filters
+                      </Text>
+                      {countActiveArrivalsFilters(arrivalsFilters) > 0 && (
+                        <Box
+                          style={{
+                            minWidth: 16,
+                            height: 16,
+                            padding: '0 5px',
+                            borderRadius: 8,
+                            background: '#006CD7',
+                            color: '#fff',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {countActiveArrivalsFilters(arrivalsFilters)}
+                        </Box>
+                      )}
+                    </Box>
+                    <ChevronDown
+                      style={{
+                        width: 18,
+                        height: 18,
+                        color: '#fff',
+                        transform: advFiltersFiltersOpen
+                          ? 'rotate(180deg)'
+                          : 'none',
+                        transition: 'transform 200ms ease',
+                      }}
+                    />
+                  </Box>
+                )}
+                <Collapse in={!isPathToPortV8 || advFiltersFiltersOpen}>
+                  <Box
+                    style={{
+                      padding: isPathToPortV8 ? 12 : 0,
+                      display: 'grid',
+                      gridTemplateColumns: isPathToPortV8 ? '1fr' : '1fr 1fr',
+                      gap: isPathToPortV8 ? 10 : 14,
+                    }}
+                  >
+                    <Select
+                      label="ETA within"
+                      size={arrivalsFieldSize}
+                      placeholder="Any"
+                      clearable
+                      data={ARRIVAL_ETA_OPTIONS.map((o) => ({
+                        value: String(o.value),
+                        label: o.label,
+                      }))}
+                      value={
+                        arrivalsFilters.etaWithinHours != null
+                          ? String(arrivalsFilters.etaWithinHours)
+                          : null
+                      }
+                      onChange={(val) =>
+                        setArrivalsFilters((f) => ({
+                          ...f,
+                          etaWithinHours: val == null ? null : Number(val),
+                        }))
+                      }
+                      comboboxProps={arrivalsComboboxProps}
+                      classNames={arrivalsSelectClassNames}
+                      styles={arrivalsSelectStyles}
+                    />
+                    <Select
+                      label="Distance from port"
+                      size={arrivalsFieldSize}
+                      placeholder="Any"
+                      clearable
+                      data={ARRIVAL_DISTANCE_OPTIONS.map((o) => ({
+                        value: String(o.value),
+                        label: o.label,
+                      }))}
+                      value={
+                        arrivalsFilters.maxDistanceNm != null
+                          ? String(arrivalsFilters.maxDistanceNm)
+                          : null
+                      }
+                      onChange={(val) =>
+                        setArrivalsFilters((f) => ({
+                          ...f,
+                          maxDistanceNm: val == null ? null : Number(val),
+                        }))
+                      }
+                      comboboxProps={arrivalsComboboxProps}
+                      classNames={arrivalsSelectClassNames}
+                      styles={arrivalsSelectStyles}
+                    />
+                    {/* v8 drops the Speed filter — speed already lives on each arrival card. */}
+                    {!isPathToPortV8 && (
+                      <Select
+                        label="Speed"
+                        placeholder="Any"
+                        clearable
+                        data={ARRIVAL_SPEED_BANDS}
+                        value={arrivalsFilters.speedBand}
+                        onChange={(val) =>
+                          setArrivalsFilters((f) => ({ ...f, speedBand: val }))
+                        }
+                        comboboxProps={arrivalsComboboxProps}
+                        classNames={arrivalsSelectClassNames}
+                        styles={arrivalsSelectStyles}
+                      />
+                    )}
+                    <MultiSelect
+                      label="Vessel type"
+                      size={arrivalsFieldSize}
+                      placeholder={
+                        arrivalsFilters.shipTypes.length ? '' : 'Any'
+                      }
+                      clearable
+                      searchable
+                      data={arrivalsFacetOptions.types}
+                      value={arrivalsFilters.shipTypes}
+                      onChange={(vals) =>
+                        setArrivalsFilters((f) => ({ ...f, shipTypes: vals }))
+                      }
+                      comboboxProps={arrivalsComboboxProps}
+                      classNames={arrivalsSelectClassNames}
+                      styles={arrivalsSelectStyles}
+                    />
+                    <MultiSelect
+                      label="Flag"
+                      size={arrivalsFieldSize}
+                      placeholder={arrivalsFilters.flags.length ? '' : 'Any'}
+                      clearable
+                      searchable
+                      data={arrivalsFacetOptions.flags}
+                      value={arrivalsFilters.flags}
+                      onChange={(vals) =>
+                        setArrivalsFilters((f) => ({ ...f, flags: vals }))
+                      }
+                      comboboxProps={arrivalsComboboxProps}
+                      classNames={arrivalsSelectClassNames}
+                      styles={arrivalsSelectStyles}
+                    />
+                    <MultiSelect
+                      label="Arrival status"
+                      size={arrivalsFieldSize}
+                      placeholder={arrivalsFilters.statuses.length ? '' : 'Any'}
+                      clearable
+                      data={ARRIVAL_STATUS_OPTIONS}
+                      value={arrivalsFilters.statuses}
+                      onChange={(vals) =>
+                        setArrivalsFilters((f) => ({ ...f, statuses: vals }))
+                      }
+                      comboboxProps={arrivalsComboboxProps}
+                      classNames={arrivalsSelectClassNames}
+                      styles={arrivalsSelectStyles}
+                    />
+                    <MultiSelect
+                      label="Destination terminal"
+                      size={arrivalsFieldSize}
+                      placeholder={
+                        arrivalsFilters.terminals.length ? '' : 'Any'
+                      }
+                      clearable
+                      data={ARRIVAL_TERMINAL_OPTIONS}
+                      value={arrivalsFilters.terminals}
+                      onChange={(vals) =>
+                        setArrivalsFilters((f) => ({ ...f, terminals: vals }))
+                      }
+                      comboboxProps={arrivalsComboboxProps}
+                      classNames={arrivalsSelectClassNames}
+                      styles={arrivalsSelectStyles}
+                    />
+                    <MultiSelect
+                      label="Data quality"
+                      size={arrivalsFieldSize}
+                      placeholder={
+                        arrivalsFilters.dataFlags.length ? '' : 'Any'
+                      }
+                      clearable
+                      data={ARRIVAL_DATA_FLAG_OPTIONS}
+                      value={arrivalsFilters.dataFlags}
+                      onChange={(vals) =>
+                        setArrivalsFilters((f) => ({ ...f, dataFlags: vals }))
+                      }
+                      comboboxProps={arrivalsComboboxProps}
+                      classNames={arrivalsSelectClassNames}
+                      styles={arrivalsSelectStyles}
+                    />
+                  </Box>
+                </Collapse>
+              </Box>
 
-        {/* Footer */}
-        <Box
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: 22,
-            paddingTop: 16,
-            borderTop: '1px solid #393C56',
-          }}
-        >
-          <Text
-            onClick={() => setArrivalsFilters(DEFAULT_ARRIVALS_FILTERS)}
-            style={{
-              color: '#006CD7',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            Clear all filters
-          </Text>
-          <Button
-            onClick={() => setAdvancedFiltersOpen(false)}
-            styles={{
-              root: {
-                background: '#006CD7',
-                height: 36,
-                paddingInline: 20,
-              },
-            }}
-          >
-            Done
-          </Button>
-        </Box>
+              {/* Footer */}
+              <Box
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginTop: isPathToPortV8 ? 14 : 22,
+                  paddingTop: isPathToPortV8 ? 12 : 16,
+                  borderTop: '1px solid #393C56',
+                }}
+              >
+                <Text
+                  onClick={() => setArrivalsFilters(DEFAULT_ARRIVALS_FILTERS)}
+                  style={{
+                    color: '#006CD7',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                  }}
+                >
+                  Clear all filters
+                </Text>
+                <Button
+                  onClick={() => setAdvancedFiltersOpen(false)}
+                  styles={{
+                    root: {
+                      background: '#006CD7',
+                      height: 36,
+                      paddingInline: 20,
+                    },
+                  }}
+                >
+                  Done
+                </Button>
+              </Box>
             </Box>
           </Box>,
           document.body
@@ -11566,10 +12409,7 @@ function Myships() {
                   }[toolId] || 'Tool'
                 const collapsed = v10CollapsedToolIds.includes(toolId)
                 return (
-                  <Box
-                    key={toolId}
-                    style={{ borderTop: '1px solid #393C56' }}
-                  >
+                  <Box key={toolId} style={{ borderTop: '1px solid #393C56' }}>
                     <Box
                       onClick={() =>
                         setV10CollapsedToolIds((current) =>
@@ -11815,7 +12655,11 @@ function Myships() {
       <Modal
         opened={
           isStsShipTab &&
-          (stsVersionRaw === 'v20' || stsVersionRaw === 'v21') &&
+          (stsVersionRaw === 'v20' ||
+            stsVersionRaw === 'v21' ||
+            stsVersionRaw === 'v22' ||
+            stsVersionRaw === 'v23' ||
+            stsVersionRaw === 'v24') &&
           stsOverviewModalOpen
         }
         onClose={() => setStsOverviewModalOpen(false)}
@@ -11842,20 +12686,14 @@ function Myships() {
         >
           <Box>
             <Text style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>
-              Ship-to-Ship event
-            </Text>
-            <Text style={{ color: '#888F9E', fontSize: 12, marginTop: 2 }}>
-              {`${stsEventShipIds.length} vessels`}
-              {selectedDetection?.date ? ` · ${selectedDetection.date} UTC` : ''}
+              Ship-to-Ship Overview
             </Text>
           </Box>
-          <Box
-            style={{ display: 'flex', alignItems: 'center', gap: 14 }}
-          >
+          <Box style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             {/* Match v17: segmentation focus toggle. Only shown for vessel
                 counts we have traced hulls for (2–5) so the toggle is never a
-                no-op. */}
-            {[2, 3, 4, 5].includes(stsEventShipIds.length) && (
+                no-op. v24 has no toggle — boxes are always on for that version. */}
+            {!isStsV24 && [2, 3, 4, 5].includes(stsEventShipIds.length) && (
               <Box
                 onClick={toggleStsSegment}
                 style={{
@@ -11876,7 +12714,7 @@ function Myships() {
                     transition: 'color 0.15s ease',
                   }}
                 >
-                  Segment focus
+                  {stsVersion === 'v21' ? 'Bounding boxes' : 'Segment focus'}
                 </Text>
                 <Box
                   role="switch"
@@ -11923,9 +12761,192 @@ function Myships() {
           </Box>
         </Box>
         <Box style={{ padding: '0 20px 20px 20px' }}>
+          {/* v22 large-transfer flow: the reliability warning + Flag-for-review
+              action live here in the modal (the full-weight workflow); the map
+              card is the always-visible discovery surface that routes here. */}
+          {isStsLargeTransfer &&
+            stsShipTabOverflow &&
+            (stsReviewFlagged ? (
+              // Flagged: the whole banner becomes the confirmation (it replaces
+              // the warning rather than nesting inside it). Mantine Alert "success"
+              // look: dark surface with a flush green accent stripe.
+              <Box
+                style={{
+                  display: 'flex',
+                  marginBottom: 16,
+                  borderRadius: 4,
+                  background: '#1B1D2A',
+                  overflow: 'hidden',
+                }}
+              >
+                <Box
+                  style={{
+                    width: 4,
+                    flexShrink: 0,
+                    background: '#2FBF71',
+                  }}
+                />
+                <Box style={{ minWidth: 0, flex: 1, padding: '14px 16px' }}>
+                  <Text
+                    style={{
+                      color: '#FFFFFF',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Flagged for review
+                  </Text>
+                  <Text
+                    style={{
+                      color: '#C1C2C9',
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Our team will verify this detection.
+                  </Text>
+                </Box>
+              </Box>
+            ) : (
+              // Mantine Alert style: dark surface with a flush amber accent stripe
+              // down the left edge (clipped to the card's rounded corners). The
+              // stripe carries the "warning" color instead of a full amber fill.
+              <Box
+                style={{
+                  display: 'flex',
+                  marginBottom: 16,
+                  borderRadius: 4,
+                  background: '#1B1D2A',
+                  overflow: 'hidden',
+                }}
+              >
+                <Box
+                  style={{
+                    width: 4,
+                    flexShrink: 0,
+                    background: '#F7B24A',
+                  }}
+                />
+                <Box
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10,
+                    flex: 1,
+                    minWidth: 0,
+                    padding: '14px 16px',
+                  }}
+                >
+                  <AlertCircle
+                    style={{
+                      flexShrink: 0,
+                      width: 18,
+                      height: 18,
+                      marginTop: 1,
+                      color: '#F7B24A',
+                    }}
+                  />
+                  <Box style={{ minWidth: 0, flex: 1 }}>
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 14,
+                        fontWeight: 700,
+                        marginBottom: 6,
+                      }}
+                    >
+                      {`Unusually large transfer — ${stsEventShipIds.length} vessels reported`}
+                    </Text>
+                    <Text
+                      style={{
+                        color: '#C1C2C9',
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {`Ship-to-ship transfers usually involve ${STS_MAX_VESSELS} vessels or fewer, so this detection may be unreliable. The annotated image only covers the first ${STS_MAX_VESSELS}.`}
+                    </Text>
+                    <Box
+                      style={{
+                        marginTop: 12,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <Box
+                        onClick={() => setStsReviewFlagged(true)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 12px',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          background: 'transparent',
+                          border: '1px solid #FFFFFF',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            letterSpacing: 0.3,
+                          }}
+                        >
+                          Flag for review
+                        </Text>
+                      </Box>
+                      {/* v23/v24 deliver this banner as an auto-opening modal, so
+                          it needs an explicit way out that isn't "flag". */}
+                      {isStsLargeTransferModal && (
+                        <Box
+                          onClick={() => setStsOverviewModalOpen(false)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '6px 12px',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            background: 'transparent',
+                          }}
+                        >
+                          {/* <Text
+                            style={{
+                              color: '#C1C2C9',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              letterSpacing: 0.3,
+                            }}
+                          >
+                            Cancel
+                          </Text> */}
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            ))}
           {renderStsHero(stsEventShipIds, {
             height: 300,
             marginBottom: 16,
+            realisticImagery: true,
+            // v24: open focused on the active vessel with the spotlight look
+            // (box always on, background dimmed). v23 stays hover-to-reveal.
+            ...(isStsV24
+              ? {
+                  defaultFocusIdx: Math.max(
+                    0,
+                    stsEventShipIds.indexOf(activeShipTab)
+                  ),
+                  spotlight: true,
+                }
+              : {}),
             onPinClick: (idx) => {
               const sid = stsEventShipIds[idx]
               if (!sid) return
@@ -11933,28 +12954,27 @@ function Myships() {
               setStsOverviewModalOpen(false)
             },
           })}
-          <Text
-            style={{
-              color: '#888F9E',
-              fontSize: 11,
-              fontWeight: 500,
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              marginBottom: 8,
-            }}
-          >
-            Vessels in event
+          <Text style={{ color: '#888F9E', fontSize: 12, marginBottom: 12 }}>
+            {`${stsEventShipIds.length} vessels`}
+            {selectedDetection?.date ? ` · ${selectedDetection.date} UTC` : ''}
           </Text>
           <Box style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {stsEventShipIds.map((sid, idx) => {
               const s = ships[sid]
               if (!s) return null
               const active = activeShipTab === sid
+              // Sync with the hero: hovering a row focuses that vessel's box in
+              // the image above (and the row gets its own matching highlight).
+              const hovered = stsHeroHoverIdx === idx
               return (
                 <Box
                   key={sid}
                   component="button"
                   type="button"
+                  onMouseEnter={() => setStsHeroHoverIdx(idx)}
+                  onMouseLeave={() =>
+                    setStsHeroHoverIdx((cur) => (cur === idx ? null : cur))
+                  }
                   onClick={() => {
                     if (!active) openStsVesselTab(sid, activeTab)
                     setStsOverviewModalOpen(false)
@@ -11966,10 +12986,17 @@ function Myships() {
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: 4,
-                    border: `1px solid ${active ? '#0094FF' : '#393C56'}`,
-                    background: active ? 'rgba(0, 148, 255, 0.12)' : '#181926',
+                    border: `1px solid ${
+                      active ? '#0094FF' : hovered ? '#5A5F7D' : '#393C56'
+                    }`,
+                    background: active
+                      ? 'rgba(0, 148, 255, 0.12)'
+                      : hovered
+                        ? '#22243A'
+                        : '#181926',
                     cursor: 'pointer',
                     textAlign: 'left',
+                    transition: 'border-color 0.12s ease, background 0.12s ease',
                   }}
                 >
                   <Box
@@ -11990,32 +13017,125 @@ function Myships() {
                   >
                     {idx + 1}
                   </Box>
+                  <Box style={{ minWidth: 0, flex: 1 }}>
+                    <Box
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <Text
+                        style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}
+                      >
+                        {s.name}
+                      </Text>
+                      {s.flag && <Text style={{ fontSize: 14 }}>{s.flag}</Text>}
+                    </Box>
+                    <Text
+                      style={{ color: '#888F9E', fontSize: 11, marginTop: 2 }}
+                    >
+                      Vessel of interest
+                    </Text>
+                  </Box>
                   <Text
-                    style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}
+                    style={{
+                      color: active ? '#888F9E' : '#0094FF',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
                   >
-                    {s.name}
+                    {active ? 'Viewing' : 'View →'}
                   </Text>
-                  {s.flag && <Text style={{ fontSize: 14 }}>{s.flag}</Text>}
-                  <Box style={{ flex: 1 }} />
-                  {active ? (
-                    <Text
-                      style={{ color: '#888F9E', fontSize: 12, fontWeight: 500 }}
-                    >
-                      Viewing
-                    </Text>
-                  ) : (
-                    <Text
-                      style={{ color: '#0094FF', fontSize: 12, fontWeight: 600 }}
-                    >
-                      View
-                    </Text>
-                  )}
                 </Box>
               )
             })}
           </Box>
         </Box>
       </Modal>
+      {/* Lightbox: enlarged view of the STS hero plate, titled by vessel.
+          Rendered as a plain portal overlay (not a Mantine Modal) so it reliably
+          layers above the STS overview Modal it can be launched from. */}
+      {stsImageLightbox &&
+        createPortal(
+          <div
+            role="presentation"
+            onClick={() => setStsImageLightbox(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 100001,
+              background: 'rgba(3, 6, 15, 0.78)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 24,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                maxWidth: '90vw',
+                maxHeight: '90vh',
+                background: '#181926',
+                border: '1px solid #393C56',
+                borderRadius: 8,
+                overflow: 'hidden',
+                boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 16,
+                  padding: '12px 16px',
+                  borderBottom: '1px solid #393C56',
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>
+                  {stsImageLightbox.title}
+                </Text>
+                <Box
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Close"
+                  onClick={() => setStsImageLightbox(null)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 28,
+                    height: 28,
+                    borderRadius: 4,
+                    background: '#24263C',
+                    border: '1px solid #393C56',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  <XClose style={{ width: 16, height: 16, color: '#C1C2C9' }} />
+                </Box>
+              </div>
+              <img
+                src={stsImageLightbox.src}
+                alt={stsImageLightbox.title || 'Ship-to-ship event'}
+                style={{
+                  display: 'block',
+                  maxWidth: '90vw',
+                  maxHeight: 'calc(90vh - 53px)',
+                  objectFit: 'contain',
+                  background: '#0C0F1A',
+                }}
+              />
+            </div>
+          </div>,
+          document.body
+        )}
     </Box>
   )
 }

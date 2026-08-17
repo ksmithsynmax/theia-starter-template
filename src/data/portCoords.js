@@ -7,6 +7,7 @@ export const PROTOTYPE_PORTS = [
   { id: 'port-muscat', name: 'Muscat', lng: 58.5659, lat: 23.628 },
   { id: 'port-mumbai', name: 'Mumbai', lng: 72.8277, lat: 18.936 },
   { id: 'port-bar-harbor', name: 'Bar Harbor', lng: 103.78, lat: 1.25, flag: '🇺🇸' },
+  { id: 'port-rotterdam', name: 'Rotterdam', lng: 4.05, lat: 51.95, flag: '🇳🇱' },
 ]
 
 const normalizePortToken = (value) =>
